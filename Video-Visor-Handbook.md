@@ -222,6 +222,29 @@ You're right that the right-hand "Output settings" column wastes space and the t
 | Transition tiles all disabled after switching from a project with more clips | Found while testing and fixed: the panel remembered a clip boundary that no longer existed. |
 | Empty "no footage yet" projects | Not a real-app problem: New video only creates a project once footage is chosen. Your workspace has none; the ones seen came from preview tests. |
 
+## Phase 14 status
+
+Measured in the real app (`VV_BENCH_ONLY=export`). "Before" is the export window for every frame; "after" is Phase 14.
+
+| Project | Before | After | Picture vs. before |
+|---|---|---|---|
+| Your recording (32 s, 3456 × 2234, a title for 5 s) at 1080p | 41.8 s | 9.3 s (4.5×) | 37.3 dB |
+| The same at 1.5× speed | 28.1 s | 6.8 s (4.2×) | 37.3 dB |
+| Test pattern (20 s, 1080p, a title for 5 s) | 15.8 s | 5.1 s (3.1×) | 39.9 dB |
+| Test pattern, two clips with a cut | 11.2 s | 5.4 s (2.1×) | 40.4 dB |
+
+(Above 35 dB the pictures look the same; the small difference is how Chrome and FFmpeg scale.) With **Automatic** frame rate, a 60 fps recording also exports half as many frames, so it is roughly twice as fast again.
+
+| Item | Status |
+|---|---|
+| E1 Direct path | Done. Stretches with nothing on top of the footage are decoded and encoded by FFmpeg (two at a time) while the export window draws only the stretches with titles, captions, zooms, transitions and so on. The pieces are joined without re-encoding. |
+| Safety check | Before a clip uses the direct path, one of its frames is made both ways and compared. A clip that doesn't match (say, because of an effect the planner doesn't know about) stays on the export window. This caught two real mismatches while building it (colour conversion, and a one-pixel offset on your recording), both now fixed. |
+| Colour (found while testing) | Every export so far converted colours with the wrong standard (BT.601 instead of BT.709) and didn't label them, which shifted greens and reds slightly. Fixed for all exports: the export now matches its source at 33–35 dB instead of 26 dB. |
+| E5 Frame rate | New **Automatic** setting, the default: the footage's frame rate, up to 30 fps. **Match source** keeps 60 fps. Also used by the render queue and the size estimate. |
+| E7 Progress | Shows "Step 1 of 2 · Picture · 45% · about 0:20 left", then "Step 2 of 2 · Sound". |
+| WebM and GIF | Unchanged path (WebM decodes plain stretches directly but uses one encoder; GIF uses the export window). |
+| Not done | E2, E3, E4 and E6 (Phase 18). E4 (parallel windows) matters less now that plain stretches run in parallel already. |
+
 ## 8. Decisions needed from you
 
 1. **Speed copies:** hide them from Media (recommended), or show them named after the clip?
@@ -237,8 +260,8 @@ You're right that the right-hand "Output settings" column wastes space and the t
 
 | Phase | Content | Size |
 |---|---|---|
-| 13 | Quick fixes: speed dialog and copies (1.1), light-mode rows and transition tiles plus the theme check (1.3), status line, wrong file types in tools | M |
-| 14 | Export speed I: progress (E7), frame-rate default (E5), direct path for plain stretches (E1) | L |
+| 13 | Quick fixes: speed dialog and copies (1.1), light-mode rows and transition tiles plus the theme check (1.3), status line, wrong file types in tools. *Done.* | M |
+| 14 | Export speed I: progress (E7), frame-rate default (E5), direct path for plain stretches (E1). *Done.* | L |
 | 15 | File tools redesign (section 5) | M |
 | 16 | Preview zoom (section 4) and editor clarity items 1–6 | M |
 | 17 | Keyframes and presets (section 3) | L |

@@ -737,6 +737,24 @@ Object.assign(checks, {
   },
 });
 
+// Phase 14: export speed (the export itself is measured by `VV_BENCH_ONLY=export` in the real app, and the
+// plain-stretch planner by tools/export_plan_test.cjs).
+Object.assign(checks, {
+  async 'frame rate is Automatic by default: 60 fps footage exports at 30'() {
+    await freshEditor(); const s = E().get(), at = id => ({ ...s, assets: s.assets.map(a => a.id === s.clips[0].asset ? { ...a, fps: id } : a) });
+    const auto60 = window.exportFpsV15(at(60), 'Automatic'), match60 = window.exportFpsV15(at(60), 'Match source'), auto24 = window.exportFpsV15(at(24), 'Automatic'), fixed = window.exportFpsV15(at(60), '24 fps');
+    await exportDialog(); const options = [...$('#v-export-fps').options].map(o => o.value), first = $('#v-export-fps').value; await closeDialog();
+    return { pass: auto60 === 30 && match60 === 60 && auto24 === 24 && fixed === 24 && first === 'Automatic' && options.includes('Match source'), detail: { auto60, match60, auto24, fixed, first } };
+  },
+  async 'the export sends the chosen frame rate'() {
+    await freshEditor(); window.__exportCfg = null; const orig = window.native.export; window.native.export = async (st, cfg) => { window.__exportCfg = cfg; return null; };
+    try { await exportDialog(); $('[data-purpose=custom]').click(); await wait(100); $('#v-export-fps').value = 'Match source'; $('#v-export-fps').dispatchEvent(new Event('change')); await window.nativeExport(); await wait(200); }
+    finally { window.native.export = orig; await closeDialog(); }
+    const src = E().get().assets.find(a => a.id === E().get().clips[0].asset)?.fps || 30;
+    return { pass: window.__exportCfg?.fps === Math.round(src), detail: { sent: window.__exportCfg?.fps, source: src } };
+  },
+});
+
 export const count = () => Object.keys(checks).length;
 export async function run(only) {
   const results = [];

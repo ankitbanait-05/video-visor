@@ -115,7 +115,7 @@ const queue={
  async pump(){
   if(queue.running)return;const job=queue.jobs.find(j=>j.status==='waiting');if(!job)return;
   queue.running=job;job.status='rendering';job.progress=0;job.note='';queue.draw();
-  const s=job.state,cfg={format:job.format,resolution:job.resolution==='4K'?'4K UHD':job.resolution,fps:(s.assets||[]).find(a=>a.id===s.clips[0]?.asset)?.fps||30,captions:'Burn into video'};
+  const s=job.state,cfg={format:job.format,resolution:job.resolution==='4K'?'4K UHD':job.resolution,fps:window.exportFpsV15?window.exportFpsV15(s,'Automatic'):30,captions:'Burn into video'};
   let retry=false;
   try{
    const result=await native.exportQueued(s,cfg,job.name+' '+job.shape.replace(':','x'));

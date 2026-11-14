@@ -193,7 +193,13 @@ async function run(ctx) {
     const a = assets.screen;
     const base = { clips: [{ id: 'c1', asset: a.id, name: a.name, kind: 'video', start: 0, end: a.duration, limit: a.duration }], assets: [a], elements: [], transcript: [], zooms: [], overlays: [], audioClips: [], time: 0, selected: 0, ratio: '16/9', speed: 1, audio: { voice: 100, music: 20 }, captions: false };
     const withTitle = { ...base, elements: [{ id: 'e1', kind: 'title', text: 'Benchmark title', font: 'DM Sans', size: 20, colour: '#ffffff', x: 50, y: 50, width: 40, start: 1, end: 6, animation: 'fade' }] };
-    const variants = (process.env.VV_BENCH_EXPORT || 'raf1').split(',').map(wait => [`1080p MP4 + title, wait=${wait}`, withTitle, { format: 'MP4', resolution: '1080p', fps: 30, tuning: { wait, ...(process.env.VV_BENCH_TUNING ? JSON.parse(process.env.VV_BENCH_TUNING) : {}) } }]);
+    // Phase 14: the same project through the export window only, and with plain stretches decoded directly; and a
+    // project at 1.5× speed both ways (its two exports are compared with each other).
+    const tuning = process.env.VV_BENCH_TUNING ? JSON.parse(process.env.VV_BENCH_TUNING) : {}, cfgOf = extra => ({ format: 'MP4', resolution: '1080p', fps: 30, tuning: { wait: 'raf1', ...tuning, ...extra } });
+    const fast = { ...withTitle, speed: 1.5 };
+    const cuts = { ...withTitle, clips: [{ ...base.clips[0], id: 'k1', end: Math.min(8, a.duration / 2) }, { ...base.clips[0], id: 'k2', start: Math.min(12, a.duration * .6) }] };
+    const variants = [['1080p MP4 + title · window only', withTitle, cfgOf({ direct: false })], ['1080p MP4 + title · direct', withTitle, cfgOf({})], ['1.5× · window only', fast, cfgOf({ direct: false })], ['1.5× · direct', fast, cfgOf({})], ['two cuts · window only', cuts, cfgOf({ direct: false })], ['two cuts · direct', cuts, cfgOf({})]];
+    const made = {};
     for (const [name, state, cfg] of variants) {
       let n = 0;
       const target = path.join(dir, `export-${n++}-${Date.now()}.mp4`);
@@ -202,7 +208,11 @@ async function run(ctx) {
       // Frame accuracy: compare the export with its source outside the title (PSNR; a stale frame lowers it sharply).
       let psnr = null;
       try { const log = await new Promise(res => { const p = require('node:child_process').spawn(ffmpeg, ['-i', target, '-i', screen, '-lavfi', '[0:v]trim=start=7,setpts=PTS-STARTPTS[a];[1:v]trim=start=7,setpts=PTS-STARTPTS[b];[a][b]psnr', '-f', 'null', '-'].map(x => x === screen ? (exportSource || screen) : x)); let e = ''; p.stderr.on('data', d => e += d); p.on('close', () => res(e)); }); psnr = +(/average:([\d.inf]+)/.exec(log)?.[1] || 0); } catch {}
-      out('export', { name, seconds: Math.round(a.duration), wallMs: ms, realtime: +(a.duration * 1000 / ms).toFixed(2), frames: t.frames, psnrVsSource: psnr, perFrameMs: { seek: +(t.seek / f).toFixed(1), paintWait: +(t.wait / f).toFixed(1), drawTotal: +(t.draw / f).toFixed(1), capture: +(t.capture / f).toFixed(1), convert: +(t.convert / f).toFixed(1), pipe: +(t.pipe / f).toFixed(1) } });
+      made[name] = target;
+      // The two 1.5× exports should be the same picture: compare them frame by frame.
+      let vsWindow = null; const twin = made[name.replace(' · direct', ' · window only')];
+      if (twin && twin !== target) { const log = await new Promise(res => { const p = require('node:child_process').spawn(ffmpeg, ['-i', target, '-i', twin, '-lavfi', 'psnr', '-f', 'null', '-']); let e = ''; p.stderr.on('data', d => e += d); p.on('close', () => res(e)); }); vsWindow = +(/average:([\d.inf]+)/.exec(log)?.[1] || 0); }
+      out('export', { name, seconds: Math.round(a.duration), wallMs: ms, realtime: +(a.duration * 1000 / ms).toFixed(2), frames: t.frames, psnrVsSource: /^(1\.5|two)/.test(name) ? undefined : psnr, psnrVsWindowOnly: vsWindow, direct: t.direct, perFrameMs: { seek: +(t.seek / f).toFixed(1), paintWait: +(t.wait / f).toFixed(1), drawTotal: +(t.draw / f).toFixed(1), capture: +(t.capture / f).toFixed(1), convert: +(t.convert / f).toFixed(1), pipe: +(t.pipe / f).toFixed(1), decode: +((t.decode || 0) / f).toFixed(1) } });
     }
   }
 }
