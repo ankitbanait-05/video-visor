@@ -7,6 +7,7 @@ const MIN_PIECE=.25; // shortest clip an insert may leave behind, in seconds
 function mapped(state,clips,spans){
  const next={...state,clips};
  const total=duration(clips);for(const key of tracks)next[key]=T.remapTrack(key,state[key]||[],spans,total);
+ /* 0.15 (Phase 19): markers move with the footage; one inside removed footage goes to the cut */if(state.markers?.length)next.markers=state.markers.map(m=>({...m,t:Math.min(total,T.mapPoint(m.t,spans))}));
  for(const key of ['music','voiceover'])if(state[key]){const at=state[key].start||0,s=spans.find(s=>at>=s.old-T.EPSILON&&at<s.end-T.EPSILON);next[key]={...state[key],start:s?s.next+at-s.old:at};}
  return next;
 }

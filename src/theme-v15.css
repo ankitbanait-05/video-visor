@@ -217,3 +217,23 @@
 /* 0.15 (Phase 18, E2): the export window's graphics-only mode (titles and captions alone, on transparent). */
 html.export-graphics,html.export-graphics body,html.export-graphics #visor-app,html.export-graphics #vv-editor,html.export-graphics .ed-layout,html.export-graphics .ed-main,html.export-graphics #ed-canvas,html.export-graphics #ed-screen{background:transparent!important;box-shadow:none!important;border-color:transparent!important}
 html.export-graphics #native-video,html.export-graphics #native-image,html.export-graphics #ed-screen video,html.export-graphics #ed-screen img,html.export-graphics #native-empty{visibility:hidden!important}
+
+/* 0.15 (Phase 19): In–Out range and markers on the ruler. */
+#visor-app #vv-editor .vt-ruler{position:relative}
+#visor-app #vv-editor .v19-range{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--v-purple) 22%,transparent);border-left:2px solid var(--v-purple);border-right:2px solid var(--v-purple);pointer-events:none;z-index:2}
+#visor-app #vv-editor .v19-rangebar{display:inline-flex;align-items:center;gap:6px;margin-left:8px;padding:2px 4px 2px 10px;border-radius:8px;background:var(--v-tint);font-size:12px;font-variant-numeric:tabular-nums}
+#visor-app #vv-editor .v19-rangebar[hidden]{display:none}
+#visor-app #vv-editor .v19-rangebar button{height:26px;padding:0 8px;font-size:12px}
+#visor-app #vv-editor .v19-rangebar button svg{width:13px;height:13px}
+#visor-app #vv-editor .v19-marker{position:absolute;top:0;bottom:0;width:12px;margin-left:-6px;padding:0;border:0;background:none;z-index:4;cursor:grab;display:block}
+#visor-app #vv-editor .v19-marker::before{content:'';position:absolute;left:5px;top:0;bottom:0;width:2px;background:#f59e0b}
+#visor-app #vv-editor .v19-marker::after{content:'';position:absolute;left:1px;top:0;width:10px;height:10px;background:#f59e0b;clip-path:polygon(0 0,100% 0,100% 70%,50% 100%,0 70%)}
+#visor-app #vv-editor .v19-marker span{position:absolute;left:12px;top:-1px;font-size:11px;line-height:12px;white-space:nowrap;color:#b45309;pointer-events:none;max-width:140px;overflow:hidden;text-overflow:ellipsis}
+#visor-app[data-theme=dark] #vv-editor .v19-marker span{color:#fbbf24}
+#visor-app #vv-editor .v19-rename{position:absolute;top:100%;z-index:30;display:flex;gap:4px;padding:4px;border:1px solid var(--v-border);border-radius:8px;background:var(--v-panel);box-shadow:0 8px 24px #0002}
+#visor-app #vv-editor .v19-rename input{width:160px;height:28px;padding:0 8px;border:1px solid var(--v-border);border-radius:6px;background:var(--v-bg);color:var(--v-ink)}
+#visor-app #vv-editor .v19-markers-button{position:relative;width:auto!important;padding:0 8px!important;gap:4px;display:inline-flex!important}
+#visor-app #vv-editor .v19-markers-button small{font-size:11px}
+#visor-app .v19-list{display:flex;flex-direction:column;gap:6px;margin:12px 0}
+#visor-app .v19-item{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center}
+#visor-app .v19-item .v-button.quiet{font-variant-numeric:tabular-nums}

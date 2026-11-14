@@ -95,7 +95,7 @@ async function run(ctx) {
   // VV_BENCH_SOURCE=path exports from that file instead of the generated screen recording.
   const exportSource = process.env.VV_BENCH_SOURCE || null;
   const assets = {};
-  if (only.some(x => ['import', 'export', 'queue', 'webm', 'fade', 'speed', 'captions', 'keyframes'].includes(x))) {
+  if (only.some(x => ['import', 'export', 'queue', 'webm', 'fade', 'speed', 'captions', 'keyframes', 'chapters'].includes(x))) {
     for (const [key, file] of [['screen', exportSource || screen], ['phone', phone], ['cover', cover]]) {
       try {
         const [a, ms] = await timed(() => register(file));
@@ -188,6 +188,15 @@ async function run(ctx) {
         out('speed', { preset: preset.value || preset.name, ms: Math.round(now() - t), duration: +item.duration.toFixed(2), expected: +expected.toFixed(2), hasAudio: item.hasAudio });
       } catch (e) { out('speed', { preset: preset.value || preset.name, failed: e.message.slice(0, 200) }); }
     }
+  }
+  if (only.includes('chapters') && assets.screen) {
+    // Phase 19: markers become chapters in the exported file (read back with FFmpeg).
+    const a = assets.screen, state = { clips: [{ id: 'c', asset: a.id, name: a.name, kind: 'video', start: 0, end: a.duration, limit: a.duration }], assets: [a], elements: [], transcript: [], zooms: [], overlays: [], audioClips: [], time: 0, selected: 0, ratio: '16/9', speed: 1, audio: { voice: 100, music: 20 }, captions: false, markers: [{ id: 'm1', t: 3, label: 'Setup' }, { id: 'm2', t: 9.5, label: 'The demo' }] };
+    const target = path.join(dir, 'chapters-' + Date.now() + '.mp4');
+    await job(() => runExport(state, { format: 'MP4', resolution: '720p', fps: 30 }, async () => target));
+    const log = await new Promise(res => { const p = require('node:child_process').spawn(ffmpeg, ['-hide_banner', '-i', target]); let e = ''; p.stderr.on('data', d => e += d); p.on('close', () => res(e)); });
+    const chapters = [...log.matchAll(/Chapter #\d+:\d+: start ([\d.]+), end ([\d.]+)\s+Metadata:\s+title\s+:\s+(.+)/g)].map(m => [+(+m[1]).toFixed(2), +(+m[2]).toFixed(2), m[3].trim()]);
+    out('chapters', { chapters });
   }
   if (only.includes('keyframes') && assets.screen) {
     // Phase 17: a clip scaled 100% → 150% between 7 s and 12 s (smooth). The export must show the source as is at

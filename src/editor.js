@@ -25,7 +25,7 @@ function commit(){keepUndoV15();window.dispatchEvent(new CustomEvent('vv-editor-
 function snapshot(){if(!pendingUndoV15)pendingUndoV15=clone(state);}
 // 0.15: tracks are settled once, after the edit (window.trackModelV8 is loaded before this file); drawing never moves items.
 function settleTracksV15(){window.trackModelV8?.normalize(state);}
-function transaction(fn){previewOriginal=false;previewEffect=null;stop();snapshot();const beforeStateV15=clone(state),lockIdsV15=lockedTrackIdsV15(),lockedV15=lockedItemsV15(lockIdsV15),focusIdsV15=focusIdsOfV15();const beforeClipsV6=clone(state.clips),beforeRefsV6={elements:state.elements,zooms:state.zooms,audioClips:state.audioClips,overlays:state.overlays};fn();
+function transaction(fn){previewOriginal=false;previewEffect=null;stop();snapshot();const beforeStateV15=clone(state),lockIdsV15=lockedTrackIdsV15(),lockedV15=lockedItemsV15(lockIdsV15),focusIdsV15=focusIdsOfV15();const beforeClipsV6=clone(state.clips),beforeRefsV6={elements:state.elements,zooms:state.zooms,audioClips:state.audioClips,overlays:state.overlays,markers:state.markers};fn();
  // 0.15: nothing on a locked track can change; the whole edit is refused instead.
  if(lockedItemsV15(lockIdsV15)!==lockedV15){state=beforeStateV15;notice('That would change a locked track. Unlock it first.');render();return;}
  retimeV6(beforeClipsV6,beforeRefsV6);tidyV15();settleTracksV15();refocusV15(focusIdsV15);notice('Changes saved locally.');state.time=Math.max(0,Math.min(state.time,total()));state.selected=Math.max(0,Math.min(state.selected,state.clips.length-1));render();}
@@ -38,7 +38,15 @@ function undo(){selectionV7=[];previewOriginal=false;timelineSelection=null;pend
 function redo(){selectionV7=[];previewOriginal=false;timelineSelection=null;pendingUndoV15=null;if(!future.length)return;stop();history.push(clone(state));restoreV15(future.pop());render();notice('Edit restored.');}
 function source(){let t=state.time;for(let i=0;i<state.clips.length;i++){const c=state.clips[i],d=c.end-c.start;if(t<d||i===state.clips.length-1)return {clip:c,t:c.start+Math.min(t,d),index:i,within:t,duration:d};t-=d;}return {clip:{asset:'blank',name:'Add footage',kind:'image'},t:0,index:0,within:0,duration:1};}
 function mapTime(t){let n=0;for(const c of state.clips){if(c.asset===source().clip.asset&&t>=c.start&&t<c.end)return n+t-c.start;n+=c.end-c.start;}return null;}
-function removeSource(a,b,id=source().clip.asset){const clips=state.clips.flatMap(c=>c.asset!==id?[c]:[{...c,end:Math.min(c.end,a)},{...c,id:uidV15(),start:Math.max(c.start,b),transitionIn:undefined}].filter(x=>x.end-x.start>=.3));if(!clips.length){notice('Keep at least one clip in the project.');return false;}state.clips=clips;state.selected=0;state.time=Math.min(state.time,total());return true;}
+/* 0.15 (Phase 19): the clips are split at the cut first, and the piece between is removed through the timeline model,
+   so titles, captions, zooms and audio after the cut move up with their footage. (Before, everything on the second
+   half of a cut clip was dropped: a title after a removed pause disappeared.) Leftovers under 0.3 s go too. */
+function removeSource(a,b,id=source().clip.asset){const split=[],inside=[];
+ for(const c of state.clips){if(c.asset!==id||c.gap||b<=c.start||a>=c.end){split.push(c);continue;}
+  const parts=[[c.start,Math.min(c.end,a),'keep'],[Math.max(c.start,a),Math.min(c.end,b),'cut'],[Math.max(c.start,b),c.end,'keep']].filter(([x,y])=>y-x>1e-6);
+  parts.forEach(([x,y,kind],i)=>{const piece={...c,id:i===0?c.id:uidV15(),start:x,end:y,...(i?{transitionIn:undefined}:{})};split.push(piece);if(kind==='cut'||y-x<.3)inside.push(piece.id);});}
+ if(split.length===inside.length){notice('Keep at least one clip in the project.');return false;}
+ const panel=state.panel;state.clips=split;Object.assign(state,V7.remove(state,inside,false));state.panel=panel;state.selected=0;state.time=Math.min(state.time,total());return true;}
 function stop(){window.pauseNativeMedia?.();playing=false;last=0;cancelAnimationFrame(raf);q('#ed-play').innerHTML=icon('play');q('#ed-play').setAttribute('aria-label','Play video');icons();}
 function tick(ts){if(!playing)return;if(last)state.time=Math.min(total(),state.time+(ts-last)/1000*state.speed);last=ts;paint();followPlayheadV15();if(state.time>=total()){stop();return;}raf=requestAnimationFrame(tick);}
 function play(){if(!state.clips.length)return;if(playing){stop();return;}if(state.time>=total())state.time=0;playing=true;last=0;q('#ed-play').innerHTML=icon('pause');q('#ed-play').setAttribute('aria-label','Pause video');icons();raf=requestAnimationFrame(tick);}
@@ -137,7 +145,7 @@ function paintV4(src){
 }
 function wireV4(){
  q('#ed-captions').ondblclick=()=>{const src=source(),i=state.transcript.findIndex(l=>l.asset===src.clip.asset&&src.t>=l.start&&src.t<l.end);if(i>=0){stop();selectCaption(i);q('#v4-caption-text')?.focus();}};
- root.tabIndex=-1;onKeyV9(ev=>{if(['INPUT','TEXTAREA','SELECT'].includes(ev.target.tagName)||ev.target.isContentEditable)return;if((ev.key==='Delete'||ev.key==='Backspace')&&!ev.metaKey&&!ev.ctrlKey){ev.preventDefault();deleteSelected();}if(['ArrowLeft','ArrowRight'].includes(ev.key)&&!ev.metaKey&&!ev.ctrlKey){ev.preventDefault();stop();state.time=M.frameStep(state,state.time,(ev.key==='ArrowLeft'?-1:1)*(ev.shiftKey?10:1));paint();commit();}});
+ root.tabIndex=-1;onKeyV9(ev=>{if(['INPUT','TEXTAREA','SELECT'].includes(ev.target.tagName)||ev.target.isContentEditable)return;if((ev.key==='Delete'||ev.key==='Backspace')&&!ev.metaKey&&!ev.ctrlKey){ev.preventDefault();/* 0.15 (Phase 19): ⇧⌫ cuts the In–Out range; ⌥⌫ deletes and leaves a gap */if(ev.shiftKey&&rangeV19)cutRangeV19();else deleteSelected(ev.altKey);}if(['ArrowLeft','ArrowRight'].includes(ev.key)&&!ev.metaKey&&!ev.ctrlKey){ev.preventDefault();stop();state.time=M.frameStep(state,state.time,(ev.key==='ArrowLeft'?-1:1)*(ev.shiftKey?10:1));paint();commit();}});
 }
 
 const V5=window.editorModelV5,visualsV5=new Map();
@@ -762,7 +770,7 @@ window.addEventListener('blur',()=>liveGestureV8?.finish());
 let lastPanelV10=null,previewMutedV10=false;
 const typingV10=ev=>['INPUT','TEXTAREA','SELECT'].includes(ev.target.tagName)||ev.target.isContentEditable;
 function shortcutsV10(){
- const rows=[['Space or K','Play / pause'],['← →','Previous / next frame (hold Shift for 10)'],['J · L','Back / forward one second'],['Home · End','Start / end of the video'],['S','Split at the playhead'],['Delete','Delete the selection'],['⌘Z · ⇧⌘Z','Undo / redo'],['⌘C · ⌘V','Copy / paste the selection'],['+ · −','Zoom the timeline in / out'],['Esc','Clear the selection or leave large preview'],['?','Show this list']];
+ const rows=[['Space or K','Play / pause'],['← →','Previous / next frame (hold Shift for 10)'],['J · K · L','Play backwards / stop / play (press J or L again to go faster)'],['I · O · X','Mark In / Out at the playhead · clear them'],['⇧⌫','Cut the In–Out range (the gap closes)'],['M','Add a marker at the playhead'],['⌥⌫','Delete and leave a gap'],['⌘A','Select everything on the timeline'],['Home · End','Start / end of the video'],['S','Split at the playhead'],['Delete','Delete the selection'],['⌘Z · ⇧⌘Z','Undo / redo'],['⌘C · ⌘V','Copy / paste the selection'],['+ · −','Zoom the timeline in / out'],['Esc','Clear the selection or leave large preview'],['?','Show this list']];
  window.nativeShell?.modal('Keyboard shortcuts','<table class="v10-keys">'+rows.map(([k,d])=>'<tr><th>'+k+'</th><td>'+d+'</td></tr>').join('')+'</table><p class="v-small v-muted">Shortcuts are off while you type in a field. Double-click a title on the video to edit its text.</p>');
 }
 function largePreviewV10(on){
@@ -840,8 +848,12 @@ function wireV10(){
   if(ev.metaKey||ev.ctrlKey){if(ev.key.toLowerCase()==='s'){ev.preventDefault();notice('Your project saves automatically.');}return;}
   if(ev.altKey)return;const k=ev.key.toLowerCase();
   if(k==='s'){ev.preventDefault();q('#ed-split')?.click();}
-  else if(k==='k'){ev.preventDefault();play();}
-  else if(k==='j'||k==='l'){ev.preventDefault();stop();state.time=Math.max(0,Math.min(total(),state.time+(k==='j'?-1:1)*state.speed));paint();commit();}
+  else if(k==='k'){ev.preventDefault();if(shuttleRafV19){shuttleStopV19();commit();notice('Stopped.');}else play();}
+  /* 0.15 (Phase 19): J / L shuttle: L plays, and each press goes faster (2×, 4×, 8×); J the same backwards; K stops */
+  else if(k==='j'||k==='l'){ev.preventDefault();const cur=shuttleRafV19?shuttleV19:playing?1:0;shuttleGoV19(k==='l'?(cur>0?Math.min(8,cur*2):1):(cur<0?Math.max(-8,cur*2):-1));}
+  else if(k==='i'||k==='o'){ev.preventDefault();setRangeV19(k);}
+  else if(k==='x'&&rangeV19){ev.preventDefault();rangeV19=null;drawRangeV19();notice('In and Out cleared.');}
+  else if(k==='m'){ev.preventDefault();addMarkerV19();}
   else if(ev.key==='Home'||ev.key==='End'){ev.preventDefault();stop();state.time=ev.key==='Home'?0:Math.max(0,total()-.001);paint();commit();}
   else if(ev.key==='+'||ev.key==='='){ev.preventDefault();zoomTimelineV10(1);}
   else if(ev.key==='-'||ev.key==='_'){ev.preventDefault();zoomTimelineV10(-1);}
@@ -1179,6 +1191,59 @@ function numberBoxesV15(p){p.querySelectorAll('input[type=range]').forEach(r=>{i
 function detachedOfV15(c){return (state.audioClips||[]).find(a=>a.detachedFrom===c.id)||(state.audioClips||[]).find(a=>a.asset===c.asset&&!a.linkOverlay&&Math.abs((a.sourceIn||0)-c.start)<.05&&Math.abs((a.end-a.start)-(c.end-c.start))<.05);}
 function detachAudioV15(c){let off=0;for(const x of state.clips){if(x===c)break;off+=x.end-x.start;}state.audioClips??=[];state.audioClips.push({id:uidV15(),asset:c.asset,name:c.name,start:off,end:off+c.end-c.start,sourceIn:c.start,volume:c.volume??100,detachedFrom:c.id});c.muted=true;}
 function reattachAudioV15(c){const a=detachedOfV15(c);if(a)state.audioClips=state.audioClips.filter(x=>x!==a);c.muted=false;}
+// ---------- 0.15 (Phase 19): shuttle, In / Out, markers, select all ----------
+let shuttleV19=0,shuttleRafV19=0,shuttleLastV19=0,rangeV19=null;
+function shuttleStopV19(){shuttleV19=0;cancelAnimationFrame(shuttleRafV19);shuttleRafV19=0;shuttleLastV19=0;}
+// rate 1 is normal playback (with sound); any other rate moves the playhead itself, silently, like scrubbing.
+function shuttleGoV19(rate){shuttleStopV19();if(rate===1){if(!playing)play();notice('Playing. L again for 2×, K to stop.');return;}if(playing)stop();shuttleV19=rate;
+ const step=ts=>{if(!shuttleV19)return;if(shuttleLastV19){state.time=Math.max(0,Math.min(total(),state.time+(ts-shuttleLastV19)/1000*shuttleV19*state.speed));paint();if(typeof followPlayheadV15==='function')followPlayheadV15();if(state.time<=0||state.time>=total()){shuttleStopV19();commit();notice(state.time<=0?'At the start.':'At the end.');return;}}shuttleLastV19=ts;shuttleRafV19=requestAnimationFrame(step);};
+ shuttleRafV19=requestAnimationFrame(step);notice((rate<0?'Backwards ':'Forwards ')+Math.abs(rate)+'×. K stops.');}
+const fmtV19=t=>(window.timelineModelV7?.formatTime||(x=>x.toFixed(1)))(t/(state.speed||1));
+function setRangeV19(k){const t=state.time,T=total();if(k==='i')rangeV19={a:t,b:rangeV19&&rangeV19.b>t?rangeV19.b:T};else rangeV19={a:rangeV19&&rangeV19.a<t?rangeV19.a:0,b:t};if(rangeV19.b-rangeV19.a<.05){rangeV19=null;notice('In and Out are at the same point.');}else notice('In '+fmtV19(rangeV19.a)+' · Out '+fmtV19(rangeV19.b)+'. ⇧⌫ cuts it, X clears.');drawRangeV19();}
+// Removes the In–Out stretch from the main track; everything after it moves up (titles, audio and markers too).
+function cutRangeV19(){if(!rangeV19)return;const {a,b}=rangeV19,len=b-a;let o=0;const cuts=[];for(const c of state.clips){const d=c.end-c.start;if(o<b&&o+d>a)cuts.push(c);o+=d;}
+ if(!cuts.length)return notice('There is no footage between In and Out.');if(cuts.some(c=>lockedV7({type:'video',id:c.id})))return notice('Unlock the main video track to cut.');
+ if(total()-len<.1)return notice('Keep some of the video: the range covers all of it.');
+ transaction(()=>{const panel=state.panel;
+  // Split at In and Out (the pieces before and after keep their place), then remove what lies between through the
+  // timeline model, which moves everything after the cut up.
+  const split=[],inside=[];let o=0;for(const c of state.clips){const d=c.end-c.start,s0=o,e0=o+d;o=e0;const cutA=Math.max(s0,a),cutB=Math.min(e0,b);if(cutB-cutA<=1e-6){split.push(c);continue;}
+   if(cutA>s0+1e-6)split.push({...c,end:c.start+(cutA-s0)});const mid={...c,id:uidV15(),start:c.start+(cutA-s0),end:c.start+(cutB-s0),transitionIn:undefined};split.push(mid);inside.push(mid.id);if(cutB<e0-1e-6)split.push({...c,id:uidV15(),start:c.start+(cutB-s0),transitionIn:undefined});}
+  state.clips=split;Object.assign(state,V7.remove(state,inside,false));state.panel=panel;
+  state.time=Math.min(a,total());});
+ rangeV19=null;drawRangeV19();notice('Cut '+(len/(state.speed||1)).toFixed(1)+' s. Everything after it moved up. Undo brings it back.');}
+function drawRangeV19(){root.querySelectorAll('.v19-range').forEach(n=>n.remove());const ruler=root.querySelector('#vt-tracks .vt-ruler'),T=total()||1;
+ let bar=q('#v19-rangebar');if(!bar){const top=q('.ed-timeline-top');if(top){bar=document.createElement('span');bar.id='v19-rangebar';bar.className='v19-rangebar';const count=top.querySelector('#v7-selection-count');if(count)count.after(bar);else top.append(bar);}}
+ if(!rangeV19){if(bar)bar.hidden=true;return;}
+ if(ruler){const band=document.createElement('div');band.className='v19-range';band.style.left=(rangeV19.a/T*100)+'%';band.style.width=((rangeV19.b-rangeV19.a)/T*100)+'%';band.title='In '+fmtV19(rangeV19.a)+' · Out '+fmtV19(rangeV19.b);ruler.append(band);}
+ if(bar){bar.hidden=false;bar.innerHTML='<span>In '+fmtV19(rangeV19.a)+' → Out '+fmtV19(rangeV19.b)+'</span><button type="button" data-v19="cut">Cut range</button><button type="button" data-v19="clear" aria-label="Clear In and Out" title="Clear In and Out (X)">'+icon('x')+'</button>';icons();bar.querySelector('[data-v19=cut]').onclick=cutRangeV19;bar.querySelector('[data-v19=clear]').onclick=()=>{rangeV19=null;drawRangeV19();};}}
+// Markers: M adds one at the playhead. On the ruler: click to go there, drag to move, double-click to rename,
+// right-click to remove. They move with edits, and an export carries them as chapters.
+function addMarkerV19(){const t=state.time;if((state.markers||[]).some(m=>Math.abs(m.t-t)<.05))return notice('There is already a marker here.');transaction(()=>{state.markers=[...(state.markers||[]),{id:uidV15(),t,label:'Marker '+((state.markers||[]).length+1)}].sort((x,y)=>x.t-y.t);});notice('Marker added at '+fmtV19(t)+'. Double-click it to name it.');}
+function renameMarkerV19(m,el){document.querySelector('.v19-rename')?.remove();const f=document.createElement('form');f.className='v19-rename';f.innerHTML='<input aria-label="Marker name" maxlength="80"><button type="submit">Save</button>';const inp=f.firstChild;inp.value=m.label||'';el.parentElement.append(f);f.style.left=el.style.left;inp.focus();inp.select();
+ let closed=false;const done=save=>{if(closed)return;closed=true;const v=inp.value.trim();f.remove();if(save&&v&&v!==m.label)transaction(()=>{const x=(state.markers||[]).find(x=>x.id===m.id);if(x)x.label=v;});};f.onsubmit=e=>{e.preventDefault();done(true);};inp.onkeydown=e=>{e.stopPropagation();if(e.key==='Escape')done(false);};inp.onblur=()=>setTimeout(()=>done(true),100);}
+function drawMarkersV19(){root.querySelectorAll('.v19-marker').forEach(n=>n.remove());const ruler=root.querySelector('#vt-tracks .vt-ruler'),T=total()||1;
+ if(ruler)for(const m of state.markers||[]){const el=document.createElement('button');el.type='button';el.className='v19-marker';el.style.left=(m.t/T*100)+'%';el.title=(m.label||'Marker')+' · '+fmtV19(m.t)+' (double-click to rename, right-click to remove)';el.setAttribute('aria-label',el.title);el.innerHTML='<span>'+esc(m.label||'')+'</span>';
+  el.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();e.stopPropagation();stop();const r=ruler.getBoundingClientRect(),x0=e.clientX;let moved=false,to=m.t;try{el.setPointerCapture(e.pointerId);}catch{}
+   el.onpointermove=v=>{if(Math.abs(v.clientX-x0)>3)moved=true;if(!moved)return;to=Math.max(0,Math.min(T,m.t+(v.clientX-x0)/r.width*T));el.style.left=(to/T*100)+'%';};
+   el.onpointerup=()=>{el.onpointermove=null;if(moved)transaction(()=>{const x=(state.markers||[]).find(x=>x.id===m.id);if(x)x.t=to;state.markers.sort((p1,p2)=>p1.t-p2.t);});state.time=moved?to:m.t;paint();commit();};};
+  el.ondblclick=e=>{e.preventDefault();e.stopPropagation();renameMarkerV19(m,el);};
+  el.oncontextmenu=e=>{e.preventDefault();transaction(()=>{state.markers=(state.markers||[]).filter(x=>x.id!==m.id);});notice('Marker removed. Undo brings it back.');};
+  ruler.append(el);}
+ const top=q('.ed-timeline-top');let list=q('#v19-markers');
+ if((state.markers||[]).length&&top){if(!list){list=document.createElement('button');list.id='v19-markers';list.type='button';list.className='v16-icon v19-markers-button';list.onclick=markersDialogV19;const view=q('#v8-timeline-view');if(view)view.prepend(list);else top.append(list);}list.innerHTML=icon('bookmark')+'<small>'+state.markers.length+'</small>';list.title='Markers and chapters';list.setAttribute('aria-label','Markers and chapters ('+state.markers.length+')');icons();}
+ else list?.remove();}
+// Lists the markers (rename, go to, remove) and copies them as chapters for YouTube or a description.
+function chaptersTextV19(){const ms=(state.markers||[]).slice().sort((a,b)=>a.t-b.t),clock=t=>{t=Math.floor(t/(state.speed||1));const h=Math.floor(t/3600),m=Math.floor(t/60)%60,s=t%60;return (h?h+':'+String(m).padStart(2,'0'):String(m).padStart(2,'0'))+':'+String(s).padStart(2,'0');};const lines=ms.map(m=>clock(m.t)+' '+(m.label||'Chapter'));if(!ms.length||ms[0].t/(state.speed||1)>=1)lines.unshift('00:00 Introduction');return lines.join('\n');}
+window.chaptersTextV19=()=>chaptersTextV19();window.shuttleRateV19=()=>shuttleRafV19?shuttleV19:(playing?1:0);window.rangeV19=()=>rangeV19&&{...rangeV19};
+function markersDialogV19(){const shell=window.nativeShell;if(!shell)return;const ms=(state.markers||[]).slice().sort((a,b)=>a.t-b.t);
+ shell.modal('Markers and chapters','<p class="v-muted">Exports include these as chapters, which players such as QuickTime and VLC show. For YouTube, paste the chapter list into the description.</p><div class="v19-list">'+ms.map(m=>'<div class="v19-item"><button type="button" class="v-button quiet" data-go="'+m.id+'">'+fmtV19(m.t)+'</button><input class="v-input" data-label="'+m.id+'" value="'+esc(m.label||'')+'" aria-label="Name of the marker at '+fmtV19(m.t)+'"><button type="button" class="v-button quiet" data-remove="'+m.id+'" aria-label="Remove marker">'+icon('x')+'</button></div>').join('')+'</div><div class="v-row"><button type="button" class="v-button primary" id="v19-copy">Copy as chapters</button></div>');icons();
+ const box=document.querySelector('#v-dialog-body');box.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{const m=ms.find(x=>x.id===b.dataset.go);shell.closeModal();state.time=m.t;paint();commit();});
+ box.querySelectorAll('[data-label]').forEach(inp=>inp.onchange=()=>transaction(()=>{const x=(state.markers||[]).find(x=>x.id===inp.dataset.label);if(x)x.label=inp.value.trim()||x.label;}));
+ box.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{transaction(()=>{state.markers=(state.markers||[]).filter(x=>x.id!==b.dataset.remove);});b.closest('.v19-item').remove();});
+ box.querySelector('#v19-copy').onclick=async()=>{try{await navigator.clipboard.writeText(chaptersTextV19());box.querySelector('#v19-copy').textContent='Copied';}catch{notice('Could not copy. Select the list and copy it instead.');}};}
+function selectAllV19(){selectionV7=[...state.clips.filter(c=>!c.gap).map(c=>({type:'video',id:c.id})),...Object.entries(trackKeysV7).flatMap(([type,key])=>(state[key]||[]).map(e=>({type,id:e.id})))];markSelectionV7();notice(selectionV7.length+' items selected.');}
+onKeyV9(ev=>{if(['INPUT','TEXTAREA','SELECT'].includes(ev.target.tagName)||ev.target.isContentEditable)return;if((ev.metaKey||ev.ctrlKey)&&!ev.shiftKey&&ev.key.toLowerCase()==='a'){ev.preventDefault();selectAllV19();}});
 // ---------- 0.15 (Phase 17): keyframes for a clip's position, scale, rotation and opacity ----------
 // Each property in the clip panel has a diamond: hollow = not animated (click to animate from here), filled = a
 // keyframe at the playhead (click to remove it; right-click for easing), outlined = animated with no keyframe here
@@ -1386,7 +1451,7 @@ function missingMediaV15(p){
  apply();if(key===missingAskedV15&&Date.now()-missingAtV15<5000)return;const isNew=key!==missingAskedV15||Object.values(missingV15).every(v=>v!=='missing');missingAskedV15=key;missingAtV15=Date.now();
  window.native.mediaStatus(ids).then(r=>{missingV15=r||{};const n=Object.values(missingV15).filter(v=>v==='missing').length;if(n){if(state.panel==='media')apply();if(isNew)notice(n===1?'One media file is missing. Relink it in the Media tab.':n+' media files are missing. Relink them in the Media tab.');}}).catch(()=>{});
 }
-const paintBeforeV17=paint;paint=function(){paintBeforeV17();syncKeysV17();};const tracksBeforeV17=tracks;tracks=function(){tracksBeforeV17();timelineKeysV17();};
+const paintBeforeV17=paint;paint=function(){paintBeforeV17();syncKeysV17();};const tracksBeforeV17=tracks;tracks=function(){tracksBeforeV17();timelineKeysV17();drawMarkersV19();drawRangeV19();};const playBeforeV19=play;play=function(){if(shuttleRafV19){shuttleStopV19();commit();return;}return playBeforeV19();};
 const panelBeforeV15=panel;
 panel=function(){panelBeforeV15();const p=q('#ed-panel');if(state.panel==='clip')clipPanelV15(p);if(state.panel==='speed')speedPanelV15(p);/* 0.15 (Phase 16): Speed opens from the clip panel only */if(state.panel==='elements')brandEntryV16(p);if(state.panel==='captions')captionsPanelV15(p);if(state.panel==='media')missingMediaV15(p);if(state.panel==='media')queueMicrotask(()=>mediaMenusV16(p));if(state.panel==='style'){const f=q('#ed-style-font');if(f){f.innerHTML=fontOptionsV15();f.value=captionFontV15(state.style?.font);}}compactHeaderV15(p);coverPanelV15(p);choiceTilesV15(p);numberBoxesV15(p);highlightTabV15();lockPanelV15(p);icons();};
 

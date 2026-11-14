@@ -171,7 +171,12 @@ async function exportProject(ctx){
  check();progress(96,'Step 2 of 2 · Saving');const output=path.join(dir,'output.'+ext);
  if(audioOnly){const codec=ext==='mp3'?['-c:a','libmp3lame','-b:a','256k']:ext==='m4a'?['-c:a','aac','-b:a','256k']:['-c:a','pcm_s16le'];await run(ffmpeg,['-y','-i',audio,...codec,output]);}
  else if(gif)await run(ffmpeg,['-y','-i',videoFile,'-filter_complex','split[a][b];[a]palettegen[p];[b][p]paletteuse','-loop','0',output]);
- else{const codec=ext==='webm'?['-c:v','copy','-c:a','libopus']:['-c:v','copy','-c:a','aac','-b:a','192k','-movflags','+faststart'];await run(ffmpeg,['-y','-i',videoFile,'-i',audio,'-map','0:v:0','-map','1:a:0',...codec,'-t',String(duration),output]);}
+ else{const codec=ext==='webm'?['-c:v','copy','-c:a','libopus']:['-c:v','copy','-c:a','aac','-b:a','192k','-movflags','+faststart'];
+  // 0.15 (Phase 19): markers become chapters (QuickTime, VLC and most players list them). A first chapter starting
+  // at 0 is added when the first marker is later, since players expect chapters to cover the whole video.
+  const marks=(state.markers||[]).map(m=>({t:Math.max(0,Math.min(duration,(+m.t||0)/speed)),label:String(m.label||'Chapter').replace(/[=;#\\\n]/g,' ').slice(0,80)})).filter(m=>m.t<duration-.2).sort((a,b)=>a.t-b.t);const chapterArgs=[];
+  if(marks.length){if(marks[0].t>=1)marks.unshift({t:0,label:'Introduction'});const meta=path.join(dir,'chapters.txt');await fs.writeFile(meta,';FFMETADATA1\n'+marks.map((m,i)=>'[CHAPTER]\nTIMEBASE=1/1000\nSTART='+Math.round(m.t*1000)+'\nEND='+Math.round((marks[i+1]?.t??duration)*1000)+'\ntitle='+m.label+'\n').join(''));chapterArgs.push('-f','ffmetadata','-i',meta,'-map_chapters','2');}
+  await run(ffmpeg,['-y','-i',videoFile,'-i',audio,...chapterArgs,'-map','0:v:0','-map','1:a:0',...codec,'-t',String(duration),output]);}
  check();await fs.copyFile(output,dest);let srt;if(cfg.captions?.startsWith('Separate')){srt=dest.replace(/\.[^.]+$/,'.srt');await ctx.validateOutput?.(srt);/* 0.15: ask before replacing a caption file that is already there */const there=await fs.access(srt).then(()=>true,()=>false);if(there&&ctx.confirmReplace&&!(await ctx.confirmReplace(srt)))srt=undefined;else await fs.writeFile(srt,subtitles(state));}progress(100,'Export complete');return {path:dest,srt,timing:ctx.timing};
  }finally{stopDirect();for(const r of extraRenderers)try{if(!r.isDestroyed())r.destroy();}catch{}renderer=null;if(encoding&&!encoding.killed)encoding.kill();await fs.rm(dir,{recursive:true,force:true});}
 }

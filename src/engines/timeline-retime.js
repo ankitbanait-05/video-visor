@@ -87,6 +87,9 @@ function retime(before,state,refs){
  if(sameTiming(before,state.clips)||splitOnly(before,state.clips))return;
  const spans=spansFor(before,state.clips),total=length(state.clips);
  for(const key of keys)if(Array.isArray(state[key])&&(!refs||refs[key]===state[key]))state[key]=remapTrack(key,state[key],spans,total);
+ // 0.15 (Phase 19): markers are points in time; they move with the footage they were on (a marker inside removed
+ // footage goes to where the cut is). Clips only reordered leave them where they are.
+ if(Array.isArray(state.markers)&&state.markers.length&&(!refs||refs.markers===state.markers)&&ordered(spans))state.markers=state.markers.map(m=>{const t=Math.min(total,mapPoint(m.t,spans));return near(t,m.t)?m:{...m,t};});
 }
 // 0.6 generated IDs with repeated numeric suffixes and durations around 1e-14s.
 // Keep every meaningful element, even when it has one of these legacy IDs.
@@ -110,6 +113,6 @@ function recoverWorkspace(data){
  for(const state of editors){const count=recoverEditor(state);removed+=count;if(count)states++;}
  return{removed,states};
 }
-const api={EPSILON,sameTiming,splitOnly,spansFor,remap,shiftWhole,remapTrack,retime,recoverEditor,recoverWorkspace};
+const api={EPSILON,sameTiming,splitOnly,spansFor,remap,shiftWhole,remapTrack,retime,recoverEditor,recoverWorkspace,mapPoint};
 if(typeof module==='object')module.exports=api;else root.timelineRetime=api;
 })(globalThis);

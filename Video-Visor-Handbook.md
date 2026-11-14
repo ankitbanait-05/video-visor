@@ -311,6 +311,18 @@ Measured in the real app on a 40-second 1080p project (`VV_BENCH_ONLY=export VV_
 | Found while testing | (1) An offscreen export window doesn't repaint when a frame is identical to the last one (a still caption), and the capture then waited forever. It now asks for a repaint first; this also sped up the plain window path (31.6 s → 26.7 s with one window). (2) A frame that takes over 20 s now stops the export with "The export stopped responding… Try exporting again." instead of hanging. |
 | Not done | Re-use of graphics and window stretches (their content depends on more of the project, so a safe key needs more care). |
 
+## Phase 19 status
+
+| Item | Status |
+|---|---|
+| Ripple delete | Was already the default on the main track: deleting a clip closes the gap, and titles, audio and markers after it move up. New: **⌥⌫** deletes and leaves a gap of the same length. |
+| J / K / L | Done. **L** plays; pressing it again goes 2×, 4×, 8×. **J** does the same backwards. **K** stops (and still plays / pauses when you aren't shuttling). Faster and backward speeds move the playhead silently, like scrubbing; 1× plays with sound. (Before, J and L jumped one second.) |
+| I / O | Done. **I** and **O** mark In and Out at the playhead. The range shows on the ruler with a bar: "In 00:08.0 → Out 00:11.0 · Cut range · ×". **⇧⌫** (or Cut range) removes it and everything after moves up; **X** clears it. |
+| Multi-select | Shift-click, ⌘-click, dragging a box on empty timeline space, moving and deleting a group, and ⌘C / ⌘V were already there. New: **⌘A** selects everything. |
+| Markers | Done. **M** adds one at the playhead. On the ruler: click to go there, drag to move, double-click to rename, right-click to remove (Undo brings it back). Markers move with cuts and deletes. A Markers button lists them with names, and **Copy as chapters** gives a YouTube-style list ("00:00 Introduction / 00:07 Demo…"). **Exports carry them as chapters** in the MP4 / MOV / WebM file. Checked in the real app: Introduction 0–3 s, Setup 3–9.5 s, The demo 9.5–20 s. |
+| Found while testing | **Cutting a stretch out of a clip deleted the titles, zooms and captions later in that clip.** This is the path Magic Edit uses to remove pauses and the transcript uses to cut a sentence: a title after a removed pause disappeared. Cuts now split the clip first and remove the middle through the timeline model, so everything after the cut moves up. A check covers it. |
+| Not done (P2) | Copy and paste of attributes, dragging a volume line on clips, and a snapping guide line. |
+
 ## 8. Decisions needed from you
 
 1. **Speed copies:** hide them from Media (recommended), or show them named after the clip?
@@ -332,7 +344,7 @@ Measured in the real app on a 40-second 1080p project (`VV_BENCH_ONLY=export VV_
 | 16 | Preview zoom (section 4) and editor clarity items 1–6. *Done.* | M |
 | 17 | Keyframes and presets (section 3). *Done for video clips.* | L |
 | 18 | Export speed II: offscreen capture (E3), graphics layer (E2), parallel chunks (E4), re-use (E6). *Done (E3 tried, not used).* | L |
-| 19 | Editing power: ripple delete, J/K/L, multi-select, markers | M |
+| 19 | Editing power: ripple delete, J/K/L, multi-select, markers. *Done.* | M |
 | 20 | Home, Projects, Settings and recorder polish (section 7) | M |
 
 Each phase ends as before: preview checks, real-app benchmarks, one commit, nothing pushed.

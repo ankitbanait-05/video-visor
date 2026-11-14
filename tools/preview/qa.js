@@ -946,6 +946,60 @@ Object.assign(checks, {
   },
 });
 
+// Phase 19: shuttle, In / Out, ripple and gaps, select all, markers.
+const pressV19 = (k, o = {}) => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, ...o }));
+Object.assign(checks, {
+  async 'J / K / L: L plays, again goes faster; J goes backwards; K stops'() {
+    await freshEditor(); E().jump(10); await wait(80);
+    pressV19('l'); await wait(60); const one = window.shuttleRateV19(); pressV19('l'); await wait(60); const two = window.shuttleRateV19(); pressV19('l'); await wait(60); const four = window.shuttleRateV19();
+    pressV19('k'); await wait(60); const stopped = window.shuttleRateV19();
+    pressV19('j'); await wait(60); const back = window.shuttleRateV19(); pressV19('j'); await wait(60); const back2 = window.shuttleRateV19(); pressV19('k'); await wait(60);
+    return { pass: one === 1 && two === 2 && four === 4 && stopped === 0 && back === -1 && back2 === -2 && window.shuttleRateV19() === 0, detail: { one, two, four, stopped, back, back2 } };
+  },
+  async 'I and O mark a range; ⇧⌫ cuts it and later items move up'() {
+    await freshEditor(); E().jump(12); await wait(80); E().addElement('title'); await wait(250); const t0 = E().get().elements[0].start;
+    E().jump(4); await wait(60); pressV19('i'); E().jump(7); await wait(60); pressV19('o'); await wait(150);
+    const range = window.rangeV19(), bar = $('#v19-rangebar')?.textContent || '';
+    pressV19('Backspace', { shiftKey: true }); await wait(300);
+    const s = E().get(), total = s.clips.reduce((n, c) => n + c.end - c.start, 0), t1 = s.elements[0]?.start;
+    return { pass: range?.a === 4 && range?.b === 7 && /Cut range/.test(bar) && Math.abs(total - 26) < .01 && Math.abs(t1 - (t0 - 3)) < .01 && !window.rangeV19(), detail: { range, total, title: [t0, t1] } };
+  },
+  async 'removing a stretch keeps the titles after it (Magic Edit, transcript cuts)'() {
+    await freshEditor(); E().jump(12); await wait(80); E().addElement('title'); await wait(250); const t0 = E().get().elements[0].start;
+    E().removeSource(4, 7); await wait(300); const t1 = E().get().elements[0]?.start;
+    return { pass: t1 != null && Math.abs(t1 - (t0 - 3)) < .01, detail: { before: t0, after: t1 } };
+  },
+  async 'Delete closes the gap; ⌥Delete leaves one'() {
+    await freshEditor(); const s = E().get(), count = s.clips.length, first = s.clips[0];
+    E().open('clip'); await wait(200); pressV19('Delete', { altKey: true }); await wait(300);
+    const gap = E().get().clips[0]; $('#ed-undo').click(); await wait(250);
+    E().open('clip'); await wait(200); pressV19('Delete'); await wait(300);
+    const closed = E().get().clips.length;
+    return { pass: gap.gap === true && Math.abs((gap.end - gap.start) - (first.end - first.start)) < .01 && closed === count - 1, detail: { gap: !!gap.gap, clipsAfterDelete: closed, before: count } };
+  },
+  async '⌘A selects everything on the timeline'() {
+    await freshEditor(); E().addElement('title'); await wait(250); $('.ed-timeline').focus(); pressV19('a', { metaKey: true }); await wait(150);
+    const n = ($('#v7-selection-count')?.textContent.match(/\d+/) || [0])[0];
+    return { pass: +n === E().get().clips.length + E().get().elements.length, detail: { selected: n } };
+  },
+  async 'M adds a marker; markers move with cuts and give a chapter list'() {
+    await freshEditor(); E().jump(10); await wait(60); pressV19('m'); await wait(200); E().jump(18); await wait(60); pressV19('m'); await wait(200);
+    const shown = $$('.v19-marker').length, button = !!$('#v19-markers');
+    E().removeSource(2, 5); await wait(300); const ts = (E().get().markers || []).map(m => +m.t.toFixed(2));
+    const chapters = window.chaptersTextV19();
+    return { pass: shown === 2 && button && JSON.stringify(ts) === '[7,15]' && /^00:00 Introduction\n00:07 Marker 1\n00:15 Marker 2$/.test(chapters), detail: { shown, ts, chapters } };
+  },
+  async 'markers can be renamed and removed, with Undo'() {
+    await freshEditor(); E().jump(6); await wait(60); pressV19('m'); await wait(200);
+    const el = $('.v19-marker'); el.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); await wait(100);
+    const inp = $('.v19-rename input'); inp.value = 'Demo starts'; $('.v19-rename').dispatchEvent(new Event('submit', { cancelable: true })); await wait(250);
+    const named = E().get().markers?.[0]?.label;
+    $('.v19-marker').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); await wait(250); const gone = (E().get().markers || []).length;
+    $('#ed-undo').click(); await wait(250); const back = (E().get().markers || []).length;
+    return { pass: named === 'Demo starts' && gone === 0 && back === 1, detail: { named, gone, back } };
+  },
+});
+
 export const count = () => Object.keys(checks).length;
 export async function run(only) {
   const results = [];
