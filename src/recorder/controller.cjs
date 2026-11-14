@@ -118,13 +118,16 @@ class RecorderController {
   createControls(){
     for(const [key,action]of [['CommandOrControl+Shift+2','stop'],['CommandOrControl+Shift+9','pause']])if(globalShortcut.register(key,()=>this.command(action)))this.hotkeys.push(key);
     this.tray=new Tray(path.join(__dirname,'tray.png'));this.tray.setToolTip('Video Visor is recording');
-    this.tray.setContextMenu(Menu.buildFromTemplate([{label:'Show recording controls',click:()=>this.show()},{label:'Pause / resume',click:()=>this.command('pause')},{label:'Stop and edit',click:()=>this.command('stop')}]));
+    // 0.15 (Phase 20): the menu bar shows the recording time next to the icon, and the menu shows the shortcuts.
+    this.tray.setContextMenu(Menu.buildFromTemplate([{label:'Stop and edit',accelerator:'CommandOrControl+Shift+2',registerAccelerator:false,click:()=>this.command('stop')},{label:'Pause / resume',accelerator:'CommandOrControl+Shift+9',registerAccelerator:false,click:()=>this.command('pause')},{type:'separator'},{label:'Show recording controls',click:()=>this.show()}]));
+    const clock=()=>{if(!this.tray)return;const t=Math.max(0,Math.floor(this.clock.seconds?.()||0)),text=Math.floor(t/60)+':'+String(t%60).padStart(2,'0');this.tray.setTitle((this.phase==='paused'?' ❚❚ ':' ● ')+text,{fontType:'monospacedDigit'});this.tray.setToolTip('Video Visor is recording · '+text+' · ⇧⌘2 stops');};
+    clock();clearInterval(this.trayClock);this.trayClock=setInterval(clock,1000);
     this.tray.on('click',()=>this.show());
   }
   handleInput(input){if(!this.busy()||input.type!=='keyDown'||!(input.meta||input.control)||!input.shift)return false;if(input.code==='Digit2'||['2','@'].includes(input.key)){this.command('stop');return true;}if(input.code==='Digit9'||['9','('].includes(input.key)){this.command('pause');return true;}return false;}
   command(name){if(this.panel&&!this.panel.isDestroyed())this.panel.webContents.send('recorder:command',name);}
   show(){if(this.panel&&!this.panel.isDestroyed()){this.panel.show();this.panel.focus();}}
-  stopControls(){clearInterval(this.timer);for(const key of this.hotkeys)globalShortcut.unregister(key);this.hotkeys=[];this.tray?.destroy();this.tray=null;}
+  stopControls(){clearInterval(this.timer);clearInterval(this.trayClock);for(const key of this.hotkeys)globalShortcut.unregister(key);this.hotkeys=[];this.tray?.destroy();this.tray=null;}
   // The camera is saved as its own video (no sound: the microphone is in the screen recording).
   // cameraDelay = seconds the camera recorder started after the screen recorder.
   async finish(info){

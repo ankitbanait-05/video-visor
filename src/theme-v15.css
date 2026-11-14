@@ -237,3 +237,23 @@ html.export-graphics #native-video,html.export-graphics #native-image,html.expor
 #visor-app .v19-list{display:flex;flex-direction:column;gap:6px;margin:12px 0}
 #visor-app .v19-item{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center}
 #visor-app .v19-item .v-button.quiet{font-variant-numeric:tabular-nums}
+
+/* 0.15 (Phase 20): project cards with a ⋯ menu, project search and sort, settings tabs. */
+#visor-app .v10-project{position:relative}
+#visor-app .v10-project-actions.v20-more{position:absolute;top:8px;right:8px;display:block;margin:0;padding:0;border:0}
+#visor-app .v20-more-toggle{width:32px;height:32px;padding:0;border-radius:8px;background:color-mix(in srgb,var(--v-panel) 88%,transparent)!important;box-shadow:0 1px 4px #0002;display:grid;place-items:center}
+#visor-app .v20-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:20;display:flex;flex-direction:column;min-width:160px;padding:4px;border:1px solid var(--v-border);border-radius:10px;background:var(--v-panel);box-shadow:0 8px 24px #0002}
+#visor-app .v20-menu[hidden]{display:none}
+#visor-app .v20-menu .v-button{justify-content:flex-start;width:100%;border:0}
+#visor-app .v20-menu .v-button:hover{background:var(--v-soft)}
+#visor-app .v20-find{display:flex;gap:12px;align-items:center;margin:0 0 16px}
+#visor-app .v20-search{flex:1;max-width:360px;display:flex;align-items:center;gap:8px;padding:0 12px;height:38px;border:1px solid var(--v-border);border-radius:10px;background:var(--v-panel)}
+#visor-app .v20-search svg{width:16px;height:16px;color:var(--v-sub)}
+#visor-app .v20-search input{flex:1;border:0;background:none;color:var(--v-ink);font:inherit;outline:none}
+#visor-app .v20-sort{display:flex;align-items:center;gap:8px;color:var(--v-sub);font-size:13px}
+#visor-app .v20-sort select{height:38px}
+#visor-app .v20-tabs{display:flex;gap:4px;margin:0 0 16px;padding:4px;border-radius:12px;background:var(--v-soft);width:max-content;max-width:100%;overflow-x:auto}
+#visor-app .v20-tabs button{border:0;background:none;padding:8px 14px;border-radius:9px;color:var(--v-sub);font:inherit;font-size:13.5px;cursor:pointer}
+#visor-app .v20-tabs button.active{background:var(--v-panel);color:var(--v-ink);font-weight:600;box-shadow:0 1px 3px #0001}
+#visor-app .v10-settings>section[hidden]{display:none}
+#visor-app .v20-recent{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}

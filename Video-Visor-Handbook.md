@@ -323,6 +323,35 @@ Measured in the real app on a 40-second 1080p project (`VV_BENCH_ONLY=export VV_
 | Found while testing | **Cutting a stretch out of a clip deleted the titles, zooms and captions later in that clip.** This is the path Magic Edit uses to remove pauses and the transcript uses to cut a sentence: a title after a removed pause disappeared. Cuts now split the clip first and remove the middle through the timeline model, so everything after the cut moves up. A check covers it. |
 | Not done (P2) | Copy and paste of attributes, dragging a volume line on clips, and a snapping guide line. |
 
+## Phase 20 status
+
+| Item | Status |
+|---|---|
+| Home | Done. Four recent projects instead of three. "Your tools": the four tools you open most (counted on this Mac), with a starting set until then. The rest of Home (New video, Record, Draft with AI, Fix a file, drop a file) was already the short start page planned. |
+| Project cards | Done. Clicking a card opens the project. Render…, Rename, Duplicate, Delete (and Undo AI edit) sit in a ⋯ menu on the card, which closes on a click elsewhere or Esc. Same on Home and Projects. |
+| Projects | Done. Search by name, and sort by Last edited, Name or Length. |
+| Settings | Done. Five tabs: General (exports folder, new videos, editor), Appearance, Storage, AI (AI features, Draft with AI, connecting an assistant) and About. The page is no longer one long scroll, and the tab you used last is remembered. |
+| Recorder | The 3-2-1 countdown was already on by default, and ⇧⌘2 / ⇧⌘9 already stopped / paused from anywhere. New: the menu bar shows the recording time next to the icon (● 0:42, or ❚❚ when paused), and its menu lists "Stop and edit ⇧⌘2" and "Pause / resume ⇧⌘9". **Not checked by hand** (needs a real recording). |
+
+## Where things stand after Phases 13–20
+
+Everything in sections 1–7 is done, except the items marked "Not done" in each phase's status, and these:
+- **Still needs you:** the company Apple Developer ID (signing), Intel support, and the Simple mode decision.
+- **Still needs a test by hand:**
+  - recording with Mac sound;
+  - the Screen Recording permission message;
+  - recovery after a recorder crash;
+  - the recorder window in dark mode;
+  - the new menu-bar timer;
+  - trackpad pinch-zoom and ⌘+ / ⌘− in the editor;
+  - background removal on a real photo;
+  - Draft with AI with a real key.
+- **Worth doing next:**
+  - keyframes for titles, graphics and video layers;
+  - re-use of caption / title stretches between exports;
+  - copy and paste of clip settings;
+  - a volume line on clips.
+
 ## 8. Decisions needed from you
 
 1. **Speed copies:** hide them from Media (recommended), or show them named after the clip?
@@ -345,6 +374,6 @@ Measured in the real app on a 40-second 1080p project (`VV_BENCH_ONLY=export VV_
 | 17 | Keyframes and presets (section 3). *Done for video clips.* | L |
 | 18 | Export speed II: offscreen capture (E3), graphics layer (E2), parallel chunks (E4), re-use (E6). *Done (E3 tried, not used).* | L |
 | 19 | Editing power: ripple delete, J/K/L, multi-select, markers. *Done.* | M |
-| 20 | Home, Projects, Settings and recorder polish (section 7) | M |
+| 20 | Home, Projects, Settings and recorder polish (section 7). *Done.* | M |
 
 Each phase ends as before: preview checks, real-app benchmarks, one commit, nothing pushed.

@@ -1000,6 +1000,45 @@ Object.assign(checks, {
   },
 });
 
+// Phase 20: Home, Projects, Settings.
+Object.assign(checks, {
+  async 'Home shows four recent projects and the tools you use most'() {
+    await freshEditor(); await freshEditor();
+    for (let i = 0; i < 3; i++) { await openToolV('pdf', 'pcompress'); }
+    $('.v-nav [data-route=home]').click(); await wait(400);
+    const recent = $$('#v-content .v20-recent > .v10-project').length, heading = $$('#v-content .v-sectionhead h2').map(h => h.textContent).find(t => /tools|everyday/i.test(t)), first = $$('#v-content [data-tool]')[0]?.dataset.tool, count = $$('#v-content .v-row [data-tool]').length;
+    return { pass: recent === Math.min(4, $$('#v-content .v10-project').length) && recent >= 2 && heading === 'Your tools' && first === 'pcompress' && count === 4, detail: { recent, heading, first, count } };
+  },
+  async 'project cards open on click; their actions are in a ⋯ menu'() {
+    $('.v-nav [data-route=projects]').click(); await wait(400);
+    const card = $('#v-content .v10-project'), menu = card.querySelector('.v20-menu'), toggle = card.querySelector('.v20-more-toggle');
+    const hiddenFirst = menu.hidden; toggle.click(); await wait(80); const items = [...menu.querySelectorAll('button')].filter(b => b.offsetParent).map(b => b.textContent.trim());
+    document.body.click(); await wait(80); const closedOutside = menu.hidden;
+    toggle.click(); await wait(50); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await wait(50); const closedEsc = menu.hidden;
+    return { pass: hiddenFirst && items.includes('Rename') && items.includes('Delete') && closedOutside && closedEsc && toggle.getAttribute('aria-label').startsWith('More for'), detail: { hiddenFirst, items, closedOutside, closedEsc } };
+  },
+  async 'Projects can be searched and sorted'() {
+    $('.v-nav [data-route=projects]').click(); await wait(400);
+    const names = () => $$('#v20-projects .v10-project h3').map(h => h.textContent.trim());
+    const all = names().length, target = names()[1];
+    const search = $('#v20-search'); search.value = target; search.dispatchEvent(new Event('input')); await wait(150); const found = names();
+    search.value = 'zzz no such project'; search.dispatchEvent(new Event('input')); await wait(150); const none = $('#v20-projects .v-empty')?.textContent || '';
+    search.value = ''; search.dispatchEvent(new Event('input')); await wait(100);
+    const sort = $('#v20-sort'); sort.value = 'name'; sort.dispatchEvent(new Event('change')); await wait(150); const byName = names();
+    const sorted = byName.slice().sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    sort.value = 'edited'; sort.dispatchEvent(new Event('change')); await wait(100);
+    return { pass: all > 1 && found.length >= 1 && found.every(n => n.includes(target)) && /No project/.test(none) && JSON.stringify(byName) === JSON.stringify(sorted), detail: { all, target, found: found.length, none, firstByName: byName.slice(0, 3) } };
+  },
+  async 'Settings are grouped in tabs, and the tab is remembered'() {
+    $('.v-nav [data-route=settings]').click(); await wait(500);
+    const tabs = $$('#v20-settings-tabs [data-settings-tab]').map(b => b.textContent), shown = () => $$('.v10-settings > section').filter(x => !x.hidden).map(x => x.querySelector('h2')?.textContent);
+    const general = shown(); $('[data-settings-tab=storage]').click(); await wait(200); const storage = shown(), storageBox = !!$('#v15-storage')?.offsetParent;
+    $('.v-nav [data-route=home]').click(); await wait(200); $('.v-nav [data-route=settings]').click(); await wait(500); const again = shown();
+    $('[data-settings-tab=general]').click(); await wait(100);
+    return { pass: JSON.stringify(tabs) === '["General","Appearance","Storage","AI","About"]' && general.includes('Exports') && !general.includes('Storage') && JSON.stringify(storage) === '["Storage"]' && storageBox && JSON.stringify(again) === '["Storage"]', detail: { tabs, general, storage, again } };
+  },
+});
+
 export const count = () => Object.keys(checks).length;
 export async function run(only) {
   const results = [];
