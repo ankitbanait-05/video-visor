@@ -22,7 +22,7 @@ async function freshEditor() {
 async function addTitle(category = 'Callouts', index = 0) {
   tab('elements').click(); await wait(200);
   panelButton(new RegExp('^' + category + '$'))?.click(); await wait(200);
-  const cards = $$('#ed-panel button').filter(b => b.offsetParent && !/^(Titles|Lower thirds|Chapters|Callouts|Quotes|Numbers|Icons)$/.test(b.textContent.trim()));
+  const cards = $$('#ed-panel button').filter(b => b.offsetParent && b.id !== 'v16-brand' && !/^(Titles|Lower thirds|Chapters|Callouts|Quotes|Numbers|Icons)$/.test(b.textContent.trim()));
   cards[index].click(); await wait(300);
 }
 
@@ -364,7 +364,7 @@ Object.assign(checks, {
     return { pass: tops.length === 1, detail: tops };
   },
   async 'typing in a number box changes the setting'() {
-    await freshEditor(); tab('adjustments').click(); await wait(250); await setNum('Exposure', 30);
+    await freshEditor(); E().open('adjustments'); await wait(250); await setNum('Exposure', 30);
     const adj = E().get().clips[E().get().selected]?.adjustments; // adjustments belong to the selected clip
     return { pass: adj?.exposure === 30, detail: adj };
   },
@@ -377,7 +377,7 @@ Object.assign(checks, {
 
 // ---------- Phase 4 ----------
 const total = () => E().get().clips.reduce((n, c) => n + c.end - c.start, 0);
-async function speed(label) { tab('effects').click(); await wait(200); panelButton(/^\s*Speed$/).click(); await wait(250); $$('#ed-panel .v15-speed-tile').find(b => b.textContent.trim() === label).click(); await wait(500); }
+async function speed(label) { E().open('clip'); await wait(250); $('#v15-open-speed').click(); await wait(250); $$('#ed-panel .v15-speed-tile').find(b => b.textContent.trim() === label).click(); await wait(500); }
 Object.assign(checks, {
   async 'a solid cover’s colour and opacity can be changed'() {
     await freshEditor(); tab('effects').click(); await wait(200); panelButton(/Solid cover/).click(); await wait(300);
@@ -463,7 +463,7 @@ Object.assign(checks, {
   },
   async 'caption and title font lists match'() {
     await captioned(); const cap = [...$('#ed-cap-font').options].map(o => o.value);
-    tab('style').click(); await wait(200); const style = [...($('#ed-style-font')?.options || [])].map(o => o.value);
+    E().open('style'); await wait(200); const style = [...($('#ed-style-font')?.options || [])].map(o => o.value);
     const titles = window.titleModelV11.fonts.map(f => f[0]);
     return { pass: JSON.stringify(cap) === JSON.stringify(titles) && JSON.stringify(style) === JSON.stringify(titles), detail: { cap, style, titles } };
   },
@@ -707,7 +707,7 @@ Object.assign(checks, {
       document.documentElement.dataset.theme = mode; $('#visor-app').dataset.theme = mode; await wait(100);
       const found = new Set();
       $$('#vt-tracks [aria-expanded=true]').filter(b => !/Video|Audio/.test(b.textContent)).forEach(b => b.click()); await wait(200);
-      for (const p of ['media', 'elements', 'captions', 'audio', 'effects', 'transitions', 'adjustments', 'style']) { tab(p).click(); await wait(250); themeMismatches(mode).forEach(x => found.add('editor/' + p + ' ' + x)); }
+      for (const p of ['media', 'elements', 'captions', 'audio', 'effects', 'transitions', 'clip', 'speed', 'adjustments', 'style']) { if (tab(p) && !tab(p).hidden) tab(p).click(); else E().open(p); await wait(250); themeMismatches(mode).forEach(x => found.add('editor/' + p + ' ' + x)); }
       for (const r of ['home', 'projects', 'video', 'image', 'audio', 'pdf', 'settings']) { $('.v-nav [data-route=' + r + ']').click(); await wait(300); themeMismatches(mode).forEach(x => found.add(r + ' ' + x)); }
       $('.v-nav [data-route=editor]').click(); await wait(300);
       out[mode] = [...found];
@@ -796,6 +796,71 @@ Object.assign(checks, {
     await toolWithFiles('image', 'iresize'); $('#v-width').value = '800'; $('#v-height').value = '600'; $('[data-action="run-tool"]').click(); await wait(700);
     const o = window.__lastToolOpts || {};
     return { pass: o['v-width'] === '800' && o['v-height'] === '600', detail: { width: o['v-width'], height: o['v-height'] } };
+  },
+});
+
+// Phase 16: preview zoom and editor clarity.
+Object.assign(checks, {
+  async 'pinch zooms the preview around the pointer, and Fit goes back'() {
+    await freshEditor(); const c = $('#ed-canvas'), r = c.getBoundingClientRect(), px = r.left + r.width * .8, py = r.top + r.height * .5;
+    // the point under the pointer stays put while zooming
+    const probe = () => { const b = c.getBoundingClientRect(); return [(px - b.left) / b.width, (py - b.top) / b.height]; }, before = probe();
+    $('.ed-main').dispatchEvent(new WheelEvent('wheel', { deltaY: -40, ctrlKey: true, clientX: px, clientY: py, bubbles: true, cancelable: true })); await wait(80);
+    const z = window.previewZoomStateV16(), after = probe(), drift = Math.hypot(after[0] - before[0], after[1] - before[1]);
+    const shown = $('#v16-zoom').options[0].textContent;
+    window.previewZoomV16('fit'); await wait(50); const back = window.previewZoomStateV16().zoom === 1 && !c.style.transform;
+    return { pass: z.zoom > 1.3 && drift < .01 && /%$/.test(shown) && back, detail: { zoom: +z.zoom.toFixed(2), drift: +drift.toFixed(4), shown, back } };
+  },
+  async 'the zoom menu picks a real-pixel size; zoom never changes the project'() {
+    await freshEditor(); const before = JSON.stringify(E().saveData?.() || E().get()), sel = $('#v16-zoom');
+    sel.value = '200'; sel.dispatchEvent(new Event('change')); await wait(80);
+    const pct = window.previewZoomStateV16().percent, after = JSON.stringify(E().saveData?.() || E().get());
+    $('.ed-main').dispatchEvent(new WheelEvent('wheel', { deltaX: 30, deltaY: 20, bubbles: true, cancelable: true })); await wait(50);
+    const panned = window.previewZoomStateV16(); window.previewZoomV16('fit');
+    return { pass: pct === 200 && before === after && panned.x !== 0, detail: { pct, unchanged: before === after, panned: [Math.round(panned.x), Math.round(panned.y)] } };
+  },
+  async 'six tabs; a clip’s panel highlights none'() {
+    await freshEditor(); const tabs = $$('.ed-tabs button').filter(b => b.offsetParent).map(b => b.dataset.panel);
+    tab('captions').click(); await wait(150); E().open('clip'); await wait(250);
+    const active = $$('.ed-tabs .active').map(b => b.dataset.panel), title = $('#ed-panel h3')?.textContent;
+    return { pass: JSON.stringify(tabs) === JSON.stringify(['media', 'elements', 'captions', 'audio', 'effects', 'transitions']) && !active.length && title === 'Clip', detail: { tabs, active, title } };
+  },
+  async 'Speed and Colour open from the clip panel and go back to it'() {
+    await freshEditor(); tab('effects').click(); await wait(200); const inEffects = !!panelButton(/^\s*Speed$/);
+    E().open('clip'); await wait(250); const rows = $$('#ed-panel .v15-speed-row span').map(x => x.textContent);
+    $('#v16-open-colour').click(); await wait(250); const colourTitle = $('#ed-panel h3')?.textContent, backLabel = $('#ed-panel .v15-back')?.title;
+    $('#ed-panel .v15-back').click(); await wait(250); const backTo = $('#ed-panel h3')?.textContent;
+    $('#v15-open-speed').click(); await wait(250); const speedBack = $('#ed-panel .v15-back')?.title;
+    return { pass: !inEffects && rows.includes('Speed') && rows.includes('Colour') && colourTitle === 'Colour' && backLabel === 'Back to Clip' && backTo === 'Clip' && speedBack === 'Back to Clip', detail: { inEffects, rows, colourTitle, backLabel, backTo, speedBack } };
+  },
+  async 'Brand style opens from Text & graphics'() {
+    await freshEditor(); tab('elements').click(); await wait(200); const b = $('#v16-brand'); b?.click(); await wait(250);
+    const title = $('#ed-panel h3')?.textContent, font = !!$('#ed-style-font'), active = $$('.ed-tabs .active').map(x => x.dataset.panel);
+    return { pass: !!b && title === 'Brand style' && font && active.join() === 'elements', detail: { title, font, active } };
+  },
+  async 'undo and redo sit before the project name with their shortcuts'() {
+    await freshEditor(); const box = $('.v16-history'), name = $('.projecttitle');
+    const before = box && name && (box.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING);
+    return { pass: !!before && /⌘Z/.test($('#ed-undo').title) && /⇧⌘Z/.test($('#ed-redo').title), detail: { undo: $('#ed-undo').title, redo: $('#ed-redo').title } };
+  },
+  async 'media cards show Add, with Overlay and Delete in a menu'() {
+    await freshEditor(); tab('elements').click(); await wait(150); tab('media').click(); await wait(300);
+    const card = $('#ed-panel .v5-media'), visible = [...card.querySelectorAll('.ed-row > button')].map(b => b.textContent.trim());
+    const toggle = card.querySelector('.v16-more-toggle'); toggle.click(); await wait(80);
+    const items = [...card.querySelectorAll('.v16-menu button')].filter(b => b.offsetParent).map(b => b.textContent.trim());
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); await wait(50); const closed = card.querySelector('.v16-menu').hidden;
+    return { pass: JSON.stringify(visible) === '["Add"]' && items.includes('Overlay') && items.includes('Delete') && closed, detail: { visible, items, closed } };
+  },
+  async 'timeline view buttons are icons with names'() {
+    await freshEditor(); const v = $('#v8-show-tracks'), f = $('#v5-fit-timeline');
+    return { pass: !v.textContent.trim() && v.getAttribute('aria-label') === 'Show all tracks' && !f.textContent.trim() && f.title === 'Fit timeline', detail: { view: v.getAttribute('aria-label'), fit: f.title } };
+  },
+  async 'changing speed does not block: no dialog, the tile shows progress'() {
+    await freshEditor(); E().open('clip'); await wait(250); $('#v15-open-speed').click(); await wait(250);
+    const tile = $$('#ed-panel .v15-speed-tile').find(b => b.textContent.trim() === '2×'); tile.click(); await wait(60);
+    const dialog = !$('#v-overlay').hidden, busy = tile.classList.contains('v16-busy'), others = $$('#ed-panel .v15-speed-tile:disabled').length, status = $('#ed-status').textContent;
+    await wait(400); const done = E().get().clips[0].speed?.preset?.value === 2;
+    return { pass: !dialog && busy && others > 3 && /keep editing/.test(status) && done, detail: { dialog, busy, others, status, done } };
   },
 });
 

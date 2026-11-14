@@ -75,6 +75,7 @@ async function offerReload(message){
 }
 // 0.15: the app's own menu. Electron's default one offered Reload and Developer Tools, which lose unsaved
 // work; Dev builds keep them under View.
+function zoomV16(dir){const w=BrowserWindow.getFocusedWindow()||win;if(!w||w.isDestroyed())return;w.webContents.executeJavaScript('window.previewZoomV16?window.previewZoomV16('+JSON.stringify(dir)+'):false').catch(()=>false).then(done=>{if(done)return;const wc=w.webContents;wc.setZoomLevel(dir==='fit'?0:Math.max(-3,Math.min(3,wc.getZoomLevel()+(dir==='in'?.5:-.5))));});}
 function menuV15(){
  const go=js=>()=>win?.webContents.executeJavaScript(js).catch(()=>{});
  const nav=r=>go("document.querySelector('.v-nav [data-route="+r+"]')?.click()");
@@ -83,7 +84,7 @@ function menuV15(){
   {label:app.name,submenu:[{role:'about',label:'About Video Visor'},{type:'separator'},{label:'Settings…',accelerator:'CmdOrCtrl+,',click:nav('settings')},{type:'separator'},{role:'services'},{type:'separator'},{role:'hide',label:'Hide Video Visor'},{role:'hideOthers'},{role:'unhide'},{type:'separator'},{role:'quit',label:'Quit Video Visor'}]},
   {label:'File',submenu:[{label:'New Video',accelerator:'CmdOrCtrl+N',click:go("document.querySelector('.v-nav [data-route=home]')?.click();setTimeout(()=>document.querySelector('[data-flow=start-edit]')?.click(),150)")},{label:'Record Screen…',click:nav('record')},{label:'Projects',click:nav('projects')},{type:'separator'},{role:'close'}]},
   {role:'editMenu'},
-  {label:'View',submenu:[{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{type:'separator'},{role:'togglefullscreen'},...(dev?[{type:'separator'},{role:'reload'},{role:'toggleDevTools'}]:[])]},
+  {label:'View',submenu:[/* 0.15 (Phase 16): in the editor these zoom the preview; elsewhere the window, as before */{label:'Actual Size',accelerator:'CmdOrCtrl+0',click:()=>zoomV16('fit')},{label:'Zoom In',accelerator:'CmdOrCtrl+Plus',click:()=>zoomV16('in')},{label:'Zoom In',accelerator:'CmdOrCtrl+=',visible:false,acceleratorWorksWhenHidden:true,click:()=>zoomV16('in')},{label:'Zoom Out',accelerator:'CmdOrCtrl+-',click:()=>zoomV16('out')},{type:'separator'},{role:'togglefullscreen'},...(dev?[{type:'separator'},{role:'reload'},{role:'toggleDevTools'}]:[])]},
   {role:'windowMenu'},
   {role:'help',submenu:[{label:'Keyboard Shortcuts',click:go("globalThis.visorEditor?.shortcuts?.()")}]}
  ]));

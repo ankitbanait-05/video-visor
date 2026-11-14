@@ -166,3 +166,28 @@
 #visor-app .v15-before-after .checker img{background:repeating-conic-gradient(#d9dee6 0 25%,#fff 0 50%) 0 0/16px 16px}
 #visor-app .v15-tool #v7-replace-tool{display:none}
 #visor-app .v15-tool #v5-tool-preview{margin:0}
+
+/* 0.15 (Phase 16): preview zoom (editor-v16.js). The zoomed picture slides under the bars above and below it. */
+#visor-app #vv-editor .ed-main>#v5-canvasbar,#visor-app #vv-editor .ed-main>.ed-transport,#visor-app #vv-editor .ed-main>#ed-status{position:relative;z-index:3;background:inherit}
+#visor-app #vv-editor #ed-canvas.v16-zoomed{z-index:1;transform-origin:50% 50%}
+#visor-app #vv-editor .ed-main.v16-panning,#visor-app #vv-editor .ed-main.v16-panning *{cursor:grabbing!important}
+#visor-app #vv-editor .v16-zoom{height:30px;padding:0 8px;border:1px solid var(--v-border);border-radius:8px;background:var(--v-panel);color:var(--v-ink);font:inherit;font-size:12px;margin-left:6px}
+/* 0.15 (Phase 16): editor clarity. */
+#visor-app #vv-editor .v16-titleblock{max-width:290px!important;width:auto!important;display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:12px;align-items:center}
+#visor-app #vv-editor .v16-titleblock>.v16-history{grid-row:1/3;display:flex;gap:4px}
+#visor-app #vv-editor .v16-history button{width:32px;height:32px;padding:0;display:grid;place-items:center}
+#visor-app #vv-editor .v16-icon{width:34px;height:32px;padding:0!important;display:inline-grid!important;place-items:center}
+#visor-app #vv-editor .v16-icon svg{width:16px;height:16px}
+#visor-app #vv-editor .v16-brand{display:flex;align-items:center;gap:10px;text-align:left;margin:4px 0 12px}
+#visor-app #vv-editor .v16-brand span{display:flex;flex-direction:column}
+#visor-app #vv-editor .v16-brand small{color:var(--v-sub);font-weight:400}
+#visor-app #vv-editor .v16-more{position:relative;margin-left:auto}
+#visor-app #vv-editor .v16-more-toggle{width:32px;padding:0;display:grid;place-items:center}
+#visor-app #vv-editor .v16-menu{position:absolute;right:0;bottom:calc(100% + 4px);z-index:20;display:flex;flex-direction:column;min-width:150px;padding:4px;border:1px solid var(--v-border);border-radius:10px;background:var(--v-panel);box-shadow:0 8px 24px #0002}
+#visor-app #vv-editor .v16-menu[hidden]{display:none}
+#visor-app #vv-editor .v16-menu button{justify-content:flex-start;border:0;background:none;text-align:left;width:100%}
+#visor-app #vv-editor .v16-menu button:hover{background:var(--v-soft)}
+#visor-app #vv-editor .v5-media .ed-row{display:flex;align-items:center;gap:6px}
+#visor-app #vv-editor .v15-speed-tile.v16-busy{outline:2px solid var(--v-purple);animation:v16pulse 1.2s ease-in-out infinite}
+#visor-app #vv-editor .v15-speed-tile:disabled{opacity:.45}
+@keyframes v16pulse{50%{opacity:.6}}

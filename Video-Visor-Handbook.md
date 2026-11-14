@@ -259,6 +259,20 @@ Measured in the real app (`VV_BENCH_ONLY=export`). "Before" is the export window
 | Video tools | The file card now stays visible above the player (it was hidden). The redundant "Use another video" button is removed, and the hint is shorter. |
 | Under the hood | Settings without a name (resize width and height, watermark text and page numbers, frame time) now have one, so moving a field can't send the wrong value to the engine. |
 
+## Phase 16 status
+
+| Item | Status |
+|---|---|
+| Preview zoom | Done. Pinch on the trackpad (or ⌘ + scroll) zooms around the pointer. While zoomed, two-finger scroll or Option + drag moves the view. A menu next to "16:9 · Fit" offers Fit, 50%, 100%, 200% and 400% (100% = the exported pixels at 1080p; sizes smaller than Fit are greyed out). View → Zoom In / Zoom Out / Actual Size (⌘+ ⌘− ⌘0) zoom the preview in the editor, and the window elsewhere. Zoom changes only the view: it isn't saved and never reaches the export. *Space + drag was not used, because Space already plays and pauses.* |
+| 1 Tab highlight | Done. A clip's own panels (Clip, Speed, Colour), a video layer and the canvas highlight no tab. |
+| 2 Speed | Done. Speed opens only from the clip panel (its Speed row); the Effects list no longer has it, and its back arrow returns to the clip. |
+| 3 Six tabs | Done: Media, Text & graphics, Captions, Audio, Effects, Transitions. Adjustments (colour) are per clip, so they open from a new **Colour** row in the clip panel. Style is now **Brand style** at the top of Text & graphics. |
+| 4 Undo / redo | Done. Left of the project name, with "Undo (⌘Z)" / "Redo (⇧⌘Z)" tooltips. |
+| 5 Media cards | Done. Add is the one button, and Overlay and Delete sit in a ⋯ menu. Dragging the thumbnail onto the timeline already worked. |
+| 6 Timeline buttons | Done. "Show all tracks" / "Focus tracks" and "Fit timeline" are icon buttons with tooltips. |
+| Speed without waiting (from 1.1) | Partly. Changing speed no longer opens a dialog: the chosen tile pulses with its percentage, the status line says you can keep editing, and the clip switches when the copy is ready (about 1 s for a few seconds of footage; reused instantly when you go back to a speed). *Playing the original faster as a stand-in was not built:* the preview engine plays every clip at normal rate, and the timeline length depends on the copy, so a stand-in would show the wrong length. |
+| Found while testing | The Phase 14 fast export didn't look at a clip's colour adjustments. A clip with a small exposure change could have exported without it. It now counts as "something drawn on top" and uses the export window; the planner test covers it. |
+
 ## 8. Decisions needed from you
 
 1. **Speed copies:** hide them from Media (recommended), or show them named after the clip?
@@ -277,7 +291,7 @@ Measured in the real app (`VV_BENCH_ONLY=export`). "Before" is the export window
 | 13 | Quick fixes: speed dialog and copies (1.1), light-mode rows and transition tiles plus the theme check (1.3), status line, wrong file types in tools. *Done.* | M |
 | 14 | Export speed I: progress (E7), frame-rate default (E5), direct path for plain stretches (E1). *Done.* | L |
 | 15 | File tools redesign (section 5). *Done.* | M |
-| 16 | Preview zoom (section 4) and editor clarity items 1–6 | M |
+| 16 | Preview zoom (section 4) and editor clarity items 1–6. *Done.* | M |
 | 17 | Keyframes and presets (section 3) | L |
 | 18 | Export speed II: offscreen capture (E3), graphics layer (E2), parallel chunks (E4), re-use (E6) | L |
 | 19 | Editing power: ripple delete, J/K/L, multi-select, markers | M |
