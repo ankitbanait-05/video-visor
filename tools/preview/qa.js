@@ -586,6 +586,54 @@ Object.assign(checks, {
   },
 });
 
+// Phase 9: projects, storage, reliability.
+const projectNames = async () => { $('.v-nav [data-route=projects]').click(); await wait(300); return $$('#v-content .v10-project h3, #v-content .v10-project strong').map(x => x.textContent.trim()).filter(Boolean); };
+Object.assign(checks, {
+  async 'a missing media file can be relinked from the Media tab'() {
+    await freshEditor(); const id = E().get().clips[0].asset; window.__missing = [id];
+    await wait(5100); tab('elements').click(); await wait(150); tab('media').click(); await wait(400);
+    const row = $('#ed-panel .v15-missing'), btn = row?.querySelector('[data-native^="relink-"]');
+    if (!btn) { window.__missing = []; return { pass: false, detail: 'no relink row' }; }
+    btn.click(); await wait(500); const name = E().get().assets.find(a => a.id === id)?.name; window.__missing = [];
+    return { pass: /^Relinked /.test(name || ''), detail: name };
+  },
+  async 'new videos from the same file get distinct names'() {
+    await freshEditor(); await freshEditor.call(null, true).catch?.(() => {});
+    $('.v-nav [data-route=home]').click(); await wait(200); $$('#v-content button').find(b => /New video|Create a video/.test(b.textContent)).click(); await wait(900);
+    const names = (await projectNames()).filter(n => /^Product demo/.test(n));
+    return { pass: names.length >= 2 && names[0] !== names[1], detail: names.slice(0, 3) };
+  },
+  async 'importing into an emptied project keeps that project'() {
+    await freshEditor(); const before = (await projectNames()).length;
+    $('.v-nav [data-route=editor]').click(); await wait(400);
+    E().patch({ assets: [], clips: [{ id: 'blank', asset: 'blank', name: 'Add footage', kind: 'image', start: 0, end: 5, limit: 5 }] }); await wait(100);
+    await window.nativeImport(false); await wait(700);
+    const after = (await projectNames()).length;
+    return { pass: after === before, detail: { before, after } };
+  },
+  async 'Settings shows storage and clears caches'() {
+    window.__orphans = true; $('.v-nav [data-route=settings]').click(); await wait(500);
+    const box = $('#v15-storage'), text = box?.textContent || ''; const clear = box?.querySelector('[data-v10="storage-cache"]');
+    clear?.click(); await wait(300); window.__orphans = false;
+    return { pass: /412 MB/.test(text) && /180 MB/.test(text) && /2 recordings/.test(text) && window.__cleaned?.opts?.media === false && Array.isArray(window.__cleaned?.used), detail: text.slice(0, 160) };
+  },
+  async 'a failed save is shown, not just noted in the footer'() {
+    await freshEditor(); const orig = window.openai.setWidgetState; window.openai.setWidgetState = () => Promise.reject(Error('Disk full (test)'));
+    try { E().patch({ ratio: '1/1' }); await wait(900); } finally { window.openai.setWidgetState = orig; }
+    const shown = !$('#v-overlay').hidden && /not being saved/.test($('#v-dialog-body')?.closest('#v-overlay')?.textContent || '');
+    $('#v-dialog-close')?.click(); E().patch({ ratio: '16/9' }); await wait(700);
+    return { pass: shown, detail: shown };
+  },
+  async 'opening a project does not mark the previous one as edited'() {
+    await freshEditor(); await wait(600); $('.v-nav [data-route=projects]').click(); await wait(300);
+    const cards = $$('#v-content [data-project]'); if (cards.length < 2) return { pass: false, detail: 'need two projects' };
+    const firstText = cards[0].textContent; cards[1].click(); await wait(800);
+    $('.v-nav [data-route=projects]').click(); await wait(300);
+    const order = $$('#v-content [data-project]').map(c => c.textContent);
+    return { pass: order[0] === firstText, detail: { before: firstText.slice(0, 40), nowFirst: order[0]?.slice(0, 40) } };
+  },
+});
+
 export const count = () => Object.keys(checks).length;
 export async function run(only) {
   const results = [];

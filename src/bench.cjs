@@ -26,6 +26,18 @@ async function run(ctx) {
     const left = await fs.stat(raw).then(() => true, () => false);
     out('recover', { asked, rawRemoved: !left, kind: sent?.kind, duration: sent?.asset?.duration, name: sent?.asset?.name });
   }
+  if (only.includes('storage')) {
+    for (let i = 0; i < 100 && !(await win.webContents.executeJavaScript('!!globalThis.visorEditor')); i++) await new Promise(r => setTimeout(r, 100));
+    // PR-04 through the real IPC path. Every registered asset counts as used, so only caches and temp files may go.
+    const ids = await win.webContents.executeJavaScript('(()=>{const s=window.openai?.widgetState?.privateContent?.app;const set=new Set();for(const p of s?.projects||[])for(const a of p.snapshot?.assets||[])set.add(a.id);for(const a of globalThis.visorEditor?.get().assets||[])set.add(a.id);return [...set];})()');
+    const all = Object.keys(JSON.parse(await fs.readFile(path.join(root, 'media.json'), 'utf8')));
+    const before = await win.webContents.executeJavaScript(`native.storageInfo(${JSON.stringify(all)})`);
+    const keep = all.filter(id => ctx.registryEntry(id)?.previewPath).map(id => ctx.registryEntry(id).previewPath);
+    const res = await win.webContents.executeJavaScript(`native.storageClean(${JSON.stringify(all)},{media:false})`);
+    const kept = (await Promise.all(keep.map(f => fs.access(f).then(() => 1, () => 0)))).reduce((a, b) => a + b, 0);
+    const after = await win.webContents.executeJavaScript(`native.storageInfo(${JSON.stringify(ids)})`);
+    out('storage', { projectAssets: ids.length, registered: all.length, before, freed: res.freed, previewsKept: kept + '/' + keep.length, afterForProjects: after });
+  }
   if (only.includes('theme')) {
     // Settings → Appearance through the real IPC path; the menu must not offer Reload outside Dev builds.
     const { nativeTheme, Menu } = require('electron'), res = {};

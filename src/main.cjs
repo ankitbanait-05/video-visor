@@ -34,7 +34,7 @@ async function makeCopyV15(input,output,meta,{label,blocking}={}){
 }
 function scheduleCopyV15(id){
  const a=registry[id];if(!a||pendingCopiesV15.has(id))return;const out=path.join(root,'edit-'+id+'.mp4');
- const task=copyQueueV15.catch(()=>{}).then(async()=>{const job=makeCopyV15(a.path,out,a);await job;if(registry[id]){registry[id].previewPath=out;registry[id].editCopy=true;await fs.writeFile(path.join(root,'media.json'),JSON.stringify(registry));}}).catch(e=>logDiagnostic('edit-copy',{id,failed:e.message})).finally(()=>pendingCopiesV15.delete(id));
+ const task=copyQueueV15.catch(()=>{}).then(async()=>{const job=makeCopyV15(a.path,out,a);await job;if(registry[id]){registry[id].previewPath=out;registry[id].editCopy=true;await saveRegistryV15();}}).catch(e=>logDiagnostic('edit-copy',{id,failed:e.message})).finally(()=>pendingCopiesV15.delete(id));
  copyQueueV15=task;pendingCopiesV15.set(id,task);
 }
 // Before an export: wait for edit copies still being made for the footage it uses, so it gets the fast path.
@@ -42,6 +42,8 @@ async function waitForCopiesV15(state,report=progress){const ids=[...new Set([..
 // 0.9: files are checked by type before FFmpeg sees them, and read errors are reported in plain language
 // (the technical detail goes to diagnostics.log).
 const SUPPORTED=/^\.(mp4|mov|m4v|webm|mkv|avi|mpg|mpeg|wmv|flv|3gp|mts|m2ts|ts|ogv|mp3|wav|m4a|aac|ogg|flac|aif|aiff|opus|wma|png|jpe?g|webp|gif|tiff?|avif|heic|pdf)$/;
+/* 0.15 (PR-05): the media list is written to a temporary file and renamed, so a crash mid-write can't corrupt it; writes are queued. */
+let registryWriteV15=Promise.resolve();function saveRegistryV15(){const text=JSON.stringify(registry),target=path.join(root,'media.json'),temp=target+'.'+randomUUID()+'.tmp';registryWriteV15=registryWriteV15.catch(()=>{}).then(async()=>{try{await fs.writeFile(temp,text);await fs.rename(temp,target);}finally{await fs.unlink(temp).catch(()=>{});}});return registryWriteV15;}
 async function register(file,cursor){
  const stat=await fs.stat(file),ext=path.extname(file).toLowerCase(),id=randomUUID();
  if(!SUPPORTED.test(ext))throw Error(ext?'Video Visor cannot open '+ext+' files. Use a video, audio, image or PDF file.':'This file has no extension, so its type is unknown. Use a video, audio, image or PDF file.');
@@ -49,7 +51,7 @@ async function register(file,cursor){
  let needsCopyV15=false;if(kind==='video'||kind==='audio'){const p=await probe(file).catch(e=>{logDiagnostic('import',path.basename(file)+': '+e.message);throw Error(/timed out/i.test(e.message)?e.message:'This file could not be read. It may be damaged, incomplete, or in a format Video Visor does not support.');}),v=p.streams.find(x=>x.codec_type==='video'&&!x.disposition?.attached_pic);if(!v)kind='audio';const duration=Number(p.format.duration),rate=(v?.avg_frame_rate||'30/1').split('/').map(Number);if(!Number.isFinite(duration)||duration<=0)throw Error('This file has no readable media duration. Choose a complete video or audio file.');meta={duration,...require('./engines/media-preview.cjs').orientation(v),fps:rate[0]/rate[1]||30,hasAudio:p.streams.some(x=>x.codec_type==='audio')};if(v&&(!['h264','vp8','vp9','av1'].includes(v.codec_name)||v.codec_name==='h264'&&!['yuv420p','yuvj420p','nv12'].includes(v.pix_fmt)||v.color_transfer)){const label='Preparing '+path.basename(file)+' for editing';progress(0,label);previewPath=path.join(root,'preview-'+id+'.mp4');await makeCopyV15(file,previewPath,meta,{label,blocking:true});}
   else if(v){const span=Math.min(12,duration),keys=span>3?await probeV15.keyframeRate(ffmpeg,file):null;needsCopyV15=keys!=null&&keys/span<.5;}}
  if(kind==='image'){const sharp=require('sharp');if(['.tif','.tiff','.heic'].includes(ext)){previewPath=path.join(root,'preview-'+id+'.png');try{await sharp(file).rotate().png().toFile(previewPath);}catch{await run('/usr/bin/sips',['-s','format','png',file,'--out',previewPath]);}}const m=await sharp(previewPath||file).metadata();meta.width=m.autoOrient?.width||m.width;meta.height=m.autoOrient?.height||m.height;}
- registry[id]={id,path:file,previewPath,name:path.basename(file),kind,size:stat.size,...meta,cursor:cursor||[]};await fs.writeFile(path.join(root,'media.json'),JSON.stringify(registry));if(needsCopyV15)scheduleCopyV15(id);const {path:_,previewPath:__,...item}=registry[id];return {...item,url:url(id),type:kind+'/local'};
+ registry[id]={id,path:file,previewPath,name:path.basename(file),kind,size:stat.size,...meta,cursor:cursor||[]};await saveRegistryV15();if(needsCopyV15)scheduleCopyV15(id);const {path:_,previewPath:__,...item}=registry[id];return {...item,url:url(id),type:kind+'/local'};
 }
 function asset(id){if(!registry[id])throw Error('Media missing. Import the original again.');return registry[id];}
 async function importMany(paths){const result=[],errors=[];for(let i=0;i<paths.length;i++){const file=paths[i];progress(i/paths.length*100,'Importing '+(i+1)+' / '+paths.length+' · '+path.basename(file));try{result.push(await register(file));}catch(e){errors.push(path.basename(file)+': '+e.message);}}if(errors.length)await dialog.showMessageBox(win,{type:'warning',message:'Some files could not be imported',detail:errors.join('\n')+'\n\n'+(result.length?'The other files were imported.':'Nothing was imported.')});return result;}
@@ -98,9 +100,36 @@ app.whenReady().then(async()=>{menuV15();
  win.on('unresponsive',()=>{logDiagnostic('unresponsive','Editor stopped responding');offerReload('The editor is not responding.');});
  event('load',()=>projectStore.load());
  event('workspaceRecovery',()=>projectStore.recovery());
+ event('workspaceInfo',()=>projectStore.info());
+ event('workspaceRestore',mode=>projectStore.restore(mode==='backup'?'backup':'fresh'));
  event('diagnostic',detail=>logDiagnostic('renderer',String(detail).slice(0,2000)));
  event('save',data=>projectStore.save(data));
- event('library',async()=>{if(libraryCache)return libraryCache;const catalog=JSON.parse(await fs.readFile(path.join(__dirname,'music/catalog.json'),'utf8'));libraryCache=[];for(const item of catalog){const a=await register(path.join(__dirname,'music',item.file).replace('app.asar/','app.asar.unpacked/'));libraryCache.push({...a,name:item.name,mood:item.mood,bpm:item.bpm});}return libraryCache;});event('relink',async(id,requiredEnd=0)=>{const previous=asset(id);const r=await dialog.showOpenDialog(win,{title:'Locate the original media file',properties:['openFile']});if(r.canceled)return null;const item=await register(r.filePaths[0]);const next=registry[item.id];if(next.kind!==previous.kind)throw Error('Choose the same type of media as the original.');if(next.kind!=='image'&&next.duration+0.01<Number(requiredEnd))throw Error('This replacement is shorter than the edited clip ranges. Choose the original or a longer file.');delete registry[item.id];registry[id]={...next,id};await fs.writeFile(path.join(root,'media.json'),JSON.stringify(registry));return {...item,id,url:url(id)};});event('pick',pick);event('importPaths',async paths=>importMany(paths));
+ event('library',async()=>{if(libraryCache)return libraryCache;const catalog=JSON.parse(await fs.readFile(path.join(__dirname,'music/catalog.json'),'utf8'));libraryCache=[];for(const item of catalog){const a=await register(path.join(__dirname,'music',item.file).replace('app.asar/','app.asar.unpacked/'));libraryCache.push({...a,name:item.name,mood:item.mood,bpm:item.bpm});}return libraryCache;});event('relink',async(id,requiredEnd=0)=>{const previous=asset(id);const r=await dialog.showOpenDialog(win,{title:'Locate the original media file',properties:['openFile']});if(r.canceled)return null;const item=await register(r.filePaths[0]);const next=registry[item.id];if(next.kind!==previous.kind)throw Error('Choose the same type of media as the original.');if(next.kind!=='image'&&next.duration+0.01<Number(requiredEnd))throw Error('This replacement is shorter than the edited clip ranges. Choose the original or a longer file.');delete registry[item.id];registry[id]={...next,id};await saveRegistryV15();return {...item,id,url:url(id)};});/* 0.15 (PR-04): storage. The workspace only ever grew: preview and edit copies, thumbnails, sound previews and temporary
+   files stayed forever, and recordings stayed after their project was deleted. `used` is every asset id that any project
+   (or the open editor) refers to. Copies and caches can always be made again; app-made media (recordings, speed copies)
+   is only removed when no project uses it and the person chose to. */
+async function storageScanV15(used,only){
+ used=new Set([].concat(used||[]));const onlySet=only?new Set([].concat(only)):null;const out={cache:[],media:[],total:0};
+ const size=async p=>{const st=await fs.stat(p).catch(()=>null);if(!st)return 0;if(!st.isDirectory())return st.size;let n=0;for(const f of await fs.readdir(p).catch(()=>[]))n+=await size(path.join(p,f));return n;};
+ const owner={};for(const [id,a] of Object.entries(registry)){for(const p of [a.previewPath,a.path])if(p&&path.dirname(p)===root)owner[path.basename(p)]={id,copy:p===a.previewPath&&p!==a.path};}
+ for(const name of await fs.readdir(root).catch(()=>[])){
+  if(['projects.json','projects-backup.json','media.json','diagnostics.log'].includes(name)||/^projects-(before-recovery|damaged)/.test(name))continue;
+  const full=path.join(root,name),bytes=await size(full);out.total+=bytes;const o=owner[name],id=o?.id;
+  if(onlySet){if(id&&onlySet.has(id)&&!used.has(id))out[o.copy?'cache':'media'].push({file:full,bytes,id});continue;}
+  if(/^(visual-|audio-previews|render-|bench$)|\.tmp$|^(speech\.wav|transcript\.json)$/.test(name)){out.cache.push({file:full,bytes});continue;}
+  if(/^(preview|edit)-/.test(name)){if(!id||!used.has(id))out.cache.push({file:full,bytes,id});continue;}
+  if(/^(Recording-|speed-)/.test(name)&&!/\.webm$/.test(name)){if(!id||!used.has(id))out.media.push({file:full,bytes,id});}
+ }
+ return out;
+}
+event('storageInfo',async used=>{const s=await storageScanV15(used);const sum=l=>l.reduce((n,x)=>n+x.bytes,0);return {total:s.total,cache:sum(s.cache),media:sum(s.media),mediaCount:s.media.length};});
+event('storageClean',async(used,opts={})=>{
+ if(currentJob||backgroundJob||pendingCopiesV15.size)throw Error('Wait for the current task to finish, then try again.');
+ const s=await storageScanV15(used,opts.only),list=[...s.cache,...(opts.media?s.media:[])];let freed=0;
+ for(const x of list){await fs.rm(x.file,{recursive:true,force:true}).then(()=>{freed+=x.bytes;},()=>{});const a=x.id&&registry[x.id];if(a){if(a.previewPath===x.file){delete a.previewPath;delete a.editCopy;}if(a.path===x.file)delete registry[x.id];}}
+ await saveRegistryV15();return {freed};
+});
+/* 0.15 (PR-01) */event('mediaStatus',async ids=>{const out={};for(const id of [].concat(ids||[]).slice(0,500)){const a=registry[id];out[id]=!a?'unknown':await fs.access(a.path).then(()=>'ok',()=>'missing');}return out;});event('pick',pick);event('importPaths',async paths=>importMany(paths));
  const visuals=require('./engines/media-preview.cjs').createCache(root,ffmpeg);event('mediaVisuals',(id,range)=>{const a=asset(id);if(!range)return visuals(a);const start=Math.max(0,Math.min(a.duration-.01,Number(range.start)||0)),end=Math.max(start+.01,Math.min(a.duration,Number(range.end)||a.duration));return visuals({...a,id:a.id+'-'+start.toFixed(3)+'-'+end.toFixed(3),offset:start,duration:end-start});});
  event('readScript',async()=>{const r=await dialog.showOpenDialog(win,{filters:[{name:'Script',extensions:['txt','md']}],properties:['openFile']});if(r.canceled)return null;if((await fs.stat(r.filePaths[0])).size>200000)throw Error('Choose a script smaller than 200 KB.');return fs.readFile(r.filePaths[0],'utf8');});
  event('readText',async()=>{const r=await dialog.showOpenDialog(win,{filters:[{name:'Caption file',extensions:['srt','vtt']}],properties:['openFile']});return r.canceled?null:fs.readFile(r.filePaths[0],'utf8');});

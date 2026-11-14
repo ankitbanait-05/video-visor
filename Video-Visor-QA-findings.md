@@ -432,14 +432,29 @@ The recorder runs in its own window, which the browser preview cannot show, so t
 
 | ID | Change | Pri | Evidence | Was | ☐ |
 |---|---|---|---|---|---|
-| PR-01 | **Relink missing media.** Moved or renamed originals today make export fail with a raw error, and the relink code has no button | H | Code | E1 | ☐ |
-| PR-02 | **No silent save failure.** Past 20 MB the workspace stops saving with only a footer note and no warning on quit. Store each project separately and warn early | H | Code | E2 | ☐ |
-| PR-03 | No duplicate projects: importing asks for a name or adds to the open project. "Import footage" on an emptied project stays in that project | H | Repro | B11, B27 | ☐ |
-| PR-04 | Storage clean-up and a "Clear cache" button in Settings (nothing in the workspace is ever deleted). Deleting a project removes its recordings | M | Code | S1, S2 | ☐ |
-| PR-05 | Damaged workspace: offer restore from backup or start fresh (today only "Try again"). Media list written safely | M | Code | S3 | ☐ |
-| PR-06 | Default canvas shape and caption language apply to projects that start with an image or audio file | L | Code | — | ☐ |
-| PR-07 | Deleting the last project doesn't leave later edits attached to nothing | L | Code | — | ☐ |
-| PR-08 | Opening a project doesn't mark the one you left as edited | L | Code | — | ☐ |
+| PR-01 | **Relink missing media.** Moved or renamed originals today make export fail with a raw error, and the relink code has no button | H | Code | E1 | ✅ |
+| PR-02 | **No silent save failure.** Past 20 MB the workspace stops saving with only a footer note and no warning on quit. Store each project separately and warn early | H | Code | E2 | ✅ |
+| PR-03 | No duplicate projects: importing asks for a name or adds to the open project. "Import footage" on an emptied project stays in that project | H | Repro | B11, B27 | ✅ |
+| PR-04 | Storage clean-up and a "Clear cache" button in Settings (nothing in the workspace is ever deleted). Deleting a project removes its recordings | M | Code | S1, S2 | ✅ |
+| PR-05 | Damaged workspace: offer restore from backup or start fresh (today only "Try again"). Media list written safely | M | Code | S3 | ✅ |
+| PR-06 | Default canvas shape and caption language apply to projects that start with an image or audio file | L | Code | — | ✅ |
+| PR-07 | Deleting the last project doesn't leave later edits attached to nothing | L | Code | — | ✅ |
+| PR-08 | Opening a project doesn't mark the one you left as edited | L | Code | — | ✅ |
+
+### Phase 9 status (14 Nov)
+
+77 checks in `tools/preview/qa.js` pass (6 new). In the real app (new `storage` step in `src/bench.cjs`), clearing caches on the development workspace freed 166 MB and kept all 22 preview copies still in use.
+
+| ID | What changed |
+|---|---|
+| PR-01 ✅ | A media file that was moved, renamed or deleted is marked in the Media tab ("File missing") with a **Relink…** button, and a message says how many are missing when a project opens. Export names the missing file and points to Relink instead of a raw error |
+| PR-02 ✅ | Saving can no longer fail quietly: a failed save opens a dialog (once per problem), the footer says "Not saved", and quitting after a failed save warns. The limit is 100 MB (was 20 MB); from 25 MB the app suggests deleting old projects. Each project is still kept in one workspace file; splitting it per project was not needed once failures are visible and the limit is higher |
+| PR-03 ✅ | New videos get unique names ("Product demo 2"). Importing into a project you emptied keeps that project (and renames it after the file) instead of starting another |
+| PR-04 ✅ | **Settings → Storage** shows how much the workspace uses, with **Clear** for previews, thumbnails, sound previews and temporary files (made again when needed) and **Delete…** for recordings and speed copies no project uses. Deleting a project can also delete the recordings made for it. Anything any project, or any of its saved versions, still uses is never removed |
+| PR-05 ✅ | A workspace that can't be read offers **Restore last backup** (a copy refreshed at most every 10 minutes), **Start with an empty workspace** (the damaged file is kept) and **Try again**. The media list is written to a temporary file and renamed, so a crash can't corrupt it |
+| PR-06 ✅ | Settings → New videos (canvas shape, caption language) also applies when a video starts from an image or an audio file |
+| PR-07 ✅ | Edits made after deleting the last project are saved into a new "Untitled video" project instead of nowhere |
+| PR-08 ✅ | Opening a project no longer marks the one you left as edited (it only moves to the top when something changed) |
 
 ---
 

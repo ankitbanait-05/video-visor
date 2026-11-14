@@ -19,7 +19,14 @@
  const panel=document.createElement('main');panel.className='vv-startup-error';
  const title=document.createElement('h1');title.textContent='Your workspace could not open';
  const detail=document.createElement('p');detail.textContent=window.nativeBootError;
- const note=document.createElement('p');note.textContent='Your saved projects are kept unchanged. Close Video Visor and keep the workspace files for recovery.';
- const retry=document.createElement('button');retry.textContent='Try again';retry.onclick=()=>location.reload();panel.append(title,detail,note,retry);document.body.replaceChildren(panel);
+ const note=document.createElement('p');note.textContent='Nothing has been deleted. You can restore the last backup or start with an empty workspace; the damaged file is kept beside it either way.';
+ const row=document.createElement('div');row.className='vv-startup-actions';
+ const add=(label,fn,primary)=>{const b=document.createElement('button');b.textContent=label;if(primary)b.className='primary';b.onclick=async()=>{b.disabled=true;try{await fn();location.reload();}catch(e){detail.textContent=e.message||String(e);b.disabled=false;}};row.append(b);return b;};
+ /* 0.15 (PR-05): more than "Try again" */
+ const info=await window.native?.workspaceInfo?.().catch(()=>null);
+ if(info?.backup)add('Restore last backup',()=>native.workspaceRestore('backup'),true);
+ add('Start with an empty workspace',async()=>{if(confirm('Start with an empty workspace?\n\nThe damaged file is kept in the workspace folder.'))await native.workspaceRestore('fresh');else throw Error(window.nativeBootError);});
+ add('Try again',async()=>{});
+ panel.append(title,detail,note,row);document.body.replaceChildren(panel);
 }
 })();

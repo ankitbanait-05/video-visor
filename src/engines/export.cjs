@@ -8,7 +8,7 @@ function hardwareEncoderV15(ffmpeg){if(!hardwareV15)hardwareV15=new Promise(reso
 async function exportProject(ctx){
  const {state,cfg,asset,run,ffmpeg,root,saveDialog,progress,cancelled,BrowserWindow}=ctx;
  if(!state.clips?.length||state.clips.length>200)throw Error('Add footage before exporting.');const speed=+state.speed||1;if(speed<.25||speed>4)throw Error('Invalid playback speed.');
- for(const c of state.clips){const a=asset(c.asset);await fs.access(a.path);if(!Number.isFinite(c.start)||!Number.isFinite(c.end)||c.start<0||c.end<=c.start||c.end>a.duration+.1)throw Error('Invalid clip range: '+a.name);}
+ for(const c of state.clips){const a=asset(c.asset);await fs.access(a.path).catch(()=>{throw Error('“'+a.name+'” can’t be found. It may have been moved, renamed or deleted. In the editor, open Media and choose Relink to point to it again.');});if(!Number.isFinite(c.start)||!Number.isFinite(c.end)||c.start<0||c.end<=c.start||c.end>a.duration+.1)throw Error('Invalid clip range: '+a.name);}
  const duration=state.clips.reduce((n,c)=>n+c.end-c.start,0)/speed;if(!Number.isFinite(duration)||duration>14400)throw Error('Export supports projects up to four hours.');
  const audioOnly=cfg.format==='Audio only',frame=cfg.format==='Frame',gif=cfg.format==='GIF',ext=frame?'png':audioOnly?(cfg.audio||'MP3').toLowerCase():(cfg.format||'MP4').toLowerCase();if(!['mp4','mov','webm','gif','mp3','wav','m4a','png'].includes(ext))throw Error('Unsupported export format');
  // 0.13: a caller that already knows where the file goes (the render queue, a frame for the connector) passes `destination`; otherwise the save dialog asks.

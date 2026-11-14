@@ -101,3 +101,7 @@
 #visor-app *:not(#ed-canvas):not(#ed-canvas *),#visor-app *:not(#ed-canvas *)::before,#visor-app *:not(#ed-canvas *)::after,#v15-toast,#v13-queue-chip{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
 }
 #visor-app .v15-warn{color:#9a6200;margin:4px 0 0}#visor-app[data-theme=dark] .v15-warn{color:#f0b54a}
+#visor-app .v15-missing{display:flex;align-items:center;gap:8px;margin:4px 0 8px;padding:7px 9px;border-radius:7px;background:#fdecea;color:#8a2a1c;font-size:12px}
+#visor-app .v15-missing span{flex:1}
+#visor-app .v15-missing button{padding:4px 9px;font-size:12px}
+#visor-app[data-theme=dark] .v15-missing{background:#3a1d18;color:#ffb4a6}
