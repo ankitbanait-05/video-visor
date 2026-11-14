@@ -3,6 +3,9 @@
     python3 -I tools/build.py          dist/Video Visor Dev.app  (separate data folder: safe for testing)
     python3 -I tools/build.py --release dist/Video Visor.app     (uses the real "video-visor" data folder)
     add --dmg                           also make a .dmg next to the app
+    add --identity "Developer ID Application: Company (TEAMID)"   sign for distribution (hardened runtime)
+    add --notarize PROFILE              with --dmg: notarise with `xcrun notarytool` (keychain profile made once
+                                        with `xcrun notarytool store-credentials PROFILE`) and staple the ticket
 
 The Dev build is named "Video Visor Dev", has its own bundle id and keeps its projects in
 ~/Library/Application Support/video-visor-dev, so it never touches real projects.
@@ -23,8 +26,46 @@ sys.path.insert(0, HERE)
 import asar  # noqa: E402
 
 
+def arg(flag):
+    return sys.argv[sys.argv.index(flag) + 1] if flag in sys.argv and sys.argv.index(flag) + 1 < len(sys.argv) else None
+
+
+def macho_files(app):
+    """Every Mach-O binary inside the app, deepest first, so each is signed before what contains it."""
+    found = []
+    for folder, _dirs, files in os.walk(app):
+        for f in files:
+            p = os.path.join(folder, f)
+            if os.path.islink(p):
+                continue
+            try:
+                with open(p, "rb") as fh:
+                    magic = fh.read(4)
+            except OSError:
+                continue
+            if magic in (b"\xcf\xfa\xed\xfe", b"\xca\xfe\xba\xbe", b"\xfe\xed\xfa\xcf", b"\xbe\xba\xfe\xca"):
+                found.append(p)
+    bundles = [os.path.join(folder, d) for folder, dirs, _ in os.walk(app) for d in dirs if d.endswith((".framework", ".app")) and os.path.join(folder, d) != app]
+    return sorted(found, key=lambda p: -p.count(os.sep)), sorted(bundles, key=lambda p: -p.count(os.sep))
+
+
+def sign(app, identity):
+    """0.15 (DS-01): with a Developer ID, every binary is signed with the hardened runtime and a timestamp."""
+    if not identity:
+        # Ad-hoc signature for running on this Mac. Distribution needs a Developer ID + notarisation (DS-01).
+        subprocess.run(["codesign", "--force", "--deep", "--sign", "-", app], check=True, capture_output=True)
+        return
+    ent = os.path.join(HERE, "entitlements.plist")
+    base = ["codesign", "--force", "--timestamp", "--options", "runtime", "--entitlements", ent, "--sign", identity]
+    binaries, bundles = macho_files(app)
+    for p in binaries + bundles + [app]:
+        subprocess.run(base + [p], check=True, capture_output=True)
+    subprocess.run(["codesign", "--verify", "--deep", "--strict", app], check=True)
+
+
 def main():
     release, make_dmg = "--release" in sys.argv, "--dmg" in sys.argv
+    identity, profile = arg("--identity"), arg("--notarize")
     vendor = os.path.join(ROOT, "vendor")
     runtime = os.path.join(vendor, "runtime", "Video Visor.app")
     if not os.path.isdir(runtime):
@@ -72,6 +113,11 @@ def main():
     info["CFBundleShortVersionString"] = info["CFBundleVersion"] = version
     # 0.15: macOS asks for this when a recording includes the Mac's own sound.
     info["NSAudioCaptureUsageDescription"] = "Video Visor records your Mac's sound with the screen when you tick Mac sound."
+    # 0.15 (DS-03): no "allow any insecure connection" (only local networking, which the assistant connector uses), and no
+    # permission texts for things the app never uses.
+    info["NSAppTransportSecurity"] = {"NSAllowsLocalNetworking": True}
+    for key in ("NSBluetoothAlwaysUsageDescription", "NSBluetoothPeripheralUsageDescription"):
+        info.pop(key, None)
     # CFBundleName must stay "Video Visor": Electron finds its "Video Visor Helper" apps by it.
     info["CFBundleDisplayName"] = name
     if not release:
@@ -79,9 +125,8 @@ def main():
     with open(plist_path, "wb") as f:
         plistlib.dump(info, f)
 
-    # Ad-hoc signature for running on this Mac. Distribution needs a Developer ID + notarisation (DS-01).
-    subprocess.run(["codesign", "--force", "--deep", "--sign", "-", app], check=True, capture_output=True)
-    print("built", os.path.relpath(app, ROOT), "· version", version)
+    sign(app, identity)
+    print("built", os.path.relpath(app, ROOT), "· version", version, "· signed by " + identity if identity else "· ad-hoc signed")
 
     if make_dmg:
         dmg = os.path.join(dist, "%s-%s-arm64.dmg" % (name, version))
@@ -92,6 +137,14 @@ def main():
                 os.remove(dmg)
             subprocess.run(["hdiutil", "create", "-volname", "%s %s" % (name, version), "-srcfolder", tmp,
                             "-format", "UDZO", "-ov", dmg], check=True, capture_output=True)
+        if identity:
+            subprocess.run(["codesign", "--force", "--timestamp", "--sign", identity, dmg], check=True, capture_output=True)
+        if profile:
+            if not identity:
+                sys.exit("--notarize needs --identity")
+            subprocess.run(["xcrun", "notarytool", "submit", dmg, "--keychain-profile", profile, "--wait"], check=True)
+            subprocess.run(["xcrun", "stapler", "staple", dmg], check=True)
+            subprocess.run(["xcrun", "stapler", "staple", app], check=True)
         print("built", os.path.relpath(dmg, ROOT))
 
 

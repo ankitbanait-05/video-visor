@@ -10,7 +10,7 @@ const catalog = require('../connector/tools.cjs');
 // person's decisions and stay out of the list.
 const DRAFT_TOOLS = ['get_project', 'get_transcript', 'list_presets', 'remove_pauses', 'remove_ranges', 'reorder_clips', 'add_title', 'add_icon', 'remove_element', 'set_captions', 'set_music', 'set_canvas'];
 const LABELS = { get_project: 'Reading the project', get_transcript: 'Reading the transcript', list_presets: 'Looking at the title and music presets', get_frame: 'Looking at a frame', remove_pauses: 'Cutting silent pauses', remove_ranges: 'Cutting out parts', reorder_clips: 'Reordering clips', add_title: 'Adding a title', add_icon: 'Adding an icon', remove_element: 'Removing a title', set_captions: 'Setting captions', set_music: 'Setting music', set_canvas: 'Setting the frame shape' };
-const MAX_STEPS = 40;
+const MAX_STEPS = 40, MAX_TOKENS = 400000 /* 0.15 (DS-05): spending cap per session, input and output together */;
 
 function toolsFor(allowFrames) {
   return [...DRAFT_TOOLS, ...(allowFrames ? ['get_frame'] : [])].map(name => {
@@ -48,6 +48,7 @@ async function run({ adapter, execute, projectId, prompt, summary, transcript, a
   for (let turn = 0; ; turn++) {
     if (signal?.aborted) { stopped = 'cancelled'; break; }
     if (turn >= MAX_STEPS) { stopped = 'limit'; break; }
+    if (usage.input + usage.output >= MAX_TOKENS) { stopped = 'budget'; break; }
     let answer;
     try { answer = await conversation.next(results); } catch (e) { if (signal?.aborted) { stopped = 'cancelled'; break; } throw e; }
     usage.input += answer.usage?.input || 0; usage.output += answer.usage?.output || 0;
@@ -78,7 +79,7 @@ async function run({ adapter, execute, projectId, prompt, summary, transcript, a
     }
   }
   const edits = steps.filter(s => s.ok && !['get_project', 'get_transcript', 'list_presets', 'get_frame'].includes(s.tool)).length;
-  const notes = { cancelled: 'You stopped the session. The edits made up to that point are in the draft.', limit: 'The session reached its limit of ' + MAX_STEPS + ' rounds and was stopped. The edits made so far are in the draft.', refused: 'The AI service declined this request. Nothing more was changed.', length: 'The AI service\'s reply was cut off, so the session was stopped. The edits made so far are in the draft.' };
+  const notes = { budget: 'The session reached its spending cap of about ' + Math.round(MAX_TOKENS / 1000) + ',000 tokens and was stopped. The edits made so far are in the draft.', cancelled: 'You stopped the session. The edits made up to that point are in the draft.', limit: 'The session reached its limit of ' + MAX_STEPS + ' rounds and was stopped. The edits made so far are in the draft.', refused: 'The AI service declined this request. Nothing more was changed.', length: 'The AI service\'s reply was cut off, so the session was stopped. The edits made so far are in the draft.' };
   return { projectId: id, stopped, summary: stopped === 'done' ? final.trim() : notes[stopped], steps, edits, usage };
 }
-module.exports = { run, preview, opening, toolsFor, SYSTEM, DRAFT_TOOLS, LABELS, MAX_STEPS };
+module.exports = { run, preview, opening, toolsFor, SYSTEM, DRAFT_TOOLS, LABELS, MAX_STEPS, MAX_TOKENS };

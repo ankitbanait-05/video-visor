@@ -526,13 +526,27 @@ The recorder runs in its own window, which the browser preview cannot show, so t
 
 | ID | Change | Pri | Evidence | Was | ☐ |
 |---|---|---|---|---|---|
-| DS-01 | **Sign and notarise** with a Developer ID, and add auto-update. Today macOS blocks the app on colleagues' Macs, and every fix means re-sending the DMG | H | Checked | B12 | ☐ |
+| DS-01 | **Sign and notarise** with a Developer ID, and add auto-update. Today macOS blocks the app on colleagues' Macs, and every fix means re-sending the DMG | H | Checked | B12 | ◐ |
 | DS-02 | Decide on Intel Mac support (today Apple Silicon only, macOS 14+) | M | Checked | B12 | ☐ |
-| DS-03 | Tighten Info.plist: remove "allow any insecure connection" and unused permission strings | M | Checked | — | ☐ |
-| DS-04 | Draft with AI: organisation-provided key, or hide the feature; same for "Connect an AI assistant" | H | Repro | U10 | ☐ |
-| DS-05 | Draft with AI: no orphan project after a failed or dismissed draft; closing "Building…" stops the run; a spending cap | M | Code | — | ☐ |
+| DS-03 | Tighten Info.plist: remove "allow any insecure connection" and unused permission strings | M | Checked | — | ✅ |
+| DS-04 | Draft with AI: organisation-provided key, or hide the feature; same for "Connect an AI assistant" | H | Repro | U10 | ✅ |
+| DS-05 | Draft with AI: no orphan project after a failed or dismissed draft; closing "Building…" stops the run; a spending cap | M | Code | — | ✅ |
 | DS-06 | Smoke-test the AI request settings against the live service | M | Suspected | — | ☐ |
-| DS-07 | Remove camera and screen permissions from the main window, which doesn't need them | L | Code | — | ☐ |
+| DS-07 | Remove camera and screen permissions from the main window, which doesn't need them | L | Code | — | ✅ |
+
+### Phase 11 status (14 Nov)
+
+83 checks in `tools/preview/qa.js` pass (1 new). The spending cap and organisation keys were unit-tested with a stand-in AI service; the Dev build starts and runs with the tightened permissions.
+
+| ID | What changed |
+|---|---|
+| DS-01 ◐ | **Ready for signing, needs the company's Apple Developer ID.** `tools/build.py --release --dmg --identity "Developer ID Application: … (TEAMID)" --notarize PROFILE` signs every binary (20 binaries, 8 bundles) with the hardened runtime and `tools/entitlements.plist`, signs the DMG, notarises it with `xcrun notarytool` and staples the ticket. Without `--identity` the build stays ad-hoc as before. **Updates:** set `"updateFeed"` in `package.json` to an https URL of a small JSON file (`{"version":"0.16.0","url":"https://…/Video Visor.dmg","notes":"…"}`) on a shared drive or intranet; release builds check it 15 seconds after start and offer the download when it lists a newer version |
+| DS-02 ☐ | Decision needed: Intel Macs need an x64 Electron runtime in `vendor/` and a second build; today the app is Apple Silicon only |
+| DS-03 ✅ | Info.plist: "allow arbitrary loads" removed (only local networking, which the assistant connector uses); the two Bluetooth permission texts removed. Adds the "Mac sound" text from Phase 8 |
+| DS-04 ✅ | **Organisation key:** IT can place `/Library/Application Support/Video Visor/managed.json` (`{"ai":{"anthropic":"sk-…"}}`), and everyone gets Draft with AI without their own key; Settings says the organisation provides it, and a personal key takes precedence. **Visibility:** "Draft with AI" on Home and Projects only appears once a key exists or when turned on in Settings → AI features |
+| DS-05 ✅ | A session that changed nothing (failed, refused or stopped early) removes its empty draft; closing the review dialog any way other than Send removes the prepared draft; closing "Building the draft" stops the run. Spending cap: a session stops at about 400,000 tokens with a clear message |
+| DS-06 ☐ | Needs a real API key to test against the live services |
+| DS-07 ✅ | Only the recorder window may use the camera, microphone and screen; the main window no longer can |
 
 ---
 

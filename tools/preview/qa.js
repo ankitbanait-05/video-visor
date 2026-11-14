@@ -664,6 +664,17 @@ Object.assign(checks, {
   },
 });
 
+// Phase 11: AI, security, distribution.
+Object.assign(checks, {
+  async 'Draft with AI stays out of the way until there is a key or it is turned on'() {
+    $('.v-nav [data-route=settings]').click(); await wait(400); const box = $('#v15-show-ai'); if (box.checked) { box.checked = false; box.dispatchEvent(new Event('change')); await wait(200); }
+    $('.v-nav [data-route=home]').click(); await wait(400); const hidden = !$('#v-content [data-flow="start-ai"]')?.offsetParent;
+    $('.v-nav [data-route=settings]').click(); await wait(300); $('#v15-show-ai').checked = true; $('#v15-show-ai').dispatchEvent(new Event('change')); await wait(200);
+    $('.v-nav [data-route=home]').click(); await wait(400); const shown = !!$('#v-content [data-flow="start-ai"]')?.offsetParent;
+    return { pass: hidden && shown, detail: { hiddenWithoutKey: hidden, shownWhenOn: shown } };
+  },
+});
+
 export const count = () => Object.keys(checks).length;
 export async function run(only) {
   const results = [];

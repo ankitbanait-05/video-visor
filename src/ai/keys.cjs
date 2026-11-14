@@ -8,16 +8,19 @@
 const fs = require('node:fs/promises');
 const PROVIDERS = ['anthropic', 'openai'];
 
-function createKeyStore({ file, safeStorage }) {
-  const memory = new Map(); let saved = {};
+// 0.15 (DS-04): an organisation can provide keys for everyone: IT places
+//   /Library/Application Support/Video Visor/managed.json  =  {"ai": {"anthropic": "sk-…"}}
+// (readable by users, writable only by admins, for example through device management). A person's own key wins.
+function createKeyStore({ file, safeStorage, managedFile = '/Library/Application Support/Video Visor/managed.json' }) {
+  const memory = new Map(); let saved = {}, managed = {};
   const canEncrypt = () => { try { return !!safeStorage?.isEncryptionAvailable(); } catch { return false; } };
   const check = provider => { if (!PROVIDERS.includes(provider)) throw Error('Unknown AI service.'); };
   const write = () => fs.writeFile(file, JSON.stringify(saved, null, 1), { mode: 0o600 });
   return {
     providers: PROVIDERS,
-    async load() { try { const data = JSON.parse(await fs.readFile(file, 'utf8')); saved = Object.fromEntries(PROVIDERS.filter(p => typeof data?.[p]?.data === 'string').map(p => [p, { data: data[p].data, hint: String(data[p].hint || '').slice(-4) }])); } catch { saved = {}; } },
+    async load() { try { const m = JSON.parse(await fs.readFile(managedFile, 'utf8')); managed = Object.fromEntries(PROVIDERS.filter(p => typeof m?.ai?.[p] === 'string' && m.ai[p].length >= 20).map(p => [p, m.ai[p].trim()])); } catch { managed = {}; } try { const data = JSON.parse(await fs.readFile(file, 'utf8')); saved = Object.fromEntries(PROVIDERS.filter(p => typeof data?.[p]?.data === 'string').map(p => [p, { data: data[p].data, hint: String(data[p].hint || '').slice(-4) }])); } catch { saved = {}; } },
     // What the window may know: whether a key exists, where it is kept, and its last four characters.
-    status() { return { keychain: canEncrypt(), keys: Object.fromEntries(PROVIDERS.map(p => [p, memory.has(p) ? { saved: true, kept: 'session', hint: memory.get(p).slice(-4) } : saved[p] ? { saved: true, kept: 'keychain', hint: saved[p].hint } : { saved: false }])) }; },
+    status() { return { keychain: canEncrypt(), keys: Object.fromEntries(PROVIDERS.map(p => [p, memory.has(p) ? { saved: true, kept: 'session', hint: memory.get(p).slice(-4) } : saved[p] ? { saved: true, kept: 'keychain', hint: saved[p].hint } : managed[p] ? { saved: true, kept: 'organisation', hint: managed[p].slice(-4) } : { saved: false }])), managed: Object.keys(managed) }; },
     async save(provider, key, remember = true) {
       check(provider); key = String(key || '').trim();
       if (key.length < 20 || key.length > 400 || /\s/.test(key)) throw Error('That does not look like an API key. Paste the whole key, with no spaces.');
@@ -28,7 +31,7 @@ function createKeyStore({ file, safeStorage }) {
     async clear(provider) { check(provider); memory.delete(provider); delete saved[provider]; await write(); },
     // Main-process use only.
     get(provider) {
-      check(provider); if (memory.has(provider)) return memory.get(provider); if (!saved[provider]) return null;
+      check(provider); if (memory.has(provider)) return memory.get(provider); if (!saved[provider]) return managed[provider] || null;
       try { return safeStorage.decryptString(Buffer.from(saved[provider].data, 'base64')); } catch { throw Error('The saved API key could not be read from the keychain. Enter it again in Settings → Draft with AI.'); }
     }
   };

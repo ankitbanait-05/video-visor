@@ -20,7 +20,7 @@ async function settings(message,isError){
   +'<div class="v14-services" role="radiogroup" aria-label="AI service">'+st.services.map(s=>'<label class="v14-service'+(s.ready?'':' off')+'"><input type="radio" name="v14-service" value="'+s.id+'" '+(s.id===st.provider?'checked':'')+' '+(s.ready?'':'disabled')+'><span><strong>'+esc(s.name)+'</strong><small>'+(s.ready?(s.saved?'Key saved · ends …'+esc(s.hint):'No key yet'):'Not available in this build')+'</small></span></label>').join('')+'</div>'
   +(message?'<p class="v13-message'+(isError?' v14-bad':'')+'" role="status">'+esc(message)+'</p>':'')
   +(!current.ready?'':current.saved
-    ?'<p class="v14-key">'+(current.kept==='keychain'?'Your '+esc(current.company)+' key is saved in the macOS keychain':'Your '+esc(current.company)+' key is kept until you quit Video Visor')+', ending <code>…'+esc(current.hint)+'</code>.</p><div class="v-row"><button class="v-button" id="v14-check">Check key and load models</button><button class="v-button quiet v10-danger" id="v14-remove">Remove key</button></div>'
+    ?'<p class="v14-key">'+(current.kept==='organisation'?'Your organisation provides the '+esc(current.company)+' key':current.kept==='keychain'?'Your '+esc(current.company)+' key is saved in the macOS keychain':'Your '+esc(current.company)+' key is kept until you quit Video Visor')+', ending <code>…'+esc(current.hint)+'</code>.</p><div class="v-row"><button class="v-button" id="v14-check">Check key and load models</button><button class="v-button quiet v10-danger" id="v14-remove">Remove key</button></div>'
      +'<label class="v14-model">Model<select class="v-select" id="v14-model">'+(options.length?options.map(m=>'<option '+(m===current.model?'selected':'')+'>'+esc(m)+'</option>').join(''):'<option value="">Press “Check key and load models”</option>')+'</select></label>'
     :'<label class="v14-keyfield">'+esc(current.company)+' API key<input class="v-input" id="v14-key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key"></label><p class="v-small v-muted">Create one at '+esc(current.keyPage)+'. '+(st.keychain?'':'The macOS keychain is not available, so the key will be kept only until you quit.')+'</p>'+(st.keychain?'<label class="v13-perm"><input type="checkbox" id="v14-remember" checked><span><strong>Remember on this Mac</strong><small>Stored encrypted with the macOS keychain. Untick to keep it only until you quit.</small></span></label>':'')+'<div class="v-row"><button class="v-button primary" id="v14-save">Save key</button></div>');
  box.querySelectorAll('[name="v14-service"]').forEach(r=>r.onchange=()=>native.aiChoose(r.value).then(()=>again()).catch(fail));
@@ -69,24 +69,29 @@ const dialog={
    +'<pre class="v13-code v14-outgoing" id="v14-outgoing" tabindex="0">'+esc(p.text)+'</pre>'
    +'<ul class="v14-facts"><li><strong>Sent now:</strong> your instruction, the list of '+p.clips+' clip'+(p.clips===1?'':'s')+' with names and lengths, and '+(p.transcriptLines?'the transcript ('+p.transcriptLines+' line'+(p.transcriptLines===1?'':'s')+')':'a note that no speech was found')+'.</li><li><strong>Sent while it works:</strong> the result of each edit it makes (the same kind of clip list, titles and transcript, with new times)'+(p.frames?', and any single frames it asks to see':'')+'.</li><li><strong>Never sent:</strong> the video and audio files'+(p.frames?'':', or any picture from them')+', other projects, or your API key to anyone but '+esc(p.provider)+'.</li></ul>'
    +'<div class="v-row"><button class="v-button primary" id="v14-send">Send and build the draft</button><button class="v-button" id="v14-discard">Don’t send</button></div>');
-  $('#v14-discard').onclick=()=>native.aiDiscard(p.projectId).finally(()=>{S().closeModal();S().notify('Nothing was sent. The prepared draft was removed.');});
-  $('#v14-send').onclick=()=>dialog.run(p);
+  dialog.pending=p.projectId;
+  $('#v14-discard').onclick=()=>{dialog.pending=null;native.aiDiscard(p.projectId).finally(()=>{S().closeModal();S().notify('Nothing was sent. The prepared draft was removed.');});};
+  $('#v14-send').onclick=()=>{dialog.pending=null;dialog.run(p);};
  },
  async run(p){
   dialog.steps=[];dialog.running=p.projectId;
   S().modal('Building the draft','<p class="v-muted">'+esc(p.provider)+' is working through your instruction. You can stop at any time; edits already made stay in the draft.</p><ol class="v14-steps" id="v14-steps" aria-live="polite"><li class="pending">Waiting for the first reply…</li></ol><div class="v-row"><button class="v-button" id="v14-stop">Stop</button></div>');
   $('#v14-stop').onclick=()=>{$('#v14-stop').disabled=true;$('#v14-stop').textContent='Stopping…';native.aiCancel();};
   let result,problem;try{result=await native.aiRun(p.projectId);}catch(e){problem=plain(e);}
-  dialog.running=null;if(result?.steps)dialog.steps=result.steps;const id=result?.projectId||p.projectId,exists=!!W().get(id);
+  dialog.running=null;if(result?.steps)dialog.steps=result.steps;const id=result?.projectId||p.projectId;
+  /* 0.15 (DS-05): a run that changed nothing leaves no empty draft behind */
+  const exists=!!W().get(id),removed=!!result?.removed||!exists;
   const list=dialog.steps.length?'<details class="v14-log"><summary>'+dialog.steps.length+' step'+(dialog.steps.length===1?'':'s')+'</summary><ol class="v14-steps">'+dialog.steps.map(dialog.item).join('')+'</ol></details>':'';
   S().modal(problem?'The draft was not finished':result.stopped==='done'?'Your draft is ready':'The draft was stopped','<p class="v14-summary">'+esc(problem||result.summary||'The draft was changed as asked.')+'</p>'+(problem&&dialog.steps.some(s=>s.ok)?'<p class="v-muted">The edits made before the problem are in the draft.</p>':'')+list
-   +'<p class="v-small v-muted">The draft is under Projects, tagged AI draft. “Undo AI edit” there takes back its last change.'+(result?.usage?.input?' This session used about '+(result.usage.input+result.usage.output).toLocaleString()+' tokens.':'')+'</p>'
+   +(removed?'<p class="v-small v-muted">Nothing was changed, so the empty draft was removed.</p>':'')+'<p class="v-small v-muted"'+(removed?' hidden':'')+'>The draft is under Projects, tagged AI draft. “Undo AI edit” there takes back its last change.'+(result?.usage?.input?' This session used about '+(result.usage.input+result.usage.output).toLocaleString()+' tokens.':'')+'</p>'
    +'<div class="v-row">'+(exists?'<button class="v-button primary" id="v14-open">Open the draft</button>':'')+'<button class="v-button" id="v14-close">Close</button></div>');
   if($('#v14-open'))$('#v14-open').onclick=()=>{S().closeModal();W().open(id);};$('#v14-close').onclick=()=>S().closeModal();
  },
  item:s=>'<li class="'+(s.ok?'ok':'bad')+'">'+esc(s.label)+(s.ok?'':' <small>could not be done: '+esc(s.problem||'')+'</small>')+'</li>'
 };
 native.onAiStep(step=>{if(step.projectId!==dialog.running)return;dialog.steps.push(step);const list=$('#v14-steps');if(list){list.innerHTML=dialog.steps.map(dialog.item).join('')+'<li class="pending">Working…</li>';list.scrollTop=list.scrollHeight;}});
+// 0.15 (DS-05): closing the review dialog any other way removes the prepared draft; closing "Building the draft" stops it.
+new MutationObserver(()=>{const o=document.getElementById('v-overlay');if(!o||!o.hidden)return;if(dialog.running){native.aiCancel().catch(()=>{});}else if(dialog.pending){const id=dialog.pending;dialog.pending=null;native.aiDiscard(id).catch(()=>{});S().notify('Nothing was sent. The prepared draft was removed.');}}).observe(document.getElementById('v-overlay')||document.body,{attributes:true,attributeFilter:['hidden']});
 window.draftWithAiV14=dialog;
 // Entry points: the Projects page button and the Home card.
 document.addEventListener('click',e=>{if(e.target.closest('[data-v14="draft"],[data-flow="start-ai"]'))dialog.open();});

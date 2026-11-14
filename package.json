@@ -1,6 +1,7 @@
 {
   "name": "video-visor",
   "version": "0.14.0",
+  "updateFeed": "",
   "private": true,
   "description": "Local video workspace",
   "author": "Video Visor",

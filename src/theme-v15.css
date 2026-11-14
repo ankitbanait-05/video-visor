@@ -111,3 +111,6 @@
 #visor-app .v15-sign-modes .on{border-color:var(--v-purple);background:var(--v-tint)}
 #visor-app #v15-sign-pad{width:100%;height:auto;aspect-ratio:56/18;background:#fff;border:1px dashed #9fb3c8;border-radius:8px;touch-action:none;cursor:crosshair}
 #visor-app .v15-sign #v15-sign-clear{justify-self:start}
+.vv-update-banner{position:fixed;left:50%;bottom:44px;transform:translateX(-50%);z-index:9997;display:flex;align-items:center;gap:10px;max-width:min(640px,90vw);padding:10px 12px 10px 16px;border-radius:10px;background:#0d1117;color:#fff;font:13px 'Graphik','DM Sans',sans-serif;box-shadow:0 8px 28px #0005}
+.vv-update-banner span{flex:1}.vv-update-banner button{border:1px solid #ffffff40;background:#ffffff14;color:#fff;border-radius:7px;padding:6px 10px;font:inherit;cursor:pointer}
+#visor-app.ai-off [data-flow="start-ai"],#visor-app.ai-off [data-v14="draft"]{display:none!important}

@@ -67,9 +67,14 @@ function createAiHost({ keys, settingsFile, editor, execute, register, dialog, w
       if (active) throw Error('A draft is already being built.');
       const a = adapter(session.provider), controller = new AbortController(); active = { controller, projectId }; prepared.delete(projectId);
       const send = s => { const win = getWindow(); if (win && !win.isDestroyed()) win.webContents.send('ai-step', { projectId, ...s }); };
+      // 0.15 (DS-05): a session that changed nothing (failed, refused or stopped early) leaves no empty draft behind.
+      const looks = new Set(['get_project', 'get_transcript', 'list_presets', 'get_frame']), steps = [], edited = () => steps.some(x => x.ok && !looks.has(x.tool));
+      let result;
       try {
-        return await draft.run({ adapter: a.client, execute: (name, args) => execute(name, args, { folders: [] }), projectId, ...session, onStep: send, signal: controller.signal });
-      } catch (e) { throw explain(e, a.service); } finally { active = null; }
+        result = await draft.run({ adapter: a.client, execute: (name, args) => execute(name, args, { folders: [] }), projectId, ...session, onStep: x => { steps.push(x); send(x); }, signal: controller.signal });
+      } catch (e) { if (!edited()) await editor('_discard', { project_id: projectId }).catch(() => {}); throw explain(e, a.service); } finally { active = null; }
+      if (!result.edits) { await editor('_discard', { project_id: result.projectId || projectId }).catch(() => {}); result.removed = true; }
+      return result;
     },
     cancel() { active?.controller.abort(); return !!active; }
   };
