@@ -113,7 +113,9 @@ app.whenReady().then(async()=>{
  recorderController=new(require('./recorder/controller.cjs').RecorderController)({win,root,register,run,ffmpeg,job,saveDialog,cancel:()=>{if(currentJob){currentJob.cancelled=true;currentJob.child?.kill('SIGTERM');}},isWorking:()=>!!currentJob});
  event('recorder-open',options=>recorderController.open(options));
  win.webContents.on('before-input-event',(event,input)=>{if(recorderController.handleInput(input))event.preventDefault();});
- win.on('close',e=>{if(recorderController.busy()){e.preventDefault();recorderController.show();return;}if(!closing){e.preventDefault();closing=true;projectStore.flush().then(()=>win.close()).catch(err=>{closing=false;logDiagnostic('save',err.message);dialog.showMessageBox(win,{type:'error',message:'Your last change could not be saved',detail:err.message});});}});
+ win.on('close',e=>{if(recorderController.busy()){e.preventDefault();recorderController.show();return;}if(!closing){e.preventDefault();closing=true;
+  // 0.15: the editor saves 400 ms after the last change; ask it to save now so nothing is lost on quit.
+  win.webContents.executeJavaScript('window.flushSaveV15?.()').catch(()=>{}).then(()=>projectStore.flush()).then(()=>win.close()).catch(err=>{closing=false;logDiagnostic('save',err.message);dialog.showMessageBox(win,{type:'error',message:'Your last change could not be saved',detail:err.message});});}});
  event('frame',async(data)=>{const p=await saveDialog('Video Visor frame.png');if(!p)return null;await fs.writeFile(p,Buffer.from(data.split(',')[1],'base64'));return p;});
  await win.loadURL('visor://app/');
 }).catch(error=>{logDiagnostic('startup',error.stack||error.message);dialog.showErrorBox('Video Visor could not start',error.message+'\nYour saved workspace has been kept.');app.quit();});

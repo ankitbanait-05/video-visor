@@ -13,19 +13,30 @@ function entries(s){
  return out;
 }
 const overlaps=(a,b)=>a.some(x=>b.some(y=>x.start<y.end-1e-6&&x.end>y.start+1e-6));
-function normalize(s){
+// Tracks that always exist: the main video (V1) and the first audio track (A1). Every other track is
+// created when something is placed on it, or when the person adds one with "+" (manual), and an empty
+// automatic track is removed.
+const PERMANENT=['video-main','audio-1'];
+// normalize(s)                 full pass, run after an edit: also moves items that now overlap to a free track.
+// normalize(s,{assignOnly:true}) safe for drawing: only places items that have no valid track yet and
+//                                never moves an item that already has one (0.15: drawing must not change the edit).
+function normalize(s,opts={}){
  s.timelineTracks=Array.isArray(s.timelineTracks)?s.timelineTracks.filter((t,i,a)=>groups.includes(t.group)&&typeof t.id==='string'&&a.findIndex(x=>x.id===t.id)===i):[];
  const ensure=group=>{let i=1;while(s.timelineTracks.some(t=>t.id===group+'-'+i))i++;const t={id:group+'-'+i,group,name:labels[group]+' '+i};s.timelineTracks.push(t);return t;};
  if(!s.timelineTracks.some(t=>t.id==='video-main'))s.timelineTracks.unshift({id:'video-main',group:'video',name:'Main video'});
+ if(!s.timelineTracks.some(t=>t.id==='audio-1'))s.timelineTracks.push({id:'audio-1',group:'audio',name:'Audio 1'});
  const items=entries(s),occupied=new Map();
  // Resolve saved assignments before newcomers so adding a title never shuffles existing tracks.
  const ordered=items.map((e,i)=>({e,i,assigned:s.timelineTracks.some(t=>t.id===e.item[e.field]&&t.group===e.group)})).sort((a,b)=>Number(b.assigned)-Number(a.assigned)||a.i-b.i);
- for(const {e}of ordered){
-  const valid=t=>t.group===e.group&&(e.fixed?t.id==='video-main':t.id!=='video-main')&&!overlaps(occupied.get(t.id)||[],e.ranges);
-  let track=e.fixed?s.timelineTracks.find(t=>t.id==='video-main'):s.timelineTracks.find(t=>t.id===e.item[e.field]&&valid(t));
+ for(const {e,assigned}of ordered){
+  const free=t=>!overlaps(occupied.get(t.id)||[],e.ranges);
+  const valid=t=>t.group===e.group&&(e.fixed?t.id==='video-main':t.id!=='video-main')&&free(t);
+  let track=e.fixed?s.timelineTracks.find(t=>t.id==='video-main'):null;
+  if(!track&&assigned&&opts.assignOnly)track=s.timelineTracks.find(t=>t.id===e.item[e.field]);
+  track??=s.timelineTracks.find(t=>t.id===e.item[e.field]&&valid(t));
   track??=s.timelineTracks.find(t=>!t.locked&&valid(t));track??=ensure(e.group);e.item[e.field]=track.id;occupied.set(track.id,[...(occupied.get(track.id)||[]),...e.ranges]);
  }
- for(const group of ['audio','graphics','captions','effects'])if(!s.timelineTracks.some(t=>t.group===group))ensure(group);
+ if(!opts.assignOnly){const used=new Set(items.map(e=>e.item[e.field]));s.timelineTracks=s.timelineTracks.filter(t=>PERMANENT.includes(t.id)||t.manual||used.has(t.id));}
  if(!s.trackSchema){const names={video:'Video',source:'Audio',overlay:'Overlay',audioClip:'Audio clip',caption:'Captions',music:'Music',voiceover:'Narration',zoom:'Effects'};for(const e of items){const name=names[e.type]||(e.group==='effects'?'Effects':'Graphics');if(s.lockedTracks?.[name+' track'])s.timelineTracks.find(t=>t.id===e.item[e.field]).locked=true;}s.lockedTracks={};}
  s.trackSchema=1;return s;
 }

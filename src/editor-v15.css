@@ -1,0 +1,11 @@
+/* 0.15 timeline restructure */
+
+/* Empty row for the current tab's layer before anything has been added to it */
+#visor-app #vv-editor #vt-tracks .v15-placeholder-lane{
+  display:flex;align-items:center;padding:0 12px;
+  font-size:11.5px;color:#8f9bb0;
+  border:1px dashed rgba(255,255,255,.12);border-radius:6px;margin:4px 0;
+  background:rgba(255,255,255,.02);
+}
+#visor-app #vv-editor #vt-tracks .v15-placeholder-lane.v8-drop-target{border-color:#4b8cf7;color:#cfe0ff;background:rgba(75,140,247,.12)}
+#visor-app #vv-editor #vt-tracks .v15-placeholder .vt-label{color:#8f9bb0}
