@@ -1,13 +1,15 @@
 (async()=>{
 const $=s=>document.querySelector(s),icons=()=>lucide.createIcons();icons();
 const escape=s=>{const span=document.createElement('span');span.textContent=String(s);return span.innerHTML.replace(/"/g,'&quot;');};
-let initial=await capture.state(),mode='screen',sources=[],sourceId='',area=null,recorder,cameraRecorder=null,cameraStopped=null,cameraStream=null,cameraPreviewId=null,started={},streams=[],recordedStream,video,drawTimer,timer,audioContext,analyser,write=Promise.resolve(),cancelCountdown=false,stopping=false,clock=new recordingGeometry.RecordingClock();
+let initial=await capture.state(),mode='screen',sources=[],sourceId='',area=null,recorder,cameraRecorder=null,cameraStopped=null,cameraStream=null,cameraPreviewId=null,started={},streams=[],recordedStream,video,drawTimer,timer,audioContext,analyser,write=Promise.resolve(),cancelCountdown=false,stopping=false,systemAudioMissing=false,clock=new recordingGeometry.RecordingClock();
 function showError(error){capture['show-error']().catch(()=>{});$('#error').textContent=error.message||String(error);$('#error').hidden=false;}
 function controls(){$('#start').disabled=(mode==='area'&&!area)||(initial.kind!=='voice'&&!sourceId);$('#area-row').hidden=mode!=='area';$('#source-heading').textContent=mode==='window'?'Choose a window':'Choose a display';document.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-selected',b.dataset.mode===mode));$('#area-label').textContent=area?area.width+' × '+area.height+' points · ready to record':'Drag a frame around the area to record.';$('#choose-area').innerHTML='<i data-lucide="scan"></i>'+(area?'Adjust area':'Select area');icons();}
 function renderSources(){const filtered=sources.filter(s=>s.kind===(mode==='window'?'window':'screen'));if(!filtered.some(s=>s.id===sourceId)){sourceId=filtered[0]?.id||'';area=null;}
 $('#sources').innerHTML=filtered.map(s=>'<button class="source" data-source="'+escape(s.id)+'" aria-pressed="'+(s.id===sourceId)+'"><img alt="" src="'+s.thumbnail+'"><span>'+escape(s.name)+'</span></button>').join('')||'<p>No sources found. Check Screen Recording access in macOS Privacy & Security, then refresh.</p>';
 $('#sources').querySelectorAll('[data-source]').forEach(b=>b.onclick=()=>{sourceId=b.dataset.source;area=null;renderSources();controls();});controls();}
-async function refresh(){try{$('#start').disabled=true;$('#sources').textContent='Loading capture sources…';sources=await capture.sources();renderSources();}catch(e){showError(e);$('#sources').textContent='Capture sources could not be loaded.';}}
+async function refresh(){try{$('#start').disabled=true;$('#sources').textContent='Loading capture sources…';sources=await capture.sources();renderSources();}catch(e){showError(e);$('#sources').textContent='Capture sources could not be loaded.';}await accessCheck();}
+// 0.15 (RC-02): say plainly when Screen Recording access is missing, before anyone presses Record.
+async function accessCheck(){if(initial.kind==='voice')return;let status='granted';try{status=await capture['screen-access']();}catch{}let box=$('#access');if(status==='granted'){box?.remove();return;}if(!box){box=document.createElement('div');box.id='access';box.className='access';$('main').prepend(box);}box.innerHTML='<strong>Video Visor needs Screen Recording access</strong><p>In System Settings → Privacy & Security → Screen & System Audio Recording, turn on Video Visor. Then quit and reopen Video Visor.</p><div class="access-actions"><button id="open-privacy" type="button">Open System Settings</button><button id="recheck" type="button" class="quiet">Check again</button></div>';$('#open-privacy').onclick=()=>capture['open-privacy']();$('#recheck').onclick=()=>refresh();$('#start').disabled=true;}
 // A device that never answers (a permission prompt left open, a camera held by another app) must not leave the recorder waiting forever.
 const device=(request,name)=>Promise.race([request,new Promise((_,reject)=>setTimeout(()=>reject(Error('The '+name+' did not respond. Check System Settings → Privacy & Security → '+(name==='camera'?'Camera':'Microphone')+', close other apps that may be using it, then try again.')),15000))]);
 async function cameraOn(){
@@ -21,7 +23,8 @@ async function listCameras(){try{const select=$('#camera-device'),chosen=select.
 async function cameraToggle(){$('#error').hidden=true;if(!$('#camera').checked)return cameraOff();try{await cameraOn();}catch(e){$('#camera').checked=false;cameraOff();showError(Error(e.name==='NotAllowedError'?'Video Visor cannot use the camera. Allow it in System Settings → Privacy & Security → Camera, then try again.':e.name==='NotFoundError'||e.name==='OverconstrainedError'?'No camera was found. Connect one, or record without the camera.':'The camera could not start: '+(e.message||e.name)));}}
 function cleanup(){clearInterval(drawTimer);clearInterval(timer);cameraOff();streams.forEach(s=>s.getTracks().forEach(t=>t.stop()));recordedStream?.getTracks().forEach(t=>t.stop());streams=[];video?.pause();audioContext?.close().catch(()=>{});}
 async function setupStream(config){
- const captureStream=config.kind==='voice'?null:await navigator.mediaDevices.getDisplayMedia({video:{frameRate:30},audio:false});if(captureStream)streams.push(captureStream);
+ let captureStream=null;if(config.kind!=='voice'){try{captureStream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:30},audio:!!config.systemAudio});}catch(e){if(!config.systemAudio)throw e;captureStream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:30},audio:false});}}if(captureStream)streams.push(captureStream);
+ const system=captureStream?.getAudioTracks()||[];if(config.systemAudio&&!system.length)systemAudioMissing=true;
  const microphone=config.microphone?await device(navigator.mediaDevices.getUserMedia({audio:config.microphoneId?{deviceId:{exact:config.microphoneId},echoCancellation:true,noiseSuppression:true}:{echoCancellation:true,noiseSuppression:true},video:false}),'microphone'):null;if(microphone)streams.push(microphone);
  if(microphone){audioContext=new AudioContext();analyser=audioContext.createAnalyser();audioContext.createMediaStreamSource(microphone).connect(analyser);analyser.fftSize=256;}
  let track=captureStream?.getVideoTracks()[0];
@@ -35,13 +38,18 @@ async function setupStream(config){
    drawTimer=setInterval(draw,1000/30);track=canvas.captureStream(30).getVideoTracks()[0];
  }
  captureStream?.getVideoTracks()[0].addEventListener('ended',()=>stop());
- return new MediaStream([...(track?[track]:[]),...(microphone?.getAudioTracks()||[])]);
+ // 0.15 (RC-01): microphone and system sound mixed into one track.
+ let sound=microphone?.getAudioTracks()||[];
+ if(system.length){if(!microphone)sound=system;else{audioContext??=new AudioContext();const mixDest=audioContext.createMediaStreamDestination();audioContext.createMediaStreamSource(microphone).connect(mixDest);audioContext.createMediaStreamSource(new MediaStream(system)).connect(mixDest);sound=mixDest.stream.getAudioTracks();}}
+ return new MediaStream([...(track?[track]:[]),...sound]);
 }
 async function start(){
  $('#error').hidden=true;$('#start').disabled=true;cancelCountdown=false;stopping=false;
+ systemAudioMissing=false;
  try{
-  const config=await capture.prepare({mode,sourceId,microphone:$('#mic').checked,microphoneId:$('#mic-device').value,hideControls:$('#hide-controls').checked,countdown:$('#countdown').checked,camera:initial.kind==='video'&&$('#camera').checked,cameraId:$('#camera-device').value});
+  const config=await capture.prepare({mode,sourceId,microphone:$('#mic').checked,microphoneId:$('#mic-device').value,hideControls:$('#hide-controls').checked,countdown:$('#countdown').checked,systemAudio:!!$('#system-audio')?.checked,camera:initial.kind==='video'&&$('#camera').checked,cameraId:$('#camera-device').value});
   const stream=await setupStream(config);const camera=config.camera?await cameraOn():null;
+  $('#no-system-audio')?.remove();if(systemAudioMissing){const note=document.createElement('small');note.id='no-system-audio';note.className='hint';note.textContent='Mac sound isn’t available on this Mac (it needs macOS 13 or later and permission), so only the microphone is recorded.';$('#live')?.append(note);}
   if(stream.screenshot){await capture.screenshot(stream.screenshot);$('#start').disabled=false;return;}
   recordedStream=stream;
   if(config.countdown){$('#setup').hidden=true;$('#countdown-screen').hidden=false;for(let n=3;n>0;n--){$('#count').textContent=n;await new Promise(r=>setTimeout(r,1000));if(cancelCountdown){cleanup();await capture.abort();$('#countdown-screen').hidden=true;$('#setup').hidden=false;$('#start').disabled=false;return;}}}

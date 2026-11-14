@@ -16,6 +16,16 @@ async function run(ctx) {
   const make = async (name, args) => { const file = path.join(dir, name); if (!(await fs.stat(file).catch(() => null))) await exec(ffmpeg, ['-v', 'error', '-y', ...args, file]); return file; };
   win?.hide();
 
+  if (only.includes('recover')) {
+    // RC-04: a recording cut off mid-write (a WebM truncated at 70%) is found, saved and sent to the editor.
+    const { dialog } = require('electron'), src = await make('cut-source.webm', ['-f', 'lavfi', '-i', 'testsrc2=size=1280x720:rate=30:duration=10', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=10', '-c:v', 'libvpx-vp9', '-deadline', 'realtime', '-cpu-used', '8', '-b:v', '2M', '-g', '30', '-c:a', 'libopus']);
+    const data = await fs.readFile(src), raw = path.join(root, 'Recording-' + (Date.now() - 60000) + '.webm'); await fs.writeFile(raw, data.subarray(0, Math.floor(data.length * .7)));
+    const asked = []; const original = dialog.showMessageBox; dialog.showMessageBox = async (w, o) => { asked.push(o.message); return { response: 0 }; };
+    let sent = null; const send = win.webContents.send.bind(win.webContents); win.webContents.send = (ch, payload) => { if (ch === 'capture-complete') sent = payload; return send(ch, payload); };
+    try { await ctx.recorder().recoverInterrupted(); } finally { dialog.showMessageBox = original; win.webContents.send = send; }
+    const left = await fs.stat(raw).then(() => true, () => false);
+    out('recover', { asked, rawRemoved: !left, kind: sent?.kind, duration: sent?.asset?.duration, name: sent?.asset?.name });
+  }
   if (only.includes('theme')) {
     // Settings → Appearance through the real IPC path; the menu must not offer Reload outside Dev builds.
     const { nativeTheme, Menu } = require('electron'), res = {};

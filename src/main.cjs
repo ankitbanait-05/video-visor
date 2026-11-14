@@ -86,6 +86,8 @@ function menuV15(){
   {role:'help',submenu:[{label:'Keyboard Shortcuts',click:go("globalThis.visorEditor?.shortcuts?.()")}]}
  ]));
 }
+// 0.15 (RC-01): lets screen recordings include the Mac's own sound ('loopback' audio) on macOS 13 and later.
+app.commandLine.appendSwitch('enable-features','MacLoopbackAudioForScreenShare,MacSckSystemAudioLoopbackOverride');
 app.whenReady().then(async()=>{menuV15();
  root=path.join(app.getPath('userData'),'workspace-v2');await fs.mkdir(root,{recursive:true});storage=path.join(root,'projects.json');projectStore=require('./engines/project-store.cjs').createProjectStore(storage);try{registry=JSON.parse(await fs.readFile(path.join(root,'media.json'),'utf8'));}catch{}
  protocol.handle('visor',async req=>{const u=new URL(req.url);let file;if(u.host==='media')file=registry[u.pathname.slice(1)]?.previewPath||registry[u.pathname.slice(1)]?.path;else if(u.host==='app'){const rel=decodeURIComponent(u.pathname==='/'?'/index.html':u.pathname);file=path.resolve(__dirname,'.'+rel);if(!file.startsWith(__dirname+path.sep))file=null;}if(!file)return new Response('Not found',{status:404});if(u.host==='media')return require('./engines/file-response.cjs').fileResponse(file,req);const response=await net.fetch(pathToFileURL(file).href,{headers:req.headers});if(u.host==='app'){const headers=new Headers(response.headers);headers.set('Cache-Control','no-store');return new Response(response.body,{status:response.status,headers});}return response;});
@@ -182,13 +184,16 @@ app.whenReady().then(async()=>{menuV15();
  event('recorder-open',options=>recorderController.open(options));
  win.webContents.on('before-input-event',(event,input)=>{if(recorderController.handleInput(input))event.preventDefault();});
  win.on('close',e=>{if(recorderController.busy()){e.preventDefault();recorderController.show();return;}
+  // 0.15 (RC-06): an idle recorder window closes with the main window instead of being left behind.
+  if(!recorderController.busy())try{recorderController.panel?.destroy();}catch{}
   // 0.15: quitting during a background render asks first.
   if(backgroundJob&&!quitDuringRenderV15){e.preventDefault();dialog.showMessageBox(win,{type:'warning',message:'A render is still running',detail:'Quitting stops it, and renders waiting in the queue are not kept.',buttons:['Keep rendering','Quit anyway'],defaultId:0,cancelId:0}).then(r=>{if(r.response===1&&!win.isDestroyed()){quitDuringRenderV15=true;if(backgroundJob){backgroundJob.cancelled=true;backgroundJob.child?.kill('SIGTERM');}win.close();}});return;}if(!closing){e.preventDefault();closing=true;
   // 0.15: the editor saves 400 ms after the last change; ask it to save now so nothing is lost on quit.
   win.webContents.executeJavaScript('window.flushSaveV15?.()').catch(()=>{}).then(()=>projectStore.flush()).then(()=>win.close()).catch(err=>{closing=false;logDiagnostic('save',err.message);dialog.showMessageBox(win,{type:'error',message:'Your last change could not be saved',detail:err.message});});}});
  event('frame',async(data)=>{const p=await saveDialog('Video Visor frame.png');if(!p)return null;await fs.writeFile(p,Buffer.from(data.split(',')[1],'base64'));return p;});
  await win.loadURL('visor://app/');
+ setTimeout(()=>recorderController.recoverInterrupted().catch(e=>logDiagnostic('recorder-recovery',e.message)),2500);
  // 0.15 developer benchmark: Dev builds only, and only when VV_BENCH is set (see bench.cjs).
- if(process.env.VV_BENCH&&require('../package.json').name==='video-visor-dev'){require('./bench.cjs').run({register,runExport,job,backgroundJobRun,run,ffmpeg,root,win,registryEntry:id=>registry[id],saveArgs:typeof recordingSaveArgs==='function'?recordingSaveArgs:null}).catch(e=>process.stdout.write(JSON.stringify({bench:'error',message:e.stack||e.message})+'\n')).finally(()=>app.exit(0));}
+ if(process.env.VV_BENCH&&require('../package.json').name==='video-visor-dev'){require('./bench.cjs').run({register,runExport,job,backgroundJobRun,run,ffmpeg,root,win,registryEntry:id=>registry[id],recorder:()=>recorderController,saveArgs:typeof recordingSaveArgs==='function'?recordingSaveArgs:null}).catch(e=>process.stdout.write(JSON.stringify({bench:'error',message:e.stack||e.message})+'\n')).finally(()=>app.exit(0));}
 }).catch(error=>{logDiagnostic('startup',error.stack||error.message);dialog.showErrorBox('Video Visor could not start',error.message+'\nYour saved workspace has been kept.');app.quit();});
 app.on('window-all-closed',()=>{try{if(connectionFile)require('node:fs').unlinkSync(connectionFile);}catch{}connector?.stop().catch(()=>{});recorderController?.dispose();currentJob?.child?.kill('SIGTERM');app.quit();});

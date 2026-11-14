@@ -5,3 +5,7 @@
 
 /* 0.15 Graphik, the company font (also used in the main window) */
 @font-face{font-family:'Graphik';src:url('../fonts/graphik/Graphik-Regular.otf') format('opentype');font-weight:400}@font-face{font-family:'Graphik';src:url('../fonts/graphik/Graphik-Medium.otf') format('opentype');font-weight:500}@font-face{font-family:'Graphik';src:url('../fonts/graphik/Graphik-Semibold.otf') format('opentype');font-weight:600}body,button,select{font-family:'Graphik','DM Sans',sans-serif}
+
+/* 0.15 Screen Recording access */
+.access{margin:0 0 12px;padding:12px 14px;border:1px solid #f0c36d;border-radius:10px;background:#fff8e6;color:#5c4300;font-size:12px}.access strong{display:block;font-size:13px;margin-bottom:3px}.access p{margin:0 0 8px;line-height:1.45}.access-actions{display:flex;gap:8px}.access button{padding:6px 11px;font-size:12px}body.voice #system-audio-option{display:none!important}
+@media (prefers-color-scheme: dark){.access{background:#2b2312;border-color:#6b5320;color:#f3d999}}

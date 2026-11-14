@@ -406,12 +406,25 @@ Also fixed: the duplicate "company preset" handlers added in Phase 6 (Settings a
 
 | ID | Change | Pri | Evidence | Was | ☐ |
 |---|---|---|---|---|---|
-| RC-01 | Record system audio (expected for demos) | M | Review | U13 | ☐ |
-| RC-02 | Check macOS screen-recording permission before starting and explain how to grant it | M | Suspected | C3 | ☐ |
-| RC-03 | Window recordings capture cursor data, so "Follow recorded cursor" works for them | L | Code | C2 | ☐ |
-| RC-04 | After a crash mid-recording, offer the partial recording on next launch | L | Code | C4 | ☐ |
-| RC-05 | "Record voiceover" opens the voiceover recorder even when the screen recorder panel is open | L | Code | C5 | ☐ |
-| RC-06 | Handle the recorder panel crashing mid-recording, and the main window being closed while the panel is open | L | Code | — | ☐ |
+| RC-01 | Record system audio (expected for demos) | M | Review | U13 | ✅ |
+| RC-02 | Check macOS screen-recording permission before starting and explain how to grant it | M | Suspected | C3 | ✅ |
+| RC-03 | Window recordings capture cursor data, so "Follow recorded cursor" works for them | L | Code | C2 | ◐ |
+| RC-04 | After a crash mid-recording, offer the partial recording on next launch | L | Code | C4 | ✅ |
+| RC-05 | "Record voiceover" opens the voiceover recorder even when the screen recorder panel is open | L | Code | C5 | ✅ |
+| RC-06 | Handle the recorder panel crashing mid-recording, and the main window being closed while the panel is open | L | Code | — | ✅ |
+
+### Phase 8 status (14 Nov)
+
+The recorder runs in its own window, which the browser preview cannot show, so this phase was checked in the real app where possible. A new `recover` step in `src/bench.cjs` truncates a recording at 70%, as a crash would; the app found it, asked, saved 6.7 of its 10 seconds, opened it in the editor and removed the raw file. **Not yet tried by hand:** recording with Mac sound, the permission message (it needs the permission to be turned off), and a recorder crash.
+
+| ID | What changed |
+|---|---|
+| RC-01 ✅ | **Mac sound** option in the recorder: the Mac's own sound is captured with the screen (macOS 13 or later) and mixed with the microphone into one track. The app asks macOS for audio capture (new Info.plist text). If the Mac can't provide it, recording continues with the microphone and a note says so. The hint suggests headphones to avoid echo |
+| RC-02 ✅ | Screen Recording access is checked when the recorder opens and again before recording. Without it, a message explains where to turn it on, with **Open System Settings** (straight to the right pane) and **Check again**; Record stays disabled |
+| RC-03 ◐ | Not possible with Electron alone: it cannot read where another app's window is on screen, so the cursor can't be placed inside a window recording. "Follow recorded cursor" is only offered for screen and area recordings, which have cursor data |
+| RC-04 ✅ | A recording cut off by a crash or power loss is offered on the next launch: **Save recording** (repackaged, or re-encoded if damaged, then opened in the editor with its camera video), **Delete it** or **Not now** |
+| RC-05 ✅ | Asking for narration while the screen recorder is open switches the recorder to narration (unless it is recording) |
+| RC-06 ✅ | If the recorder window crashes mid-recording, the part recorded so far is offered at once. Closing the main window closes an idle recorder window too |
 
 ---
 

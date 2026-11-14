@@ -1,4 +1,4 @@
-const {app,BrowserWindow,ipcMain,desktopCapturer,screen,globalShortcut,Tray,Menu,systemPreferences}=require('electron');
+const {app,BrowserWindow,ipcMain,desktopCapturer,screen,globalShortcut,Tray,Menu,systemPreferences,shell,dialog}=require('electron');
 const SETUP_HEIGHT=604; // setup panel height; 0.12 added the camera row
 const fs=require('node:fs/promises'),path=require('node:path');
 const {normalizeArea,cursorPoint,RecordingClock}=require('./geometry.js');
@@ -24,6 +24,9 @@ class RecorderController {
     route('hide-for-shot',()=>{this.panel.hide();return true;});
     route('show-error',()=>{this.panel.setContentProtection(false);this.panel.setSize(680,SETUP_HEIGHT);this.show();return true;});
     route('cancel-processing',()=>{if(this.phase==='processing')this.ctx.cancel();return true;});
+    // 0.15 (RC-02): Screen Recording permission, checked before recording, with a way to the right System Settings pane.
+    route('screen-access',()=>process.platform!=='darwin'?'granted':systemPreferences.getMediaAccessStatus('screen'));
+    route('open-privacy',()=>shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'));
     route('abort',()=>this.abort());
     route('show-controls',()=>this.show());
     route('close',()=>{if(this.busy())return false;this.panel?.close();return true;});
@@ -31,6 +34,8 @@ class RecorderController {
   busy(){return ['recording','paused','processing','countdown'].includes(this.phase);}
   isCaptureClient(webContents){return webContents===this.panel?.webContents;}
   async open(options={}){
+    // 0.15 (RC-05): asking for a different recorder (narration while the screen recorder is open) switches it, unless one is recording.
+    if(this.panel&&!this.panel.isDestroyed()&&!this.busy()&&(options.kind||'video')!==this.config.kind){this.panel.destroy();this.panel=null;}
     if(this.panel&&!this.panel.isDestroyed()){this.show();if(!this.busy()&&typeof options.camera==='boolean')this.command(options.camera?'camera-on':'camera-off');return true;}
     this.config={kind:options.kind||'video',voiceStart:Number(options.voiceStart)||0,camera:(options.kind||'video')==='video'&&!!options.camera};this.phase='idle';this.area=null;this.areaSourceId=null;this.display=null;this.source=null;
     const b=screen.getPrimaryDisplay().workArea;
@@ -40,6 +45,8 @@ class RecorderController {
     this.panel.webContents.setWindowOpenHandler(()=>({action:'deny'}));this.panel.webContents.on('will-navigate',e=>e.preventDefault());
     this.panel.on('close',e=>{if(this.busy()){e.preventDefault();this.command('stop');}});
     this.panel.on('closed',()=>{this.panel=null;this.stopControls();});
+    // 0.15 (RC-06): if the recorder window crashes mid-recording, what was recorded so far is offered back.
+    this.panel.webContents.on('render-process-gone',()=>{const was=this.busy();this.stopControls();this.phase='idle';this.file=null;this.cameraFile=null;try{this.panel?.destroy();}catch{}this.panel=null;if(was)this.recoverInterrupted(true).catch(()=>{});});
     await this.panel.loadURL('visor://app/recorder/panel.html');return true;
   }
   async listSources(){
@@ -70,6 +77,7 @@ class RecorderController {
     if(this.ctx.isWorking())throw Error('Wait for the current export or conversion to finish first.');
     const kind=this.config.kind,mode=['screen','window','area'].includes(config.mode)?config.mode:'screen';
     if(kind!=='voice'){
+      if(process.platform==='darwin'&&!app.commandLine.hasSwitch('use-fake-device-for-media-stream')&&systemPreferences.getMediaAccessStatus('screen')!=='granted')throw Error('Video Visor needs Screen Recording access. Open System Settings → Privacy & Security → Screen & System Audio Recording, turn on Video Visor, then quit and reopen Video Visor.');
       await this.listSources();this.source=this.sources.find(s=>s.id===config.sourceId);
       if(!this.source)throw Error('The selected source is no longer available. Refresh the list and choose again.');
       if((mode==='window')!==this.source.id.startsWith('window:'))throw Error('Choose a source that matches the capture mode.');
@@ -77,7 +85,7 @@ class RecorderController {
       if(mode==='area'){if(!this.display||!this.area||this.areaSourceId!==config.sourceId)throw Error('Select a recording area first.');this.area=normalizeArea(this.area,this.display.bounds);}else this.area=null;
     }
     const camera=kind==='video'&&!!config.camera;if(camera)await this.deviceAccess('camera');if(kind==='voice'||config.microphone)await this.deviceAccess('microphone');
-    this.config={...this.config,camera,cameraId:String(config.cameraId||''),mode,microphone:kind==='voice'||!!config.microphone,microphoneId:String(config.microphoneId||''),hideControls:!!config.hideControls,countdown:!!config.countdown};
+    this.config={...this.config,camera,cameraId:String(config.cameraId||''),mode,microphone:kind==='voice'||!!config.microphone,microphoneId:String(config.microphoneId||''),hideControls:!!config.hideControls,countdown:!!config.countdown,systemAudio:kind==='video'&&!!config.systemAudio};
     this.phase='countdown';return {...this.config,area:this.area,display:this.display?.bounds};
   }
   // macOS asks once; after a refusal the person has to change it in System Settings.
@@ -90,7 +98,8 @@ class RecorderController {
   }
   displayRequest(request,callback){
     if(request.frame!==this.panel?.webContents.mainFrame||!this.source||this.phase!=='countdown')return callback(null);
-    callback({video:this.source});
+    // 0.15 (RC-01): the Mac's own sound with the screen when chosen (macOS 13 or later).
+    callback({video:this.source,...(this.config.systemAudio?{audio:'loopback'}:{})});
   }
   async begin(){
     const stamp=Date.now();this.file=path.join(this.ctx.root,'Recording-'+stamp+'.webm');await fs.writeFile(this.file,'',{flag:'wx'});this.cameraFile=null;this.cameraDelay=0;if(this.config.camera){this.cameraFile=path.join(this.ctx.root,'Recording-'+stamp+'-camera.webm');await fs.writeFile(this.cameraFile,'',{flag:'wx'});}this.write=Promise.resolve();this.cursor=[];this.clock.start();this.phase='recording';
@@ -147,6 +156,33 @@ class RecorderController {
     try{const output=await this.ctx.saveDialog('Video Visor screenshot.png');if(!output){this.phase='idle';this.panel.setAlwaysOnTop(true);this.show();return false;}await fs.writeFile(output,Buffer.from(buffer));const item=await this.ctx.register(output);this.phase='idle';this.complete(item);return true;}catch(e){this.phase='idle';this.panel.setAlwaysOnTop(true);this.show();throw e;}
   }
   complete(asset,camera=null){this.ctx.win.webContents.send('capture-complete',{asset,kind:this.config.kind,voiceStart:this.config.voiceStart,camera});this.panel?.destroy();this.panel=null;this.ctx.win.show();this.ctx.win.focus();}
+  // 0.15 (RC-04): a recording cut off by a crash or power loss leaves its raw file behind (finished recordings delete
+  // theirs). On the next launch, or right after a recorder crash, it is offered back and saved like a normal recording.
+  async recoverInterrupted(crashed=false){
+    const root=this.ctx.root,names=await fs.readdir(root).catch(()=>[]);
+    for(const name of names.filter(n=>/^Recording-\d+\.webm$/.test(n))){
+      const file=path.join(root,name);if(file===this.file)continue;const st=await fs.stat(file).catch(()=>null);if(!st)continue;
+      const camera=file.replace(/\.webm$/,'-camera.webm');
+      if(st.size<64*1024){await fs.unlink(file).catch(()=>{});await fs.unlink(camera).catch(()=>{});continue;}
+      const when=new Date(Number(name.match(/\d+/)[0])).toLocaleString([],{dateStyle:'medium',timeStyle:'short'});
+      const r=await dialog.showMessageBox(this.ctx.win,{type:'question',message:crashed?'The recorder stopped unexpectedly':'A recording was interrupted',detail:'Video Visor closed while recording ('+when+', '+Math.round(st.size/1048576)+' MB). The part recorded so far can be saved and opened in the editor.',buttons:['Save recording','Delete it','Not now'],defaultId:0,cancelId:2});
+      if(r.response===2)continue;
+      if(r.response===1){await fs.unlink(file).catch(()=>{});await fs.unlink(camera).catch(()=>{});continue;}
+      const info=await require('../engines/probe.cjs').probe(this.ctx.ffmpeg,file).catch(()=>null),video=info?.streams?.some(x=>x.codec_type==='video');
+      const output=file.replace(/\.webm$/,video?'.mp4':'.m4a'),encode=['-c:v','libx264','-preset','veryfast','-vf','scale=trunc(iw/2)*2:trunc(ih/2)*2','-pix_fmt','yuv420p','-movflags','+faststart'];
+      const save=async(input,out,a,b)=>{try{await this.ctx.run(this.ctx.ffmpeg,['-y','-i',input,...a,out]);}catch{await this.ctx.run(this.ctx.ffmpeg,['-y','-err_detect','ignore_err','-i',input,...b,out]);}};
+      try{
+        const result=await this.ctx.job(async()=>{
+          if(video)await save(file,output,['-c:v','copy','-c:a','aac','-b:a','192k','-movflags','+faststart'],[...encode,'-c:a','aac']);else await save(file,output,['-vn','-c:a','aac','-b:a','192k'],['-vn','-c:a','aac']);
+          const asset=await this.ctx.register(output);let cam=null;
+          if(video&&(await fs.stat(camera).catch(()=>({size:0}))).size>64*1024){const out=camera.replace(/\.webm$/,'.mp4');try{await save(camera,out,['-an','-c:v','copy','-movflags','+faststart'],['-an',...encode]);cam={asset:await this.ctx.register(out),offset:0};}catch{}}
+          return {asset,cam};
+        });
+        await fs.unlink(file).catch(()=>{});await fs.unlink(camera).catch(()=>{});
+        this.ctx.win.webContents.send('capture-complete',{asset:result.asset,kind:video?'video':'voice',voiceStart:0,camera:result.cam});this.ctx.win.show();
+      }catch(e){dialog.showMessageBox(this.ctx.win,{type:'error',message:'The recording could not be saved',detail:(e.message||String(e)).slice(0,300)+'\n\nThe raw file is kept in the workspace folder.'});}
+    }
+  }
   abort(){this.phase='idle';this.stopControls();this.show();if(this.panel){this.panel.setContentProtection(false);this.panel.setSize(680,SETUP_HEIGHT);}return true;}
   dispose(){this.phase='idle';this.stopControls();this.overlay?.destroy();this.panel?.destroy();}
 }

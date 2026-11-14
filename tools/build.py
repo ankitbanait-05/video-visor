@@ -70,6 +70,8 @@ def main():
         info = plistlib.load(f)
     info["ElectronAsarIntegrity"] = {"Resources/app.asar": {"algorithm": "SHA256", "hash": digest}}
     info["CFBundleShortVersionString"] = info["CFBundleVersion"] = version
+    # 0.15: macOS asks for this when a recording includes the Mac's own sound.
+    info["NSAudioCaptureUsageDescription"] = "Video Visor records your Mac's sound with the screen when you tick Mac sound."
     # CFBundleName must stay "Video Visor": Electron finds its "Video Visor Helper" apps by it.
     info["CFBundleDisplayName"] = name
     if not release:
