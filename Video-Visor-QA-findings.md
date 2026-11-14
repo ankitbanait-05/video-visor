@@ -32,7 +32,7 @@ This is the single list of everything found in QA and everything requested in re
 |---|---|---|
 | 0 | Timeline restructure (foundation) | 10 |
 | 1 | Timeline behaviour | 27 |
-| 2 | Speed and hardware use | 10 |
+| 2 | Speed and hardware use | 12 |
 | 3 | Panels and properties | 12 |
 | 4 | Effects and elements | 9 |
 | 5 | Captions and text | 8 |
@@ -163,16 +163,50 @@ Still open in Phase 1: TL-09 (unlink / re-link / delete audio only) moves to Pha
 
 | ID | Change | Pri | Evidence | Was | ☐ |
 |---|---|---|---|---|---|
-| SP-01 | **Recording save without re-encoding.** Record H.264 directly, or keep the recorded format and only repackage it. Measured on a 30 s Retina-size clip: today 11.0 s, repackage 0.3 s (Appendix B) | H | Measured | — | ☐ |
-| SP-02 | Save the camera at the same time as the screen, not after. Camera footage can no longer be lost if another task takes the engine between the two | H | Code | C1 | ☐ |
-| SP-03 | Export timing log (draw, capture, encode per frame), so every speed change can be measured on a real Mac | H | — | — | ☐ |
-| SP-04 | Faster export loop: play frames forward instead of seeking to each one, drop the two-refresh wait, and draw the next frame while the previous one encodes (Spec E) | H | Code | — | ☐ |
+| SP-01 | **Recording save without re-encoding.** Record H.264 directly, or keep the recorded format and only repackage it. Measured on a 30 s Retina-size clip: today 11.0 s, repackage 0.3 s (Appendix B) | H | Measured | — | ◐ |
+| SP-02 | Save the camera at the same time as the screen, not after. Camera footage can no longer be lost if another task takes the engine between the two | H | Code | C1 | ◐ |
+| SP-03 | Export timing log (draw, capture, encode per frame), so every speed change can be measured on a real Mac | H | — | — | ✅ |
+| SP-04 | Faster export loop: play frames forward instead of seeking to each one, drop the two-refresh wait, and draw the next frame while the previous one encodes (Spec E) | H | Code | — | ✅ |
 | SP-05 | Build plain edits (cuts, trims, fades, simple transitions, zoom) directly in the encoder; capture only the overlay layer (titles, captions) where one exists (Spec E) | M | Code | — | ☐ |
-| SP-06 | Use Apple's hardware encoder (VideoToolbox, already in the bundled encoder) for final MP4/MOV and AAC | M | Measured | — | ☐ |
-| SP-07 | No re-encode of iPhone HEVC or ProRes on import; play and export from the original. Audio files with cover art no longer trigger a video conversion | H | Code | E7 | ☐ |
-| SP-08 | The background render queue no longer blocks captions, tools, recording and exports. The queue survives a restart or warns before quitting. Queue progress is no longer overwritten by other tasks | M | Code | E11, E12 | ☐ |
-| SP-09 | Faster WebM conversion (43 s for a 24 s 720p clip today) | L | Measured | T12 | ☐ |
-| SP-10 | Import preparation shows a percentage and can be cancelled | M | Code | — | ☐ |
+| SP-06 | Use Apple's hardware encoder (VideoToolbox, already in the bundled encoder) for final MP4/MOV and AAC | M | Measured | — | ✅ |
+| SP-07 | No re-encode of iPhone HEVC or ProRes on import; play and export from the original. Audio files with cover art no longer trigger a video conversion | H | Code | E7 | ✅ |
+| SP-08 | The background render queue no longer blocks captions, tools, recording and exports. The queue survives a restart or warns before quitting. Queue progress is no longer overwritten by other tasks | M | Code | E11, E12 | ✅ |
+| SP-09 | Faster WebM conversion (43 s for a 24 s 720p clip today) | L | Measured | T12 | ✅ |
+| SP-10 | Import preparation shows a percentage and can be cancelled | M | Code | — | ◐ |
+| SP-11 | **New:** the bundled `ffprobe` is an Intel binary. It needs Rosetta (not installed by default, so every video import fails without it) and took ~7.5 s on first use after each install or update. Media details now come from the native `ffmpeg` | H | Measured | — | ✅ |
+| SP-12 | **New:** importing an MP3 / M4A with cover art failed ("Could not write header"): the cover was treated as video and converted | H | Measured | — | ✅ |
+
+### Phase 2 status (14 Nov)
+
+Measured with the app's own code in the Dev build's benchmark mode (`VV_BENCH=1`, see `src/bench.cjs`), on an M1 Pro:
+
+| Task | 0.14 | Now |
+|---|---|---|
+| Export 20 s of 1080p with a title | 41 s (0.48× real time) | **13.3 s (1.5×)**; quality unchanged (same PSNR against the source) |
+| Save a 20 s Retina screen recording | 7.6 s | **0.2 s** |
+| Import a plain 20 s H.264 video | 7.4 s on first use (Rosetta), and impossible without Rosetta | **0.08 s** |
+| Import an MP3 with cover art | failed | 24 ms |
+| WebM conversion of a 24 s clip | 47.6 s | **9.2 s** (same quality, 6% larger) |
+| Queued render while another task runs | "A task is already running" | both run (render 5.9 s, other task 53 ms) |
+
+| ID | What changed |
+|---|---|
+| SP-01 ◐ | Saving only repackages the recording into MP4 (no re-encode), with a full re-encode as fallback. The recorder now records H.264 + AAC MP4 (hardware) with a keyframe every second when the size is even, VP9 WebM otherwise; area sizes are rounded to even. **Not yet exercised with a real screen recording** (the repackage step is measured) |
+| SP-02 ◐ | Screen and camera are saved in one job, so the camera can't be lost in between |
+| SP-03 ✅ | Every export writes its timing (ms per frame for seek, paint wait, capture, convert, pipe, and the real-time factor) to diagnostics.log |
+| SP-04 ✅ | Root cause: each frame seeks the video, and Chromium decodes from the previous keyframe (often ~8 s back) — 48 ms of the 56 ms per frame. Footage with keyframes more than 2 s apart now gets a background **edit copy** with a keyframe every second (hardware encoder, ~6× real time, once per file); preview and export use it, and an export waits for a copy still being made. One paint wait instead of two, and encoding overlaps drawing |
+| SP-05 ☐ | Deferred. Building plain edits directly in the encoder would bypass frame capture, but needs a second rendering path with parity risks; with export already faster than real time it is not the next priority |
+| SP-06 ✅ | MP4 / MOV exports use the hardware H.264 encoder (bitrate scaled to size), falling back to x264 if it is unavailable |
+| SP-07 ✅ | Formats Chromium can't play (HEVC, ProRes, 10-bit H.264) are converted with the hardware encoder; cover art no longer counts as video |
+| SP-08 ✅ | The render queue renders in its own slot, with its own Cancel and its own progress. Quitting during a render asks first |
+| SP-09 ✅ | Faster VP9 settings for WebM export and the WebM converter |
+| SP-10 ◐ | Preparing footage shows a progress dialog with a percentage and Cancel, which stops the conversion. The dialog is checked in the preview; cancelling a real conversion is not yet exercised |
+| SP-11 ✅ | Native probe replaces the Intel-only ffprobe (matches ffprobe's output on H.264, HEVC, WebM, rotated video and cover art) |
+| SP-12 ✅ | MP3 / M4A with cover art import correctly |
+
+Notes:
+- Edit copies use disk space: about 90 MB per minute of 1080p, plus more for Retina recordings. They are cleaned up with the storage work in PR-04.
+- HEVC import on the synthetic test clip went from 2.0 s to 2.9 s; real camera footage is expected to favour the hardware encoder.
 
 ---
 

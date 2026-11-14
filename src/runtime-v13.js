@@ -110,7 +110,7 @@ const queue={
   });
   queue.jobs.push(...added);queue.draw();queue.pump();return added;
  },
- cancel(id){const job=queue.jobs.find(j=>j.id===id);if(!job)return;if(job.status==='waiting'){job.status='cancelled';delete job.state;}else if(job.status==='rendering'){job.cancelling=true;native.cancel().catch(()=>{});}queue.draw();},
+ cancel(id){const job=queue.jobs.find(j=>j.id===id);if(!job)return;if(job.status==='waiting'){job.status='cancelled';delete job.state;}else if(job.status==='rendering'){job.cancelling=true;(native.cancelQueued?native.cancelQueued():native.cancel()).catch(()=>{});}queue.draw();},
  clear(){queue.jobs=queue.jobs.filter(j=>['waiting','rendering'].includes(j.status));queue.draw();},
  async pump(){
   if(queue.running)return;const job=queue.jobs.find(j=>j.status==='waiting');if(!job)return;
@@ -164,7 +164,7 @@ const queue={
  }
 };
 window.renderQueueV13=queue;
-native.onProgress(p=>{const job=queue.running;if(!job)return;const n=Math.max(0,Math.min(100,Math.round(p?.percent||0)));if(n!==job.progress){job.progress=n;queue.draw();}});
+native.onProgress(p=>{const job=queue.running;if(!job||p?.source!=='queue')return;const n=Math.max(0,Math.min(100,Math.round(p?.percent||0)));if(n!==job.progress){job.progress=n;queue.draw();}});
 // The Export dialog in the editor offers the queue as well.
 new MutationObserver(()=>{const body=$('#v-dialog-body');if(!body||!body.querySelector('#v-export-format')||body.querySelector('#v13-export-queue'))return;const b=document.createElement('button');b.id='v13-export-queue';b.type='button';b.className='v-button quiet v-full';b.textContent='Render several frame shapes in the background…';b.onclick=()=>{const id=W().active();if(!id)return S().notify('Save this video as a project first.');S().closeModal();queue.dialog(id);};body.append(b);}).observe($('#v-dialog-body')||document.body,{childList:true,subtree:true});
 

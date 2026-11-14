@@ -5,8 +5,39 @@ if(process.env.VIDEO_VISOR_TEST_HOME&&!app.isPackaged)app.setPath('userData',pat
 protocol.registerSchemesAsPrivileged([{scheme:'visor',privileges:{standard:true,secure:true,supportFetchAPI:true,stream:true,corsEnabled:true}}]);
 let recorderController;let connector=null,connectionFile=null;let libraryCache;let win,root,storage,registry={},currentJob=null;let projectStore,closing=false,recoveryPrompt=false;
 const url=id=>'visor://media/'+id;
-function run(bin,args,onData,input,onErrorData){return new Promise((resolve,reject)=>{if(currentJob?.cancelled){reject(Error('Cancelled'));return;}const p=spawn(bin,args,{windowsHide:true}),chunks=[];p.stdin.on('error',()=>{});p.stdin.end(input||'');let err='';const timeout=bin===ffprobe?setTimeout(()=>{p.kill('SIGTERM');reject(Error('Reading media timed out. Check that the file is available locally.'));},30000):null;if(currentJob)currentJob.child=p;p.stdout.on('data',d=>{chunks.push(d);onData?.(d);});p.stderr.on('data',d=>{err=(err+d).slice(-16000);onErrorData?.(d);});p.on('error',reject);p.on('close',code=>{clearTimeout(timeout);code===0&&!currentJob?.cancelled?resolve(Buffer.concat(chunks)):reject(Error(currentJob?.cancelled?'Cancelled':err||'Processing failed ('+code+')'));});});}
-async function probe(file){const data=JSON.parse(await run(ffprobe,['-v','error','-show_format','-show_streams','-of','json',file]));return data;}
+// 0.15: jobRef lets the render queue run its own processes in a background slot (see backgroundJob).
+function run(bin,args,onData,input,onErrorData,jobRef){const J=jobRef||currentJob;return new Promise((resolve,reject)=>{if(J?.cancelled){reject(Error('Cancelled'));return;}const p=spawn(bin,args,{windowsHide:true}),chunks=[];p.stdin.on('error',()=>{});p.stdin.end(input||'');let err='';const timeout=null;if(J)J.child=p;p.stdout.on('data',d=>{chunks.push(d);onData?.(d);});p.stderr.on('data',d=>{err=(err+d).slice(-16000);onErrorData?.(d);});p.on('error',reject);p.on('close',code=>{clearTimeout(timeout);code===0&&!J?.cancelled?resolve(Buffer.concat(chunks)):reject(Error(J?.cancelled?'Cancelled':err||'Processing failed ('+code+')'));});});}
+// 0.15: the render queue renders in its own slot, so captions, tools, Magic Edit, exports and recording keep working.
+let backgroundJob=null,quitDuringRenderV15=false;
+const runBg=(bin,args,onData,input,onErrorData)=>run(bin,args,onData,input,onErrorData,backgroundJob);
+async function backgroundJobRun(fn){if(backgroundJob)throw Error('A render is already running.');backgroundJob={cancelled:false};try{return await fn();}finally{backgroundJob=null;}}
+// 0.15: media details come from the native ffmpeg (engines/probe.cjs), not the Intel-only ffprobe.
+const probeV15=require('./engines/probe.cjs');
+async function probe(file){return probeV15.probe(ffmpeg,file);}
+// 0.15 edit copies. Chromium seeks by decoding from the previous keyframe, so footage with keyframes
+// seconds apart made every exported frame decode up to hundreds of frames (~48 ms a frame). Such footage
+// gets a copy with a keyframe every second, made with Apple's hardware encoder; preview and export use it.
+// Formats Chromium can't play (HEVC, ProRes, 10-bit H.264) get the same copy before they can be used.
+let preparingV15=null;const pendingCopiesV15=new Map();let copyQueueV15=Promise.resolve();
+function ffmpegV15(args,onErr){let child;const promise=new Promise((resolve,reject)=>{child=spawn(ffmpeg,args,{windowsHide:true});let err='';child.stdin.on('error',()=>{});child.stdin.end();child.stderr.on('data',d=>{err=(err+d).slice(-8000);onErr?.(String(d));});child.on('error',reject);child.on('close',code=>code===0?resolve():reject(Error(child.killedByUserV15?'Cancelled':err.split('\n').filter(Boolean).slice(-2).join(' ')||'Processing failed ('+code+')')));});return{child,promise};}
+function copyArgsV15(input,output,meta,encoder){const fps=Math.max(1,Math.round(meta.fps||30)),rate=Math.round(Math.min(80e6,Math.max(6e6,(meta.width||1920)*(meta.height||1080)*fps*.12)));return ['-y','-nostdin',...(encoder==='vt'?['-hwaccel','videotoolbox']:[]),'-i',input,'-map','0:v:0','-map','0:a:0?',...(encoder==='vt'?['-c:v','h264_videotoolbox','-b:v',String(rate),'-maxrate',String(Math.round(rate*1.5)),'-bufsize',String(rate*2)]:['-c:v','libx264','-preset','veryfast','-crf','18']),'-g',String(fps),'-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-movflags','+faststart',output];}
+async function makeCopyV15(input,output,meta,{label,blocking}={}){
+ const started=Date.now();const onErr=d=>{const m=/time=(\d+):(\d+):([\d.]+)/.exec(d);if(m&&label&&meta.duration){const t=+m[1]*3600+ +m[2]*60+ +m[3],pct=Math.max(0,Math.min(99,Math.round(t/meta.duration*100)));progress(pct,label+' · '+pct+'%');}};
+ for(const encoder of ['vt','x264']){
+  const job=ffmpegV15(copyArgsV15(input,output,meta,encoder),onErr);if(blocking)preparingV15={child:job.child};
+  try{await job.promise;logDiagnostic('edit-copy',{name:path.basename(input),encoder,seconds:Math.round(meta.duration),ms:Date.now()-started});return output;}
+  catch(e){if(/Cancelled/.test(e.message))throw Error('Import cancelled.');logDiagnostic('edit-copy',{name:path.basename(input),encoder,failed:e.message.slice(0,300)});}
+  finally{if(blocking)preparingV15=null;}
+ }
+ throw Error('This video could not be prepared for editing.');
+}
+function scheduleCopyV15(id){
+ const a=registry[id];if(!a||pendingCopiesV15.has(id))return;const out=path.join(root,'edit-'+id+'.mp4');
+ const task=copyQueueV15.catch(()=>{}).then(async()=>{const job=makeCopyV15(a.path,out,a);await job;if(registry[id]){registry[id].previewPath=out;registry[id].editCopy=true;await fs.writeFile(path.join(root,'media.json'),JSON.stringify(registry));}}).catch(e=>logDiagnostic('edit-copy',{id,failed:e.message})).finally(()=>pendingCopiesV15.delete(id));
+ copyQueueV15=task;pendingCopiesV15.set(id,task);
+}
+// Before an export: wait for edit copies still being made for the footage it uses, so it gets the fast path.
+async function waitForCopiesV15(state,report=progress){const ids=[...new Set([...(state.clips||[]).map(c=>c.asset),...(state.overlays||[]).map(o=>o.asset)])].filter(id=>pendingCopiesV15.has(id));for(const id of ids){report(0,'Preparing footage for a fast export · '+(registry[id]?.name||''));await pendingCopiesV15.get(id);}}
 // 0.9: files are checked by type before FFmpeg sees them, and read errors are reported in plain language
 // (the technical detail goes to diagnostics.log).
 const SUPPORTED=/^\.(mp4|mov|m4v|webm|mkv|avi|mpg|mpeg|wmv|flv|3gp|mts|m2ts|ts|ogv|mp3|wav|m4a|aac|ogg|flac|aif|aiff|opus|wma|png|jpe?g|webp|gif|tiff?|avif|heic|pdf)$/;
@@ -14,9 +45,10 @@ async function register(file,cursor){
  const stat=await fs.stat(file),ext=path.extname(file).toLowerCase(),id=randomUUID();
  if(!SUPPORTED.test(ext))throw Error(ext?'Video Visor cannot open '+ext+' files. Use a video, audio, image or PDF file.':'This file has no extension, so its type is unknown. Use a video, audio, image or PDF file.');
  let kind=/\.(png|jpe?g|webp|gif|tiff?|avif|heic)$/.test(ext)?'image':ext==='.pdf'?'pdf':/\.(mp3|wav|m4a|aac|ogg|flac|aif|aiff|opus|wma)$/.test(ext)?'audio':'video';let meta={duration:5,width:0,height:0,hasAudio:false},previewPath;if(!stat.size)throw Error('The selected file is empty. Choose a complete media file.');
- if(kind==='video'||kind==='audio'){const p=await probe(file).catch(e=>{logDiagnostic('import',path.basename(file)+': '+e.message);throw Error(/timed out/i.test(e.message)?e.message:'This file could not be read. It may be damaged, incomplete, or in a format Video Visor does not support.');}),v=p.streams.find(x=>x.codec_type==='video');if(!v)kind='audio';const duration=Number(p.format.duration),rate=(v?.avg_frame_rate||'30/1').split('/').map(Number);if(!Number.isFinite(duration)||duration<=0)throw Error('This file has no readable media duration. Choose a complete video or audio file.');meta={duration,...require('./engines/media-preview.cjs').orientation(v),fps:rate[0]/rate[1]||30,hasAudio:p.streams.some(x=>x.codec_type==='audio')};if(v&&(!['h264','vp8','vp9','av1'].includes(v.codec_name)||v.codec_name==='h264'&&!['yuv420p','yuvj420p','nv12'].includes(v.pix_fmt))){progress(0,'Preparing a compatible preview for '+path.basename(file));previewPath=path.join(root,'preview-'+id+'.mp4');await run(ffmpeg,['-y','-i',file,'-map','0:v:0','-map','0:a?','-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-c:a','aac','-movflags','+faststart',previewPath]);}}
+ let needsCopyV15=false;if(kind==='video'||kind==='audio'){const p=await probe(file).catch(e=>{logDiagnostic('import',path.basename(file)+': '+e.message);throw Error(/timed out/i.test(e.message)?e.message:'This file could not be read. It may be damaged, incomplete, or in a format Video Visor does not support.');}),v=p.streams.find(x=>x.codec_type==='video'&&!x.disposition?.attached_pic);if(!v)kind='audio';const duration=Number(p.format.duration),rate=(v?.avg_frame_rate||'30/1').split('/').map(Number);if(!Number.isFinite(duration)||duration<=0)throw Error('This file has no readable media duration. Choose a complete video or audio file.');meta={duration,...require('./engines/media-preview.cjs').orientation(v),fps:rate[0]/rate[1]||30,hasAudio:p.streams.some(x=>x.codec_type==='audio')};if(v&&(!['h264','vp8','vp9','av1'].includes(v.codec_name)||v.codec_name==='h264'&&!['yuv420p','yuvj420p','nv12'].includes(v.pix_fmt))){const label='Preparing '+path.basename(file)+' for editing';progress(0,label);previewPath=path.join(root,'preview-'+id+'.mp4');await makeCopyV15(file,previewPath,meta,{label,blocking:true});}
+  else if(v){const span=Math.min(12,duration),keys=span>3?await probeV15.keyframeRate(ffmpeg,file):null;needsCopyV15=keys!=null&&keys/span<.5;}}
  if(kind==='image'){const sharp=require('sharp');if(['.tif','.tiff','.heic'].includes(ext)){previewPath=path.join(root,'preview-'+id+'.png');try{await sharp(file).rotate().png().toFile(previewPath);}catch{await run('/usr/bin/sips',['-s','format','png',file,'--out',previewPath]);}}const m=await sharp(previewPath||file).metadata();meta.width=m.autoOrient?.width||m.width;meta.height=m.autoOrient?.height||m.height;}
- registry[id]={id,path:file,previewPath,name:path.basename(file),kind,size:stat.size,...meta,cursor:cursor||[]};await fs.writeFile(path.join(root,'media.json'),JSON.stringify(registry));const {path:_,previewPath:__,...item}=registry[id];return {...item,url:url(id),type:kind+'/local'};
+ registry[id]={id,path:file,previewPath,name:path.basename(file),kind,size:stat.size,...meta,cursor:cursor||[]};await fs.writeFile(path.join(root,'media.json'),JSON.stringify(registry));if(needsCopyV15)scheduleCopyV15(id);const {path:_,previewPath:__,...item}=registry[id];return {...item,url:url(id),type:kind+'/local'};
 }
 function asset(id){if(!registry[id])throw Error('Media missing. Import the original again.');return registry[id];}
 async function importMany(paths){const result=[],errors=[];for(let i=0;i<paths.length;i++){const file=paths[i];progress(i/paths.length*100,'Importing '+(i+1)+' / '+paths.length+' · '+path.basename(file));try{result.push(await register(file));}catch(e){errors.push(path.basename(file)+': '+e.message);}}if(errors.length)await dialog.showMessageBox(win,{type:'warning',message:'Some files could not be imported',detail:errors.join('\n')+'\n\n'+(result.length?'The other files were imported.':'Nothing was imported.')});return result;}
@@ -53,7 +85,7 @@ app.whenReady().then(async()=>{
  const visuals=require('./engines/media-preview.cjs').createCache(root,ffmpeg);event('mediaVisuals',(id,range)=>{const a=asset(id);if(!range)return visuals(a);const start=Math.max(0,Math.min(a.duration-.01,Number(range.start)||0)),end=Math.max(start+.01,Math.min(a.duration,Number(range.end)||a.duration));return visuals({...a,id:a.id+'-'+start.toFixed(3)+'-'+end.toFixed(3),offset:start,duration:end-start});});
  event('readScript',async()=>{const r=await dialog.showOpenDialog(win,{filters:[{name:'Script',extensions:['txt','md']}],properties:['openFile']});if(r.canceled)return null;if((await fs.stat(r.filePaths[0])).size>200000)throw Error('Choose a script smaller than 200 KB.');return fs.readFile(r.filePaths[0],'utf8');});
  event('readText',async()=>{const r=await dialog.showOpenDialog(win,{filters:[{name:'Caption file',extensions:['srt','vtt']}],properties:['openFile']});return r.canceled?null:fs.readFile(r.filePaths[0],'utf8');});
- event('cancel',()=>{if(currentJob){currentJob.cancelled=true;currentJob.child?.kill('SIGTERM');}return true;});
+ event('cancel',()=>{if(currentJob){currentJob.cancelled=true;currentJob.child?.kill('SIGTERM');}if(preparingV15?.child){preparingV15.child.killedByUserV15=true;preparingV15.child.kill('SIGTERM');}return true;});
  event('prepareAudioPreview',async state=>job(async()=>{
   const hash=require('node:crypto').createHash('sha256').update(require('./engines/audio-preview-v8.js').key(state)).digest('hex');
   const dir=path.join(root,'audio-previews');await fs.mkdir(dir,{recursive:true});const output=path.join(dir,hash+'.wav');
@@ -62,19 +94,23 @@ app.whenReady().then(async()=>{
  }));
  // 0.9: the export dialog can reveal or play the finished file. Only files exported in this session are allowed.
  const exported=new Set();
- event('export',async(state,cfg)=>job(async()=>{const result=await require('./engines/export.cjs').exportProject({state,cfg,asset,run,ffmpeg,root,saveDialog,validateOutput,progress,cancelled:()=>currentJob.cancelled,BrowserWindow,appPath:__dirname});if(result?.path)exported.add(result.path);return result;}));
+ event('export',async(state,cfg)=>job(async()=>{await waitForCopiesV15(state);const result=await require('./engines/export.cjs').exportProject({state,cfg,asset,run,ffmpeg,root,saveDialog,validateOutput,progress,cancelled:()=>currentJob.cancelled,BrowserWindow,appPath:__dirname});logExportV15(result,cfg,state);if(result?.path)exported.add(result.path);return result;}));
  event('previewMute',muted=>{win.webContents.setAudioMuted(!!muted);return !!muted;}); // 0.10: mute button under the preview
  // 0.13 render queue: these renders are saved straight into the export folder, with no dialog.
  const queueFolder=()=>exportFolder||(process.env.VIDEO_VISOR_TEST_HOME&&!app.isPackaged?path.join(app.getPath('userData'),'exports'):path.join(app.getPath('videos'),'Video Visor'));
- const runExport=(state,cfg,destination)=>require('./engines/export.cjs').exportProject({state,cfg,asset,run,ffmpeg,root,saveDialog,validateOutput,destination,progress,cancelled:()=>currentJob.cancelled,BrowserWindow,appPath:__dirname});
- event('exportQueued',async(state,cfg,name)=>job(async()=>{
+ // 0.15: every export records its speed in diagnostics.log (frames, ms per frame by step, real-time factor).
+ const logExportV15=(r,cfg,state)=>{const t=r?.timing;if(!t?.frames)return;const f=t.frames,sec=f/(Math.min(60,Math.max(12,+cfg.fps||30)));logDiagnostic('export-timing',{format:cfg.format,resolution:cfg.resolution,clips:state.clips?.length,seconds:Math.round(sec),renderMs:t.renderMs,realtime:t.renderMs?+(sec*1000/t.renderMs).toFixed(2):null,perFrameMs:{seek:+(t.seek/f).toFixed(1),wait:+(t.wait/f).toFixed(1),draw:+(t.draw/f).toFixed(1),capture:+(t.capture/f).toFixed(1),convert:+(t.convert/f).toFixed(1),pipe:+(t.pipe/f).toFixed(1)}});};
+ const progressQueue=(percent,label)=>{if(!win.isDestroyed())win.webContents.send('progress',{percent,label,source:'queue'});};
+ const runExport=async(state,cfg,destination,opts={})=>{const bg=!!opts.background,report=bg?progressQueue:progress;await waitForCopiesV15(state,report);return require('./engines/export.cjs').exportProject({state,cfg,asset,run:bg?runBg:run,ffmpeg,root,saveDialog,validateOutput,destination,progress:report,cancelled:()=>(bg?backgroundJob:currentJob).cancelled,BrowserWindow,appPath:__dirname});};
+ event('exportQueued',async(state,cfg,name)=>backgroundJobRun(async()=>{
   if(!['MP4','MOV'].includes(cfg?.format))throw Error('The render queue makes MP4 or MOV files.');
   const folder=queueFolder();await fs.mkdir(folder,{recursive:true});
   const base=String(name||'').replace(/[\/\\:*?"<>|\u0000-\u001f]/g,' ').replace(/\s+/g,' ').trim().slice(0,80)||'Video Visor export';
   // Never replaces a file: "Name.mp4", then "Name 2.mp4", and so on.
-  const result=await runExport(state,cfg,async ext=>{for(let i=1;;i++){const file=path.join(folder,base+(i>1?' '+i:'')+'.'+ext);if(!(await fs.access(file).then(()=>true,()=>false))){await validateOutput(file);return file;}}});
-  if(result?.path)exported.add(result.path);return result;
+  const result=await runExport(state,cfg,async ext=>{for(let i=1;;i++){const file=path.join(folder,base+(i>1?' '+i:'')+'.'+ext);if(!(await fs.access(file).then(()=>true,()=>false))){await validateOutput(file);return file;}}},{background:true});
+  logExportV15(result,cfg,state);if(result?.path)exported.add(result.path);return result;
  }));
+ event('cancelQueued',()=>{if(backgroundJob){backgroundJob.cancelled=true;backgroundJob.child?.kill('SIGTERM');}return true;});
  // 0.13 connector: lets an AI assistant on this Mac use the app. Off until switched on in Settings.
  connectionFile=path.join(app.getPath('userData'),'connector.json');
  const connectorHost=require('./connector/host.cjs'),connectorLog=message=>logDiagnostic('connector',message);
@@ -113,10 +149,14 @@ app.whenReady().then(async()=>{
  recorderController=new(require('./recorder/controller.cjs').RecorderController)({win,root,register,run,ffmpeg,job,saveDialog,cancel:()=>{if(currentJob){currentJob.cancelled=true;currentJob.child?.kill('SIGTERM');}},isWorking:()=>!!currentJob});
  event('recorder-open',options=>recorderController.open(options));
  win.webContents.on('before-input-event',(event,input)=>{if(recorderController.handleInput(input))event.preventDefault();});
- win.on('close',e=>{if(recorderController.busy()){e.preventDefault();recorderController.show();return;}if(!closing){e.preventDefault();closing=true;
+ win.on('close',e=>{if(recorderController.busy()){e.preventDefault();recorderController.show();return;}
+  // 0.15: quitting during a background render asks first.
+  if(backgroundJob&&!quitDuringRenderV15){e.preventDefault();dialog.showMessageBox(win,{type:'warning',message:'A render is still running',detail:'Quitting stops it, and renders waiting in the queue are not kept.',buttons:['Keep rendering','Quit anyway'],defaultId:0,cancelId:0}).then(r=>{if(r.response===1&&!win.isDestroyed()){quitDuringRenderV15=true;if(backgroundJob){backgroundJob.cancelled=true;backgroundJob.child?.kill('SIGTERM');}win.close();}});return;}if(!closing){e.preventDefault();closing=true;
   // 0.15: the editor saves 400 ms after the last change; ask it to save now so nothing is lost on quit.
   win.webContents.executeJavaScript('window.flushSaveV15?.()').catch(()=>{}).then(()=>projectStore.flush()).then(()=>win.close()).catch(err=>{closing=false;logDiagnostic('save',err.message);dialog.showMessageBox(win,{type:'error',message:'Your last change could not be saved',detail:err.message});});}});
  event('frame',async(data)=>{const p=await saveDialog('Video Visor frame.png');if(!p)return null;await fs.writeFile(p,Buffer.from(data.split(',')[1],'base64'));return p;});
  await win.loadURL('visor://app/');
+ // 0.15 developer benchmark: Dev builds only, and only when VV_BENCH is set (see bench.cjs).
+ if(process.env.VV_BENCH&&require('../package.json').name==='video-visor-dev'){require('./bench.cjs').run({register,runExport,job,backgroundJobRun,run,ffmpeg,root,win,registryEntry:id=>registry[id],saveArgs:typeof recordingSaveArgs==='function'?recordingSaveArgs:null}).catch(e=>process.stdout.write(JSON.stringify({bench:'error',message:e.stack||e.message})+'\n')).finally(()=>app.exit(0));}
 }).catch(error=>{logDiagnostic('startup',error.stack||error.message);dialog.showErrorBox('Video Visor could not start',error.message+'\nYour saved workspace has been kept.');app.quit();});
 app.on('window-all-closed',()=>{try{if(connectionFile)require('node:fs').unlinkSync(connectionFile);}catch{}connector?.stop().catch(()=>{});recorderController?.dispose();currentJob?.child?.kill('SIGTERM');app.quit();});

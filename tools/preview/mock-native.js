@@ -25,7 +25,8 @@ const impl={
  readScript:async()=>'Welcome to this quick walkthrough. Today we will look at the new dashboard.',
  reveal:async()=>true,openFile:async()=>true,revealWorkspace:async()=>true,'recorder-open':async()=>true,
  cancel:async()=>true,previewMute:async m=>!!m,setExportFolder:async f=>f||null,chooseFolder:async()=>null,
- filePath:f=>f.name,onProgress(){},onCapture(){},onAiStep(){}
+ filePath:f=>f.name,onProgress(fn){(window.__progressListeners??=[]).push(fn);},onCapture(){},onAiStep(){}
 };
+window.__emitProgress=p=>(window.__progressListeners||[]).forEach(fn=>fn(p));
 window.native=new Proxy(impl,{get(t,k){if(typeof k!=='string')return t[k];const f=t[k]||(async(...a)=>{throw Error('Not available in this walkthrough ('+k+')');});return (...a)=>{log.push(k);return f(...a);};}});
 })();

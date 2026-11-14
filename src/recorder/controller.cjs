@@ -124,13 +124,20 @@ class RecorderController {
     const output=this.file.replace(/\.webm$/,this.config.kind==='voice'?'.m4a':'.mp4');
     try{
       await this.write;
-      const item=await this.ctx.job(async()=>{await this.ctx.run(this.ctx.ffmpeg,['-y','-i',this.file,...(this.config.kind==='voice'?['-vn','-c:a','aac']:['-c:v','libx264','-preset','fast','-vf','scale=trunc(iw/2)*2:trunc(ih/2)*2','-pix_fmt','yuv420p','-c:a','aac','-movflags','+faststart']),output]);return this.ctx.register(output,this.config.kind==='voice'?[]:this.cursor);});
-      let camera=null;
-      if(this.cameraFile&&(await fs.stat(this.cameraFile).catch(()=>({size:0}))).size>0){
-        const cameraOutput=this.cameraFile.replace(/\.webm$/,'.mp4');
+      // 0.15: the recording is already H.264 / VP9 with a keyframe every second, so it is only repackaged into MP4
+      // (about 0.2 s for 20 s instead of a full re-encode). Screen and camera are saved in the same job, so another
+      // task can no longer take over in between and lose the camera. A re-encode is the fallback if repackaging fails.
+      const save=async(input,out,copyArgs,encodeArgs)=>{try{await this.ctx.run(this.ctx.ffmpeg,['-y','-i',input,...copyArgs,out]);}catch(e){if(/cancel/i.test(e?.message||''))throw e;await this.ctx.run(this.ctx.ffmpeg,['-y','-i',input,...encodeArgs,out]);}};
+      const encode=['-c:v','libx264','-preset','veryfast','-vf','scale=trunc(iw/2)*2:trunc(ih/2)*2','-pix_fmt','yuv420p','-movflags','+faststart'];
+      const hasCamera=this.cameraFile&&(await fs.stat(this.cameraFile).catch(()=>({size:0}))).size>0;let camera=null;
+      const item=await this.ctx.job(async()=>{
+        if(this.config.kind==='voice')await this.ctx.run(this.ctx.ffmpeg,['-y','-i',this.file,'-vn','-c:a','aac','-b:a','192k',output]);
+        else await save(this.file,output,['-c:v','copy','-c:a','aac','-b:a','192k','-movflags','+faststart'],[...encode,'-c:a','aac']);
+        const asset=await this.ctx.register(output,this.config.kind==='voice'?[]:this.cursor);
         // A camera that failed must not lose the screen recording: it is skipped instead.
-        try{const asset=await this.ctx.job(async()=>{await this.ctx.run(this.ctx.ffmpeg,['-y','-i',this.cameraFile,'-an','-c:v','libx264','-preset','fast','-vf','scale=trunc(iw/2)*2:trunc(ih/2)*2','-pix_fmt','yuv420p','-movflags','+faststart',cameraOutput]);return this.ctx.register(cameraOutput);});camera={asset,offset:-this.cameraDelay};}catch(e){if(/cancel/i.test(e?.message||''))throw e;camera=null;}
-      }
+        if(hasCamera){const cameraOutput=this.cameraFile.replace(/\.webm$/,'.mp4');try{await save(this.cameraFile,cameraOutput,['-an','-c:v','copy','-movflags','+faststart'],['-an',...encode]);camera={asset:await this.ctx.register(cameraOutput),offset:-this.cameraDelay};}catch(e){if(/cancel/i.test(e?.message||''))throw e;camera=null;}}
+        return asset;
+      });
       if(this.cameraFile)await fs.unlink(this.cameraFile).catch(()=>{});this.cameraFile=null;
       await fs.unlink(this.file);this.file=null;this.phase='idle';this.complete(item,camera);return true;
     }catch(e){this.phase='failed';throw e;}
