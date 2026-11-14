@@ -72,7 +72,7 @@
       const sel = document.createElement('select');
       sel.id = 'v16-zoom'; sel.className = 'v16-zoom'; sel.title = 'Zoom the preview (pinch, or ⌘+ / ⌘−). Doesn’t change the video.';
       sel.setAttribute('aria-label', 'Preview zoom');
-      sel.innerHTML = '<option value="now">Fit</option><option value="fit">Fit</option><option value="50">50%</option><option value="100">100%</option><option value="200">200%</option><option value="400">400%</option>';
+      sel.innerHTML = '<option value="now" hidden>Fit</option><option value="fit">Fit to window</option><option value="50">50%</option><option value="100">100%</option><option value="200">200%</option><option value="400">400%</option>';
       sel.onchange = () => { const v = sel.value; if (v === 'fit') { z = 1; x = y = 0; apply(); } else if (v !== 'now') zoomTo(+v / fitPercent()); sel.blur(); };
       ($('#v5-ratio') || left.lastChild)?.after(sel);
     }

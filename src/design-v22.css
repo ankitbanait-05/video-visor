@@ -172,3 +172,86 @@
 #visor-app #vv-editor .v10-transport button:not(#ed-play), #visor-app .v20-more-toggle, #visor-app #vv-editor .v21-add > button { border-radius: var(--r-md) !important; font-size: var(--fs-sm) !important; }
 #visor-app #vv-editor .ed-tabs button { font-size: var(--fs-sm) !important; }
 #visor-app #vv-editor #v8-timeline-view #v8-show-tracks, #visor-app #vv-editor #v8-timeline-view .v16-icon { font-size: var(--fs-sm) !important; border-radius: var(--r-md) !important; }
+
+/* ==================== 0.15 (Phase 23): visual pass II ==================== */
+
+/* ---------- Media panel: two columns; the thumbnail carries the kind of file and the length ---------- */
+#visor-app #vv-editor #ed-panel .v5-media-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+#visor-app #vv-editor #ed-panel .v5-media { display: flex; flex-direction: column; padding: 6px 6px 8px; background: var(--v-panel); border: 1px solid var(--line); box-shadow: var(--shadow-1); transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease); }
+#visor-app #vv-editor #ed-panel .v5-media:hover { border-color: color-mix(in srgb, var(--line) 55%, var(--v-ink)); }
+#visor-app #vv-editor #ed-panel .v23-thumb { position: relative; aspect-ratio: 16 / 9; border-radius: var(--r-md); overflow: hidden; background: var(--v-soft); }
+#visor-app #vv-editor #ed-panel .v23-thumb .v5-poster { position: absolute; inset: 0; width: 100%; height: 100% !important; min-height: 0 !important; border-radius: 0; box-shadow: none; }
+#visor-app #vv-editor #ed-panel .v23-thumb .v5-poster:focus-visible { box-shadow: inset var(--focus); }
+#visor-app #vv-editor #ed-panel .v23-kind, #visor-app #vv-editor #ed-panel .v23-length { position: absolute; pointer-events: none; color: #fff; background: rgb(12 15 20 / 62%); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+#visor-app #vv-editor #ed-panel .v23-kind { left: 5px; top: 5px; width: 20px; height: 20px; border-radius: var(--r-sm); display: grid; place-items: center; }
+#visor-app #vv-editor #ed-panel .v23-kind svg { width: 12px; height: 12px; }
+#visor-app #vv-editor #ed-panel .v23-length { right: 5px; bottom: 5px; padding: 0 6px; border-radius: 5px; font-size: var(--fs-xs); font-weight: 600; line-height: 18px; font-variant-numeric: tabular-nums; }
+#visor-app #vv-editor #ed-panel .v5-media > strong { margin: 7px 2px 0; font-size: var(--fs-sm); font-weight: 500; color: var(--v-ink); }
+#visor-app #vv-editor #ed-panel .v5-media > small { margin: 1px 2px 0; color: var(--v-sub); }
+#visor-app #vv-editor #ed-panel .v5-media .ed-row { margin-top: 8px; flex-wrap: wrap; }
+#visor-app #vv-editor #ed-panel .v5-media .v21-add { display: flex; width: 100%; }
+#visor-app #vv-editor #ed-panel .v5-media .v21-add > .v21-add-main { flex: 1; min-height: var(--h-sm); height: var(--h-sm); }
+#visor-app #vv-editor #ed-panel .v5-media .v21-add > .v21-add-arrow { width: 28px; min-height: var(--h-sm); height: var(--h-sm); }
+/* the split button reads as one control: square inner corners */
+#visor-app #vv-editor #ed-panel .v21-add > .v21-add-main { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+#visor-app #vv-editor #ed-panel .v21-add > .v21-add-arrow { border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important; border-left: 1px solid var(--line); margin-left: -1px; }
+#visor-app #vv-editor #ed-panel .v5-media .v15-missing { width: 100%; font-size: var(--fs-xs); }
+
+/* ---------- Timeline ---------- */
+/* clips: rounder ends, a soft inner edge, and a clear selected outline */
+#visor-app #vv-editor #vt-tracks .vt-block { border-radius: var(--r-md) !important; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 16%), 0 1px 1px rgb(16 24 40 / 6%); }
+#visor-app #vv-editor #vt-tracks .vt-block.selected { outline: 2px solid var(--primary) !important; outline-offset: 1px; box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 20%, transparent) !important; }
+/* track headers: an icon for what the track holds */
+#visor-app #vv-editor #vt-tracks .vt-label > span:first-child { display: inline-flex; align-items: center; gap: 6px; }
+#visor-app #vv-editor #vt-tracks .v23-track-icon { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: var(--r-sm); background: var(--v-soft); color: var(--v-sub); }
+#visor-app #vv-editor #vt-tracks .v23-track-icon svg { width: 12px; height: 12px; }
+/* ruler: labelled ticks with a line, and small ticks between them */
+#visor-app #vv-editor #vt-tracks .vt-ruler { background-image: linear-gradient(to right, color-mix(in srgb, var(--v-sub) 45%, transparent) 1px, transparent 1px); background-size: var(--v23-minor, 4%) 4px; background-repeat: repeat-x; background-position: 0 100%; }
+#visor-app #vv-editor #vt-tracks .vt-tick { top: 3px; padding-left: 4px; font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+#visor-app #vv-editor #vt-tracks .vt-tick::before { content: ''; position: absolute; left: 0; top: 4px; height: 19px; width: 1px; background: color-mix(in srgb, var(--v-sub) 60%, transparent); }
+#visor-app #vv-editor #vt-tracks .vt-tick:first-of-type, #visor-app #vv-editor #vt-tracks .vt-tick[style^="left: 0%"] { transform: none; }
+/* playhead: a thin line with a grab handle on the ruler */
+#visor-app #vv-editor #vt-tracks .vt-head { width: 2px; }
+#visor-app #vv-editor #vt-tracks .vt-ruler .vt-head::after { left: -5px; top: 0; width: 12px; height: 15px; border-radius: 3px 3px 6px 6px; box-shadow: 0 1px 3px rgb(0 0 0 / 30%), inset 0 0 0 1px rgb(255 255 255 / 30%); background-image: linear-gradient(to right, transparent 4px, rgb(255 255 255 / 55%) 4px 5px, transparent 5px 7px, rgb(255 255 255 / 55%) 7px 8px, transparent 8px); background-size: 12px 6px; background-repeat: no-repeat; background-position: 0 4px; }
+
+/* ---------- Playback bar ---------- */
+#visor-app #vv-editor #ed-time { font-weight: 500; color: var(--v-ink); letter-spacing: .01em; }
+#visor-app #vv-editor .v10-transport-middle { display: flex; align-items: center; gap: 6px; }
+#visor-app #vv-editor .v10-transport-middle button:not(#ed-play) { width: 32px; height: 32px; min-height: 0; padding: 0; display: grid; place-items: center; border-color: transparent; background-color: transparent; box-shadow: none; }
+#visor-app #vv-editor .v10-transport-middle button:not(#ed-play):not(:disabled):hover { background-color: var(--hover); border-color: transparent; }
+#visor-app #vv-editor #ed-play { width: 40px !important; height: 40px !important; min-height: 0; padding: 0; border-radius: 50% !important; display: grid; place-items: center; box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 35%, transparent); }
+/* the view controls are one grouped control */
+#visor-app #vv-editor .v10-transport-right { gap: 8px; }
+#visor-app #vv-editor .v23-views { display: flex; align-items: center; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--v-panel); box-shadow: var(--shadow-1); flex: none; }
+#visor-app #vv-editor .v10-transport .v10-transport-right button:not(#ed-play) { width: 30px; min-width: 0; height: 28px; min-height: 0; padding: 0; display: grid; place-items: center; border-radius: var(--r-md) !important; }
+#visor-app #vv-editor .v10-transport-right button[aria-pressed=true] { background-color: var(--accent-soft); color: var(--accent); }
+
+/* ---------- Home: a smaller hero, so recent projects show without scrolling ---------- */
+#visor-app .office-hero { min-height: 0; padding: 24px 28px; }
+#visor-app .office-hero-copy { max-width: 62%; }
+#visor-app .office-hero h1 { font-size: var(--fs-2xl); margin: 0 0 8px; max-width: none; }
+#visor-app .office-hero h1 br { display: none; }
+#visor-app .office-hero p { max-width: 460px; margin: 0 0 16px; font-size: var(--fs-sm); line-height: 1.55; }
+#visor-app #v-content .flow-start-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+#visor-app #v-content .flow-start { min-height: 0; padding: 16px 16px 16px 62px; text-align: left; }
+#visor-app #v-content .flow-start .v-toolicon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); margin: 0; }
+#visor-app #v-content .flow-start h3 { margin: 0 0 2px; }
+#visor-app #v-content .flow-start p { margin: 0; }
+#visor-app #v-content .flow-drop { margin: 14px 0 22px; padding: 12px 16px; }
+@media (max-width: 900px) { #visor-app #v-content .flow-start-grid { grid-template-columns: 1fr; } #visor-app .office-hero-copy { max-width: 100%; } }
+/* the app frame includes its 1 px border in its size (it was 2 px wider than the window) */
+#visor-app { box-sizing: border-box; }
+/* narrow windows: the side groups take the room they need and the frame controls share the rest, so the view
+   controls never run past the edge ("16:9 · Fit" is the same as the Canvas button, so it steps aside) */
+@media (max-width: 1180px) {
+  #visor-app #vv-editor .v10-transport-row { grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 8px; }
+  #visor-app #vv-editor .v10-transport-middle { justify-content: center; }
+  #visor-app #vv-editor #v5-ratio { display: none; }
+  #visor-app #vv-editor #ed-time { min-width: 0; width: auto; }
+  #visor-app #vv-editor #v16-zoom { width: 84px; min-width: 0; }
+}
+#visor-app #vv-editor .v10-transport-middle > button, #visor-app #vv-editor .v23-views > button { flex: none; }
+/* dark mode depth comes from hairlines and lighter raised surfaces, not black: the sticky main video row gets a
+   hairline and a soft edge instead of a black line and shadow */
+#visor-app #vv-editor #vt-tracks .vt-row[data-track-id="video-main"] { box-shadow: 0 1px 0 var(--line), 0 6px 10px -8px rgb(16 24 40 / 16%); }
+#visor-app[data-theme=dark] #vv-editor #vt-tracks .vt-row[data-track-id="video-main"] { box-shadow: 0 1px 0 var(--line), 0 6px 10px -8px rgb(0 0 0 / 35%); }

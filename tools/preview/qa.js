@@ -678,13 +678,14 @@ Object.assign(checks, {
 
 // Phase 13: quick fixes from hands-on testing.
 // Surfaces whose colour belongs to the other theme (dark panels in light mode, light panels in dark mode).
-// The video canvas and anything coloured by the user (swatches, inline styles) is skipped.
+// The video canvas, anything coloured by the user (swatches, inline styles) and the badges drawn over a media
+// thumbnail (Phase 23: they belong to the picture) are skipped.
 function themeMismatches(mode) {
   const lumOf = c => { const m = /rgba?\(([\d.]+), ([\d.]+), ([\d.]+)(?:, ([\d.]+))?/.exec(c); if (!m || (m[4] !== undefined && +m[4] < .6)) return null; return (.2126 * m[1] + .7152 * m[2] + .0722 * m[3]) / 255; };
   const bad = new Set();
   for (const el of document.querySelectorAll('#visor-app *')) {
     if (!el.offsetParent || el.offsetWidth < 24 || el.offsetHeight < 10) continue;
-    if (el.closest('#ed-stage,#ed-canvas,#ed-screen,#ed-captions,.v15-cap,.vt-block,canvas,video,img,.v15-theme-art,.v15-swatch,[style*=background]')) continue;
+    if (el.closest('#ed-stage,#ed-canvas,#ed-screen,#ed-captions,.v15-cap,.vt-block,.v23-thumb,canvas,video,img,.v15-theme-art,.v15-swatch,[style*=background]')) continue;
     const l = lumOf(getComputedStyle(el).backgroundColor); if (l == null) continue;
     if ((mode === 'light' && l < .35) || (mode === 'dark' && l > .75)) bad.add((el.id ? '#' + el.id : '') + '.' + String(el.className).split(' ').filter(Boolean).slice(0, 2).join('.'));
   }
@@ -1132,6 +1133,45 @@ Object.assign(checks, {
   async 'navigation links stay quiet'() {
     $('.v-nav [data-route=home]').click(); await wait(300); const b = $('.v-nav [data-route=projects]'), c = getComputedStyle(b);
     return { pass: c.backgroundColor === 'rgba(0, 0, 0, 0)' && c.borderTopColor === 'rgba(0, 0, 0, 0)' && c.boxShadow === 'none', detail: [c.backgroundColor, c.borderTopColor, c.boxShadow] };
+  },
+});
+
+// Phase 23: visual pass II (media grid, timeline, playback bar, Home, dark mode).
+Object.assign(checks, {
+  async 'media cards sit two to a row, with the kind of file and the length on the thumbnail'() {
+    await freshEditor(); E().open('media'); await wait(400);
+    const grid = $('#ed-panel .v5-media-grid'), cols = getComputedStyle(grid).gridTemplateColumns.split(' ').length;
+    const card = $$('#ed-panel .v5-media').find(c => c.dataset.kind === 'video'), length = card?.querySelector('.v23-length')?.textContent, kind = !!card?.querySelector('.v23-kind svg');
+    const shape = card?.querySelector(':scope > small')?.textContent, label = card?.querySelector('.v5-poster')?.getAttribute('aria-label') || '';
+    return { pass: cols === 2 && /^\d+:\d\d$/.test(length || '') && kind && !/\d:\d/.test(shape) && label.includes(length), detail: { cols, length, kind, shape, label } };
+  },
+  async 'track headers show what each track holds, and the ruler has small ticks'() {
+    await freshEditor(); await wait(200);
+    const icons = $$('#vt-tracks .vt-row').filter(r => r.dataset.trackId).map(r => [r.dataset.trackId, r.querySelector('.v23-track-icon svg')?.dataset.lucide || r.querySelector('.v23-track-icon svg')?.getAttribute('class')]);
+    const minor = $('#vt-tracks .vt-ruler').style.getPropertyValue('--v23-minor');
+    return { pass: icons.length >= 2 && icons.every(([, i]) => !!i) && /%$/.test(minor) && parseFloat(minor) > 0, detail: { icons, minor } };
+  },
+  async 'the preview zoom menu lists Fit once'() {
+    await freshEditor(); const sel = $('#v16-zoom'), shown = [...sel.options].filter(o => !o.hidden).map(o => o.textContent);
+    return { pass: shown.filter(t => /^Fit/.test(t)).length === 1 && sel.selectedOptions[0].textContent === 'Fit', detail: { shown, current: sel.selectedOptions[0].textContent } };
+  },
+  async 'playback bar: a round play button, and the view controls as one group inside the bar'() {
+    await freshEditor(); const play = $('#ed-play').getBoundingClientRect(), views = $('.v23-views'), bar = $('.ed-transport').getBoundingClientRect();
+    const inside = $$('.ed-transport button, .ed-transport select').filter(b => b.offsetParent).every(b => { const r = b.getBoundingClientRect(); return r.left >= bar.left - 1 && r.right <= bar.right + 1; });
+    const grouped = ['ed-frame', 'v11-guides', 'v10-large', 'v10-keys'].every(id => $('#' + id)?.parentElement === views);
+    return { pass: Math.round(play.width) === 40 && Math.round(play.height) === 40 && grouped && $('#v10-mute').parentElement !== views && inside, detail: { play: [play.width, play.height], grouped, inside } };
+  },
+  async 'Home: a compact hero and one row of start cards'() {
+    $('.v-nav [data-route=home]').click(); await wait(400);
+    const hero = $('.office-hero').getBoundingClientRect().height, grid = $('#v-content .flow-start-grid'), cols = getComputedStyle(grid).gridTemplateColumns.split(' ').length, cards = grid.children.length;
+    const h1 = $('.office-hero h1').textContent;
+    return { pass: hero <= 230 && (innerWidth <= 900 || cols === cards) && !/\S<br>|shareclear/.test(h1), detail: { hero: Math.round(hero), cols, cards, h1 } };
+  },
+  async 'no black edges in dark mode, and the window never scrolls sideways'() {
+    await setTheme('dark'); await freshEditor(); await wait(200);
+    const row = getComputedStyle($('#vt-tracks .vt-row[data-track-id="video-main"]')).boxShadow, wide = document.documentElement.scrollWidth - innerWidth;
+    await setTheme('light');
+    return { pass: !/rgb\(0, 0, 0\) 0px 1px/.test(row) && wide <= 0, detail: { row, wide } };
   },
 });
 

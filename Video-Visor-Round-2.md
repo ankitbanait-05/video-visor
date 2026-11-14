@@ -111,7 +111,7 @@ How: build the tokens and components first, then go screen by screen, with befor
 |---|---|---|
 | 21 | *Done.* Fixes from your testing: cursor zoom (A1), Brand style button (A2), drop onto V3 (A3.1), Add to video / Add as layer (A3.2), the ⋯ icon (A3.3), the Home duplicate, prototype leftovers, benchmark data folder and clean-up, message position, Snap state, narrow windows, the drawing-mode check | M |
 | 22 | *Done.* Visual pass I: tokens, buttons, sliders, panels, type, motion (C1–C4, C8–C10) | L |
-| 23 | Visual pass II: media grid, timeline, playback bar, Home, dark mode (C5–C7, C11–C12) | L |
+| 23 | *Done.* Visual pass II: media grid, timeline, playback bar, Home, dark mode (C5–C7, C11–C12) | L |
 | 24 | Copy / paste clip settings, then layer keyframes, then the clip volume line (D) | M |
 
 ## F. Decisions (your answers, 14 Nov)
@@ -158,6 +158,17 @@ How: build the tokens and components first, then go screen by screen, with befor
 | C9 Type | Done. Page titles 26 / 600, section titles 18, panel titles 16, body 13, small text 12. |
 | C10 Motion | Done. Short transitions on buttons, cards and fields; menus pop in; thumbnails show a soft loading shimmer until they appear. Reduced-motion settings are respected. |
 | Next (Phase 23) | Media grid, timeline, playback bar, Home, and dark-mode depth (C5–C7, C11–C12). |
+
+## Phase 23 status
+
+| Item | Status |
+|---|---|
+| C5 Media panel | Done. Two cards per row. The thumbnail shows the kind of file (an icon, top left) and the length (a badge, bottom right); the line under the name says only the shape (Landscape, Portrait, Image, Audio). **Add ▾** stays visible on every card (it's the main action, so it doesn't hide until hovered) and now reads as one joined control. |
+| C6 Timeline | Done. Clips have rounder ends and a soft inner edge; a selected clip gets a blue outline with a soft glow. Track headers show an icon for what the track holds (main video, layer, audio, text, captions). The ruler has a line at each labelled time and small ticks between them. The playhead is a thin line with a grab handle on the ruler. |
+| C7 Playback bar | Done. Play is a 40 px round button; the frame-step buttons are quiet. The view controls (original, save frame, safe area, large preview, shortcuts) sit in one grouped control; sound stays on its own. The current time is in aligned figures. The zoom menu listed "Fit" twice; it now shows **Fit to window** once. In windows under 1,180 px wide the bar no longer runs past the edge (it did before: four buttons were cut off at 1,024 px). |
+| C11 Dark mode | Done. An audit of every screen found one black edge: the sticky main-video row had a black line and a heavy shadow. It now uses a hairline and a soft edge, as everywhere else. No pure-black surfaces remain (the one black box found is a caption style preview, which is content). |
+| C12 Home | Done. The hero is about 190 px tall instead of 295 (the headline fits on one line), and the three start cards sit in one row of three (there was an empty fourth slot), with the icon beside the text. Recent projects now show without scrolling at 1440 × 900. |
+| Also | The app was 2 px wider than the window (its border was added to its width), so the window could scroll sideways a little. Fixed. |
 
 ## (Original questions)
 

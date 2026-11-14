@@ -842,7 +842,7 @@ function wireV10(){
  const mute=make('v10-mute','volume-2','Mute preview sound',()=>{previewMutedV10=!previewMutedV10;window.native?.previewMute?.(previewMutedV10);mute.innerHTML=icon(previewMutedV10?'volume-x':'volume-2');mute.title=previewMutedV10?'Unmute preview sound':'Mute preview sound';mute.setAttribute('aria-label',mute.title);mute.setAttribute('aria-pressed',previewMutedV10);icons();});
  if(before){before.innerHTML=icon('eye');before.title='Hold to see the original, without effects';before.setAttribute('aria-label',before.title);}
  frame.title='Save this frame as an image';frame.setAttribute('aria-label',frame.title);
- right.append(mute,...(before?[before]:[]),frame,make('v10-large','maximize-2','Large preview',()=>largePreviewV10()),make('v10-keys','keyboard','Keyboard shortcuts (?)',shortcutsV10));
+ /* 0.15 (Phase 23): the view controls sit in one grouped control; sound stays apart */const views=group('v23-views');views.setAttribute('role','group');views.setAttribute('aria-label','View');views.append(...(before?[before]:[]),frame,make('v10-large','maximize-2','Large preview',()=>largePreviewV10()),make('v10-keys','keyboard','Keyboard shortcuts (?)',shortcutsV10));right.append(mute,views);
  row.append(left,middle,right);bar.classList.add('v10-transport');bar.replaceChildren(scrub,row);icons();
  onKeyV9(ev=>{
   if(typingV10(ev))return;
@@ -1062,7 +1062,7 @@ function wireV11(){
  for(const [family]of A11.fonts)for(const weight of [400,500,700])document.fonts.load(weight+' 20px "'+family+'"').catch(()=>{});
  document.fonts.ready.then(()=>{if(state.elements.some(isV11)){layers();paint();}});
  const guides=document.createElement('div');guides.className='v11-safe';guides.hidden=true;q('#ed-canvas').append(guides);
- const right=q('.v10-transport-right');if(right){const b=document.createElement('button');b.id='v11-guides';b.type='button';b.innerHTML=icon('scan');b.title='Safe-area guides';b.setAttribute('aria-label',b.title);b.setAttribute('aria-pressed','false');b.onclick=()=>{safeGuidesV11=!safeGuidesV11;b.setAttribute('aria-pressed',safeGuidesV11);paint();};right.insertBefore(b,q('#v10-large'));icons();}
+ const right=q('.v10-transport-right');if(right){const b=document.createElement('button');b.id='v11-guides';b.type='button';b.innerHTML=icon('scan');b.title='Safe-area guides';b.setAttribute('aria-label',b.title);b.setAttribute('aria-pressed','false');b.onclick=()=>{safeGuidesV11=!safeGuidesV11;b.setAttribute('aria-pressed',safeGuidesV11);paint();};const large=q('#v10-large');(large?.parentElement||right).insertBefore(b,large);icons();}
 }
 // END EDITOR V11
 
@@ -1352,7 +1352,24 @@ function mediaMenusV16(p){p.querySelectorAll('.v5-media').forEach(card=>{const r
  const close=()=>{menu.hidden=true;arrow.setAttribute('aria-expanded','false');document.removeEventListener('pointerdown',outside,true);};const outside=e=>{if(!group.contains(e.target))close();};
  arrow.onclick=()=>{const open=menu.hidden;document.querySelectorAll('.v16-menu').forEach(m=>{m.hidden=true;});if(open){menu.hidden=false;/* placed against the window so the panel edge never cuts it; opens upward when there is no room below */const r=arrow.getBoundingClientRect(),h=menu.offsetHeight,w=menu.offsetWidth;menu.style.left=Math.max(8,Math.min(innerWidth-w-8,r.left-group.offsetWidth+r.width))+'px';menu.style.top=(r.bottom+4+h>innerHeight-8?Math.max(8,r.top-4-h):r.bottom+4)+'px';arrow.setAttribute('aria-expanded','true');document.addEventListener('pointerdown',outside,true);menu.querySelector('button')?.focus();}else close();};
  menu.addEventListener('click',()=>close());menu.addEventListener('keydown',e=>{if(e.key==='Escape'){close();arrow.focus();}});
- add.before(group);group.append(add,arrow,menu);});icons();}
+ add.before(group);group.append(add,arrow,menu);});mediaCardsV23(p);icons();}
+// 0.15 (Phase 23): each track header shows what the track holds, and the ruler gets small ticks between the
+// labelled ones (--v23-minor: the width of one small step, a fifth of a labelled step).
+function timelineLookV23(){const t=q('#vt-tracks');if(!t)return;let added=false;
+ t.querySelectorAll('.vt-row').forEach(row=>{const lane=row.querySelector('.vt-lane'),name=row.querySelector('.vt-label > span');if(!lane||!name||lane.classList.contains('vt-ruler')||name.querySelector('.v23-track-icon'))return;
+  const id=row.dataset.trackId||'',ic=lane.classList.contains('vt-audio')?'audio-lines':lane.classList.contains('vt-captions')?'captions':lane.classList.contains('vt-text')?'type':id==='video-main'?'film':'layers';
+  name.insertAdjacentHTML('afterbegin','<span class="v23-track-icon">'+icon(ic)+'</span>');added=true;});
+ const ticks=[...t.querySelectorAll('.vt-ruler .vt-tick')].map(x=>parseFloat(x.style.left)).filter(Number.isFinite);const ruler=t.querySelector('.vt-ruler');
+ if(ruler&&ticks.length>1)ruler.style.setProperty('--v23-minor',((ticks[1]-ticks[0])/5)+'%');if(added)icons();}
+// 0.15 (Phase 23): media cards in a two-column grid. The thumbnail carries the kind of file (icon) and the length
+// (badge), so the line under the name only says the shape.
+function mediaCardsV23(p){p.querySelectorAll('.v5-media').forEach(card=>{const poster=card.querySelector('.v5-poster');if(!poster||poster.parentElement.classList.contains('v23-thumb'))return;
+ const a=state.assets.find(x=>x.id===poster.dataset.mediaPreview);if(!a)return;card.dataset.kind=a.kind;
+ const wrap=document.createElement('div');wrap.className='v23-thumb';poster.before(wrap);wrap.append(poster);
+ const kind=document.createElement('span');kind.className='v23-kind';kind.setAttribute('aria-hidden','true');kind.innerHTML=icon(a.kind==='audio'?'audio-lines':a.kind==='image'?'image':'video');wrap.append(kind);
+ const d=Math.max(0,Math.round(a.duration||0)),len=a.kind==='image'?'':Math.floor(d/60)+':'+String(d%60).padStart(2,'0');
+ if(len){const badge=document.createElement('span');badge.className='v23-length';badge.setAttribute('aria-hidden','true');badge.textContent=len;wrap.append(badge);poster.setAttribute('aria-label','Preview '+a.name+', '+len);}
+ const small=card.querySelector(':scope > small');if(small)small.textContent=a.kind==='image'?'Image':a.kind==='audio'?'Audio':a.width?(a.width>a.height?'Landscape':a.width<a.height?'Portrait':'Square'):'Video';});}
 
 function speedTargetV15(){const c=state.clips[state.selected];const a=c&&state.assets.find(x=>x.id===(c.speed?.source.asset||c.asset));return c&&!c.gap&&a?.kind==='video'?c:null;}
 function speedPanelV15(p){
@@ -1475,7 +1492,7 @@ function missingMediaV15(p){
  apply();if(key===missingAskedV15&&Date.now()-missingAtV15<5000)return;const isNew=key!==missingAskedV15||Object.values(missingV15).every(v=>v!=='missing');missingAskedV15=key;missingAtV15=Date.now();
  window.native.mediaStatus(ids).then(r=>{missingV15=r||{};const n=Object.values(missingV15).filter(v=>v==='missing').length;if(n){if(state.panel==='media')apply();if(isNew)notice(n===1?'One media file is missing. Relink it in the Media tab.':n+' media files are missing. Relink them in the Media tab.');}}).catch(()=>{});
 }
-const paintBeforeV17=paint;paint=function(){/* 0.15 (Phase 21): sped-up clips from before the fix get their cursor track (cheap: it only looks at clips with a speed) */if(state.clips.some(c=>c.speed))repairSpeedCursorsV21();paintBeforeV17();syncKeysV17();};const tracksBeforeV17=tracks;tracks=function(){tracksBeforeV17();timelineKeysV17();drawMarkersV19();drawRangeV19();};const playBeforeV19=play;play=function(){if(shuttleRafV19){shuttleStopV19();commit();return;}return playBeforeV19();};
+const paintBeforeV17=paint;paint=function(){/* 0.15 (Phase 21): sped-up clips from before the fix get their cursor track (cheap: it only looks at clips with a speed) */if(state.clips.some(c=>c.speed))repairSpeedCursorsV21();paintBeforeV17();syncKeysV17();};const tracksBeforeV17=tracks;tracks=function(){tracksBeforeV17();timelineKeysV17();drawMarkersV19();drawRangeV19();timelineLookV23();};const playBeforeV19=play;play=function(){if(shuttleRafV19){shuttleStopV19();commit();return;}return playBeforeV19();};
 const panelBeforeV15=panel;
 panel=function(){panelBeforeV15();const p=q('#ed-panel');if(state.panel==='clip')clipPanelV15(p);if(state.panel==='speed')speedPanelV15(p);/* 0.15 (Phase 16): Speed opens from the clip panel only */if(state.panel==='elements')brandEntryV16(p);if(state.panel==='captions')captionsPanelV15(p);if(state.panel==='media')missingMediaV15(p);if(state.panel==='media')queueMicrotask(()=>mediaMenusV16(p));if(state.panel==='style'){const f=q('#ed-style-font');if(f){f.innerHTML=fontOptionsV15();f.value=captionFontV15(state.style?.font);}}compactHeaderV15(p);coverPanelV15(p);choiceTilesV15(p);numberBoxesV15(p);highlightTabV15();lockPanelV15(p);icons();};
 
