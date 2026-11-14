@@ -3,7 +3,7 @@ const $=s=>document.querySelector(s),fmt=window.timelineModelV7.formatTime,base=
 let activeVideo;
 window.nativeToolPreview=(tool,files)=>{
  base(tool,files);if(!['trim','gif','frame','vcompress','vconvert','vaudio'].includes(tool?.id))return;
- const upload=$('#v-drop'),list=$('#v-filelist');if(upload)upload.hidden=!!files.length;if(list)list.hidden=!!files.length;
+ /* 0.15 (Phase 15): the file card stays in view (it has the remove button); the tool page decides whether the drop area shows */const list=$('#v-filelist');
  if(!files.length)return;const a=files[0];let box=$('#v5-tool-preview');
  if(!box){box=document.createElement('section');box.id='v5-tool-preview';box.className='v-card';const v=document.createElement('video');v.crossOrigin='anonymous';v.src=a.url;v.className='v5-player';v.preload='auto';box.append(v);list.before(box);}
  if(box.dataset.v7===a.id)return;box.dataset.v7=a.id;
@@ -19,7 +19,7 @@ window.nativeToolPreview=(tool,files)=>{
  controls.querySelector('.v7-tool-ruler').innerHTML=Array.from({length:5},(_,i)=>'<span>'+fmt(a.duration*i/4)+'</span>').join('');
  native.mediaVisuals(a.id).then(v=>{if(box.isConnected)controls.querySelector('.v7-tool-film').innerHTML=(v.frames||[]).map(src=>'<img alt="" src="'+src+'">').join('');}).catch(()=>{});
  function draw(){const t=seeking?target:video.currentTime;time.textContent=fmt(t)+' / '+fmt(a.duration);scrub.value=t;head.style.left=t/a.duration*100+'%';play.textContent=video.paused?'Play':'Pause';play.setAttribute('aria-label',video.paused?'Play video':'Pause video');
-  const lo=hasRange?+start.value:0,hi=hasRange?+end.value:a.duration;inPoint.style.left=lo/a.duration*100+'%';outPoint.style.left=hi/a.duration*100+'%';Object.assign(controls.querySelector('.v7-tool-selection').style,{left:lo/a.duration*100+'%',width:(hi-lo)/a.duration*100+'%'});range.textContent=hasRange?'Selected: '+fmt(lo)+' – '+fmt(hi)+' · '+fmt(hi-lo)+' duration':'Drag the blue playhead or use ← → to step one frame. Shift steps ten frames.';
+  const lo=hasRange?+start.value:0,hi=hasRange?+end.value:a.duration;inPoint.style.left=lo/a.duration*100+'%';outPoint.style.left=hi/a.duration*100+'%';Object.assign(controls.querySelector('.v7-tool-selection').style,{left:lo/a.duration*100+'%',width:(hi-lo)/a.duration*100+'%'});range.textContent=hasRange?'Selected: '+fmt(lo)+' – '+fmt(hi)+' · '+fmt(hi-lo)+' duration':'← → steps one frame, Shift + ← → ten.';
   if(frame)frame.value=String(!seeking&&presentedTime!==null?presentedTime:t);
  }
  if(frame&&video.requestVideoFrameCallback){const presented=(_now,meta)=>{presentedTime=meta.mediaTime;if(!seeking)frame.value=String(presentedTime);if(box.isConnected)video.requestVideoFrameCallback(presented);};video.requestVideoFrameCallback(presented);}

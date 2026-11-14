@@ -755,6 +755,50 @@ Object.assign(checks, {
   },
 });
 
+// Phase 15: file tools in one column.
+async function toolWithFiles(group, id) { await openToolV(group, id); $$('#v-content button').find(b => /Choose files/.test(b.textContent))?.click(); await wait(900); }
+Object.assign(checks, {
+  async 'tool pages are one column without the extra text'() {
+    await openToolV('image', 'bgremove');
+    const text = $('#v-content').innerText;
+    const gone = !/Local processing|Files stay on this device|Processing runs locally|Save these settings as a preset|Output settings|Foreground extraction/.test(text);
+    return { pass: gone && !$('#v-content .v-two') && !!$('#v-content .v15-tool'), detail: text.replace(/\n+/g, ' | ').slice(0, 200) };
+  },
+  async 'the main button says what the tool makes'() {
+    const names = {};
+    for (const [g, id] of [['image', 'bgremove'], ['video', 'frame'], ['pdf', 'merge'], ['audio', 'aclean'], ['pdf', 'sign']]) { await openToolV(g, id); names[id] = $('[data-action="run-tool"]').textContent.trim(); }
+    return { pass: names.bgremove === 'Remove background' && names.frame === 'Save frame' && names.merge === 'Merge PDFs' && names.aclean === 'Clean up audio' && names.sign === 'Save signed PDF', detail: names };
+  },
+  async 'files show as cards with thumbnails; order arrows only where order matters'() {
+    await toolWithFiles('pdf', 'merge'); await wait(300);
+    const thumbs = $$('#v-filelist .v15-thumb img').length, arrows = $$('#v-filelist [data-file-up]').length, addMore = $('[data-action="choose-files"]').textContent.trim();
+    await toolWithFiles('pdf', 'pcompress'); await wait(300); const arrowsElsewhere = $$('#v-filelist [data-file-up]').length;
+    return { pass: thumbs === 2 && arrows === 2 && arrowsElsewhere === 0 && addMore === 'Add more files', detail: { thumbs, arrows, arrowsElsewhere, addMore } };
+  },
+  async 'a one-file tool keeps one file'() {
+    await toolWithFiles('pdf', 'sign');
+    const cards = $$('#v-filelist .v15-file').length, dropHidden = $('#v-drop').hidden;
+    return { pass: cards === 1 && dropHidden && /one file at a time/.test($('#v-status').textContent), detail: { cards, dropHidden, status: $('#v-status').textContent } };
+  },
+  async 'settings beyond two sit under More settings'() {
+    await openToolV('image', 'iresize');
+    const visible = [...$('#v15-tool-settings').children].filter(x => x.tagName === 'LABEL' && !x.hidden).length, more = $('#v15-tool-settings .v15-more');
+    return { pass: visible === 2 && !!more && !!more.querySelector('#v-crop'), detail: { visible, inMore: more ? [...more.querySelectorAll('label')].map(l => l.firstChild.textContent) : null } };
+  },
+  async 'the result appears on the page, and Start again clears it'() {
+    await toolWithFiles('image', 'bgremove'); $('[data-action="run-tool"]').click(); await wait(900);
+    const dialog = !$('#v-overlay').hidden, result = $('#v-result .v15-result'), compare = $$('#v-result .v15-before-after img').length, actions = $$('#v-result [data-native]').map(b => b.textContent.trim());
+    $$('#v-result button').find(b => /Start again/.test(b.textContent))?.click(); await wait(300);
+    const cleared = !$('#v-result .v15-result') && !$$('#v-filelist .v15-file').length;
+    return { pass: !dialog && !!result && compare === 2 && actions.includes('Open') && actions.includes('Show in Finder') && cleared, detail: { dialog, compare, actions, cleared } };
+  },
+  async 'settings are sent by name, not by position'() {
+    await toolWithFiles('image', 'iresize'); $('#v-width').value = '800'; $('#v-height').value = '600'; $('[data-action="run-tool"]').click(); await wait(700);
+    const o = window.__lastToolOpts || {};
+    return { pass: o['v-width'] === '800' && o['v-height'] === '600', detail: { width: o['v-width'], height: o['v-height'] } };
+  },
+});
+
 export const count = () => Object.keys(checks).length;
 export async function run(only) {
   const results = [];

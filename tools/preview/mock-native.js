@@ -8,7 +8,7 @@ const ai={provider:'anthropic',keychain:true,busy:false,services:[{id:'anthropic
 const conn={enabled:false,running:false,port:0,token:'',permissions:{},folders:[],clients:[],log:[],recent:[],setup:{entry:{},config:'{}',configFile:'~/Library/Application Support/Claude/claude_desktop_config.json',claudeFound:true},exportFolder:'~/Movies/Video Visor'};
 const impl={
  load:async()=>saved,save:async d=>{try{localStorage.setItem('vv-mock',JSON.stringify(d));}catch{}return true;},workspaceRecovery:async()=>null,
- pick:async()=>[mk('video','Product demo.mp4','/__preview/samples/demo.mp4'),mk('image','Screenshot.png','/__preview/samples/still.png')],
+ pick:async()=>document.querySelector('#v-files')?.accept==='.pdf'?[mk('pdf','Report.pdf','/__preview/samples/still.png',{size:820000}),mk('pdf','Appendix.pdf','/__preview/samples/still.png',{size:240000})]:[mk('video','Product demo.mp4','/__preview/samples/demo.mp4'),mk('image','Screenshot.png','/__preview/samples/still.png')],
  importPaths:async()=>[mk('video','Dropped clip.mp4','/__preview/samples/demo.mp4')],
  mediaVisuals:async()=>({frames:Array(5).fill('/__preview/samples/still.png'),waveform:wave}),
  library:async()=>{if(!cat){const c=await (await fetch('music/catalog.json')).json();cat=c.map(i=>mk('audio',i.name,'music/'+i.file,{duration:i.duration,mood:i.mood,bpm:i.bpm,width:0,height:0}));}return cat;},
@@ -20,7 +20,7 @@ const impl={
  exportQueued:async()=>({path:'/Users/demo/Movies/Video Visor/Product demo.mp4'}),
  prepareAudioPreview:async()=>({id:'mock-prev',url:'music/1.m4a',duration:24}),
  toolPreview:async()=>mk('video','sample-preview.mp4','/__preview/samples/demo.mp4',{duration:5}),
- tool:async(id)=>{window.__lastTool=id;return {paths:['/Users/demo/out/'+id+'.out'],assets:[]};},
+ tool:async(id,ids,opts)=>{window.__lastTool=id;window.__lastToolOpts=opts;const name=id+(id==='bgremove'?'.png':'.out');return {paths:['/Users/demo/out/'+name],assets:id==='bgremove'?[mk('image',name,'/__preview/samples/still.png')]:[]};},fileThumb:async()=>'/__preview/samples/still.png',
  relink:async id=>{window.__missing=(window.__missing||[]).filter(x=>x!==id);const a=visorEditor.get().assets.find(x=>x.id===id);return a?{...a,name:'Relinked '+a.name}:null;},
  storageInfo:async used=>({total:412e6,cache:180e6,media:window.__orphans?55e6:0,mediaCount:window.__orphans?2:0}),storageClean:async(used,opts)=>{window.__cleaned={used,opts};return {freed:opts?.media?235e6:180e6};},workspaceInfo:async()=>({backup:true}),
  mediaStatus:async ids=>Object.fromEntries(ids.map(id=>[id,(window.__missing||[]).includes(id)?'missing':'ok'])),

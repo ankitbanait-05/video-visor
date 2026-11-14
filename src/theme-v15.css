@@ -118,3 +118,51 @@
 .vv-update-banner{position:fixed;left:50%;bottom:44px;transform:translateX(-50%);z-index:9997;display:flex;align-items:center;gap:10px;max-width:min(640px,90vw);padding:10px 12px 10px 16px;border-radius:10px;background:#0d1117;color:#fff;font:13px 'Graphik','DM Sans',sans-serif;box-shadow:0 8px 28px #0005}
 .vv-update-banner span{flex:1}.vv-update-banner button{border:1px solid #ffffff40;background:#ffffff14;color:#fff;border-radius:7px;padding:6px 10px;font:inherit;cursor:pointer}
 #visor-app.ai-off [data-flow="start-ai"],#visor-app.ai-off [data-v14="draft"]{display:none!important}
+
+/* 0.15 (Phase 15): file tools in one column (shell.js toolScreen). */
+#visor-app .v15-tool{max-width:920px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+#visor-app .v15-tool-head{display:flex;align-items:center;gap:10px}
+#visor-app .v15-tool-head h1{margin:0;font-size:24px;font-weight:600;letter-spacing:-.01em}
+#visor-app .v15-tool-head .v15-back{width:36px;height:36px;padding:0;justify-content:center}
+#visor-app .v-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#visor-app .v15-tool .v-upload{margin:0;padding:40px 20px;display:flex;flex-direction:column;align-items:center;gap:12px;border:1.5px dashed var(--v-border);background:var(--v-panel);transition:padding .15s,background .15s}
+#visor-app .v15-tool .v-upload h3{margin:0;font-size:16px;font-weight:500}
+#visor-app .v15-tool .v-upload>svg{width:26px;height:26px;color:var(--v-purple)}
+#visor-app .v15-tool .v-upload.dragging{background:var(--v-tint);border-color:var(--v-purple)}
+#visor-app .v15-tool .v-upload.compact{order:3;flex-direction:row;justify-content:flex-start;padding:0;border:0;background:none}
+#visor-app .v15-tool .v-upload.compact>svg{display:none}
+#visor-app .v15-tool .v-upload.compact.dragging{padding:14px;border:1.5px dashed var(--v-purple);background:var(--v-tint)}
+#visor-app .v15-files{display:flex;flex-direction:column;gap:8px;order:1}
+#visor-app .v15-files:empty{display:none}
+#visor-app .v15-file{display:flex;align-items:center;gap:14px;padding:10px 12px;border:1px solid var(--v-border);border-radius:12px;background:var(--v-panel)}
+#visor-app .v15-file strong{display:block;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#visor-app .v15-file .v-grow{min-width:0}
+#visor-app .v15-file .v-button.quiet{min-width:34px;justify-content:center}
+#visor-app .v15-thumb{flex:none;width:96px;height:60px;border-radius:8px;background:var(--v-soft);display:grid;place-items:center;overflow:hidden;color:var(--v-sub)}
+#visor-app .v15-thumb>svg{width:22px;height:22px}
+#visor-app .v15-thumb img{width:100%;height:100%;object-fit:contain;display:block}
+#visor-app .v15-thumb svg path{stroke:var(--v-purple);stroke-width:1.2;fill:none;vector-effect:non-scaling-stroke}
+#visor-app .v15-thumb svg[viewBox]{width:100%;height:100%;padding:6px}
+#visor-app .v15-tool-settings{order:4;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 16px;align-items:end;padding:16px;border:1px solid var(--v-border);border-radius:12px;background:var(--v-panel)}
+#visor-app .v15-tool-settings[hidden]{display:none}
+#visor-app .v15-tool-settings>label,#visor-app .v15-more-body>label{display:flex;flex-direction:column;gap:6px;margin:0}
+#visor-app .v15-tool-settings .v15-sign{grid-column:1/-1}
+#visor-app .v15-tool-settings>p{grid-column:1/-1;margin:0}
+#visor-app .v15-more{grid-column:1/-1}
+#visor-app .v15-more summary{cursor:pointer;color:var(--v-sub);font-size:13px}
+#visor-app .v15-more-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 16px;margin-top:12px}
+#visor-app .v15-tool-go{order:5;display:flex;justify-content:flex-end}
+#visor-app .v15-tool-go .v-button{min-width:200px;justify-content:center;height:42px;font-size:15px}
+#visor-app #v-result{order:6}
+#visor-app #v5-tool-preview{order:2}
+#visor-app .v15-result{display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:12px;border:1px solid var(--v-border);background:var(--v-tint)}
+#visor-app .v15-result-head{display:flex;align-items:center;gap:8px}
+#visor-app .v15-result-head h3{margin:0;flex:1;font-size:16px;font-weight:600}
+#visor-app .v15-result-head>svg{width:20px;height:20px;color:#1f9d55}
+#visor-app .v15-before-after{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+#visor-app .v15-before-after figure{margin:0;border-radius:10px;overflow:hidden;background:var(--v-panel);border:1px solid var(--v-border)}
+#visor-app .v15-before-after img{display:block;width:100%;height:220px;object-fit:contain}
+#visor-app .v15-before-after figcaption{padding:6px 10px;font-size:12px;color:var(--v-sub)}
+#visor-app .v15-before-after .checker img{background:repeating-conic-gradient(#d9dee6 0 25%,#fff 0 50%) 0 0/16px 16px}
+#visor-app .v15-tool #v7-replace-tool{display:none}
+#visor-app .v15-tool #v5-tool-preview{margin:0}

@@ -245,6 +245,20 @@ Measured in the real app (`VV_BENCH_ONLY=export`). "Before" is the export window
 | WebM and GIF | Unchanged path (WebM decodes plain stretches directly but uses one encoder; GIF uses the export window). |
 | Not done | E2, E3, E4 and E6 (Phase 18). E4 (parallel windows) matters less now that plain stretches run in parallel already. |
 
+## Phase 15 status
+
+| Item | Status |
+|---|---|
+| One column | Done. The right-hand "Output settings" column is gone. In order: back arrow and tool name, files, the tool's settings, then one button. |
+| Header and text | Done. Removed: "Local processing", the tool's tagline, "Files stay on this device", "Processing runs locally. Choose an output folder.", "Save these settings as a preset", "Foreground extraction runs on this Mac…", "The original stays untouched", "Choose times within your recording". The password note is now just "The password isn't saved." |
+| Files | Done. Each file is a card with a thumbnail (a frame for videos and images, the waveform for audio, the first page for PDFs, drawn by Quick Look), plus its length, size and dimensions. Once files are added, the drop area shrinks to "Add more files"; you can still drop files anywhere on the page. Reorder arrows appear only on Merge PDFs and Images to PDF. |
+| One-file tools | Frame, Trim, GIF, Trim audio and Sign PDF keep one file: picking several uses the first and says so. |
+| Settings | Done. The tool's own settings sit in a strip under the files: two in view, the rest under "More settings". Settings with only one choice stay hidden. |
+| Button | Done. Named after the result: "Save frame", "Remove background", "Merge PDFs", "Compress video", "Save signed PDF" and so on. |
+| Result | Done. Shown on the page instead of the "Files ready" dialog: a card per output with a thumbnail, Open and Show in Finder, plus "Start again". Remove background shows before and after, side by side on a checkerboard. |
+| Video tools | The file card now stays visible above the player (it was hidden). The redundant "Use another video" button is removed, and the hint is shorter. |
+| Under the hood | Settings without a name (resize width and height, watermark text and page numbers, frame time) now have one, so moving a field can't send the wrong value to the engine. |
+
 ## 8. Decisions needed from you
 
 1. **Speed copies:** hide them from Media (recommended), or show them named after the clip?
@@ -262,7 +276,7 @@ Measured in the real app (`VV_BENCH_ONLY=export`). "Before" is the export window
 |---|---|---|
 | 13 | Quick fixes: speed dialog and copies (1.1), light-mode rows and transition tiles plus the theme check (1.3), status line, wrong file types in tools. *Done.* | M |
 | 14 | Export speed I: progress (E7), frame-rate default (E5), direct path for plain stretches (E1). *Done.* | L |
-| 15 | File tools redesign (section 5) | M |
+| 15 | File tools redesign (section 5). *Done.* | M |
 | 16 | Preview zoom (section 4) and editor clarity items 1–6 | M |
 | 17 | Keyframes and presets (section 3) | L |
 | 18 | Export speed II: offscreen capture (E3), graphics layer (E2), parallel chunks (E4), re-use (E6) | L |
