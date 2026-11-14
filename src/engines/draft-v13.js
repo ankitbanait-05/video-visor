@@ -11,7 +11,7 @@ const node=typeof module==='object';
 const T=node?require('./titles-v11.js'):root.titleModelV11,X=node?require('./explainer-v12.js'):root.explainerV12,R=node?require('./timeline-retime.js'):root.timelineRetime;
 const FORMAT=1,MIN_PIECE=.25,EPSILON=1e-6,MAX_CLIPS=200,MAX_ELEMENTS=100;
 const SHAPES={'16:9':'16/9','9:16':'9/16','1:1':'1/1','4:5':'4/5'};
-const CAPTION_STYLES=[['clean','Clean'],['highlight','Highlight'],['word','One word'],['karaoke','Karaoke'],['boxed','Soft box'],['outline','Outline'],['editorial','Editorial'],['stack','Stacked'],['marker','Marker'],['minimal','Minimal'],['bold','Bold'],['subtitle','Subtitle']];
+const CAPTION_STYLES=[['clean','Clean'],['boxed','Soft box'],['word','One word'],['karaoke','Karaoke'],['editorial','Editorial'],['subtitle','Subtitle'],['pop','Pop word'],['outline','Bold outline'],['highlighter','Highlighter'],['twotone','Two-tone'],['typewriter','Typewriter'],['neon','Neon glow']];
 const ICONS=['rocket','lightbulb','target','circle-check','sparkles','chart-column','mouse-pointer-2','clock','download','circle-alert','heart','shield-check','star','thumbs-up','zap','bell','play','message-circle','trending-up','users','calendar','mail','map-pin','lock','gift','flag','trophy','camera','mic','search','settings','globe','link','wallet','shopping-cart','percent','arrow-right','arrow-up-right','check','x','plus','eye','smile','flame','award','bookmark','megaphone','headphones','phone','wifi'];
 const clone=value=>JSON.parse(JSON.stringify(value)),uuid=()=>root.crypto.randomUUID(),round=n=>Math.round(n*100)/100;
 // Errors meant for the person or the assistant, in plain words.
@@ -43,7 +43,7 @@ function summary(s,project={}){
   canvas:shapeName(s.ratio),fit:s.fit==='cover'?'fill':'fit',duration:round(duration(s)),...(speed!==1?{speed}:{}),
   clips,
   titles:(s.elements||[]).map(e=>({id:e.id,type:e.kind==='icon'?'icon':e.templateId||e.kind,...(e.kind==='icon'?{icon:e.icon}:{text:e.text||'',...(e.subtitle?{subtitle:e.subtitle}:{})}),start:round(e.start/speed),end:round(e.end/speed)})),
-  captions:{enabled:!!s.captions,style:s.captionStyle||'highlight',position:s.captionPosition||'bottom',has_transcript:(s.transcript||[]).length>0},
+  captions:{enabled:!!s.captions,style:({highlight:'highlighter',marker:'highlighter',stack:'clean',minimal:'subtitle',bold:'outline'}[s.captionStyle]||s.captionStyle||'highlighter'),position:s.captionPosition||'bottom',has_transcript:(s.transcript||[]).length>0},
   music:s.music?{track:s.music.name||music?.name||'Music',volume:s.audio?.music??20}:null,
   camera_circle:(s.cameraLinks||[]).length>0,
   media:(s.assets||[]).map(a=>({asset_id:a.id,name:a.name,kind:a.kind,...(a.kind==='image'?{}:{duration:round(a.duration||0)}),...(a.width?{width:a.width,height:a.height}:{}),on_timeline:onTimeline.has(a.id)}))
@@ -163,7 +163,7 @@ function removeElement(s,id){
 function setCaptions(s,a){
  if(a.enabled&&!(s.transcript||[]).length)fail('There is no transcript yet, so there is nothing to caption.');
  s.captions=!!a.enabled;if(a.style)s.captionStyle=a.style;if(a.position)s.captionPosition=a.position;
- return{captions:{enabled:s.captions,style:s.captionStyle||'highlight',position:s.captionPosition||'bottom'}};
+ return{captions:{enabled:s.captions,style:({highlight:'highlighter',marker:'highlighter',stack:'clean',minimal:'subtitle',bold:'outline'}[s.captionStyle]||s.captionStyle||'highlighter'),position:s.captionPosition||'bottom'}};
 }
 function setMusic(s,asset,volume){
  if(!asset){s.music=null;return{music:null};}

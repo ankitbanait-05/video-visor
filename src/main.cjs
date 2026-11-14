@@ -58,6 +58,7 @@ function event(name,fn){ipcMain.handle(name,async(e,...args)=>{if(e.sender!==win
 function progress(percent,label){if(!win.isDestroyed())win.webContents.send('progress',{percent,label});}
 async function validateOutput(file){const real=await fs.realpath(file).catch(()=>path.resolve(file));for(const a of Object.values(registry))if(await fs.realpath(a.path).catch(()=>path.resolve(a.path))===real)throw Error('Choose a new output file. Originals are protected.');}
 let exportFolder=null; // 0.10: optional default folder from Settings
+async function confirmReplaceV15(file){const r=await dialog.showMessageBox(win,{type:'question',buttons:['Replace','Keep existing'],defaultId:0,cancelId:1,message:'Replace the caption file?',detail:path.basename(file)+' already exists beside your video.'});return r.response===0;}
 async function saveDialog(name){const r=await dialog.showSaveDialog(win,{defaultPath:exportFolder?path.join(exportFolder,name):name});if(r.canceled)return null;await validateOutput(r.filePath);return r.filePath;}
 async function job(fn){if(currentJob)throw Error('A task is already running. Cancel or wait for it.');currentJob={cancelled:false};try{return await fn();}finally{currentJob=null;}}
 function logDiagnostic(kind,detail){
@@ -94,7 +95,7 @@ app.whenReady().then(async()=>{
  }));
  // 0.9: the export dialog can reveal or play the finished file. Only files exported in this session are allowed.
  const exported=new Set();
- event('export',async(state,cfg)=>job(async()=>{await waitForCopiesV15(state);const result=await require('./engines/export.cjs').exportProject({state,cfg,asset,run,ffmpeg,root,saveDialog,validateOutput,progress,cancelled:()=>currentJob.cancelled,BrowserWindow,appPath:__dirname});logExportV15(result,cfg,state);if(result?.path)exported.add(result.path);return result;}));
+ event('export',async(state,cfg)=>job(async()=>{await waitForCopiesV15(state);const result=await require('./engines/export.cjs').exportProject({state,cfg,asset,run,ffmpeg,root,saveDialog,validateOutput,confirmReplace:confirmReplaceV15,progress,cancelled:()=>currentJob.cancelled,BrowserWindow,appPath:__dirname});logExportV15(result,cfg,state);if(result?.path)exported.add(result.path);return result;}));
  event('previewMute',muted=>{win.webContents.setAudioMuted(!!muted);return !!muted;}); // 0.10: mute button under the preview
  // 0.13 render queue: these renders are saved straight into the export folder, with no dialog.
  const queueFolder=()=>exportFolder||(process.env.VIDEO_VISOR_TEST_HOME&&!app.isPackaged?path.join(app.getPath('userData'),'exports'):path.join(app.getPath('videos'),'Video Visor'));

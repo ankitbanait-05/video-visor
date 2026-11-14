@@ -35,7 +35,7 @@ async function run(ctx) {
   // VV_BENCH_SOURCE=path exports from that file instead of the generated screen recording.
   const exportSource = process.env.VV_BENCH_SOURCE || null;
   const assets = {};
-  if (only.some(x => ['import', 'export', 'queue', 'webm', 'fade', 'speed'].includes(x))) {
+  if (only.some(x => ['import', 'export', 'queue', 'webm', 'fade', 'speed', 'captions'].includes(x))) {
     for (const [key, file] of [['screen', exportSource || screen], ['phone', phone], ['cover', cover]]) {
       try {
         const [a, ms] = await timed(() => register(file));
@@ -80,6 +80,17 @@ async function run(ctx) {
     const luma = async t => { const b = await exec(ffmpeg, ['-v', 'error', '-ss', String(t), '-i', target, '-frames:v', '1', '-vf', 'scale=1:1,format=gray', '-f', 'rawvideo', '-']); return b[0]; };
     const edge = async () => { const b = await exec(ffmpeg, ['-v', 'error', '-ss', '5', '-i', target, '-frames:v', '1', '-vf', 'crop=iw*0.05:ih:0:0,scale=1:1,format=gray', '-f', 'rawvideo', '-']); return b[0]; };
     out('fade', { lumaAt0_1s: await luma(.1), lumaAt1s: await luma(1), lumaAt5s: await luma(5), leftEdgeAt5s_cropped: await edge() });
+  }
+  if (only.includes('captions') && assets.screen) {
+    // Each caption style through the real export window; one frame per style is saved as PNG for inspection.
+    const a = assets.screen, words = 'Make it really clear today'.split(' ').map((text, i) => ({ text, start: .5 + i * .5, end: 1 + i * .5 }));
+    for (const style of (process.env.VV_BENCH_STYLES || 'boxed,karaoke,outline,highlighter,typewriter,neon').split(',')) {
+      const state = { clips: [{ id: 'c1', asset: a.id, name: a.name, kind: 'video', start: 0, end: 3, limit: a.duration }], assets: [a], elements: [], zooms: [], overlays: [], audioClips: [], time: 0, selected: 0, ratio: '16/9', speed: 1, audio: { voice: 100, music: 20 },
+        captions: true, captionStyle: style, captionFont: 'DM Sans', captionSize: 18, captionPosition: 'bottom', captionColour: '#ffd400', captionGroup: 3, transcript: [{ id: 'l1', asset: a.id, start: .5, end: 3, text: words.map(w => w.text).join(' '), words }] };
+      const target = path.join(dir, 'captions-' + style + '.mp4'); await job(() => runExport(state, { format: 'MP4', resolution: '720p', fps: 30, captions: 'Burn into video' }, async () => target));
+      await exec(ffmpeg, ['-v', 'error', '-y', '-ss', '1.2', '-i', target, '-frames:v', '1', path.join(dir, 'captions-' + style + '.png')]);
+      out('captions', { style, frame: path.join(dir, 'captions-' + style + '.png') });
+    }
   }
   if (only.includes('speed') && assets.screen) {
     // Through the app's own IPC path (the renderer's native.speedClip), as the Speed panel calls it.

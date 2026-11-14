@@ -1242,9 +1242,66 @@ async function applySpeedV15(clipId,preset){
   state.transcript=[...state.transcript.filter(l=>l.asset!==item.id),...lines];});
  notice('Speed set to '+S.label(preset)+'.'+(preset.kind==='curve'?' Speed curves remove the clip’s sound.':'')+(tracked?' Tracking blurs on this clip must be added again.':''));
 }
+// 0.15 captions (Phase 5). Twelve distinct styles; each draws from the time alone, so preview and export match.
+const CAPTION_STYLES_V15=[['clean','Clean'],['boxed','Soft box'],['word','One word'],['karaoke','Karaoke'],['editorial','Editorial'],['subtitle','Subtitle'],['pop','Pop word'],['outline','Bold outline'],['highlighter','Highlighter'],['twotone','Two-tone'],['typewriter','Typewriter'],['neon','Neon glow']];
+const CAPTION_LEGACY_V15={highlight:'highlighter',marker:'highlighter',stack:'clean',minimal:'subtitle',bold:'outline'};
+const CAPTION_FONT_V15={clean:'DM Sans',boxed:'DM Sans',word:'Oswald',karaoke:'DM Sans',editorial:'DM Serif Display',subtitle:'DM Sans',pop:'Space Grotesk',outline:'DM Sans',highlighter:'DM Sans',twotone:'Space Grotesk',typewriter:'DM Mono',neon:'Space Grotesk'};
+const CAPTION_PLATE_V15=['boxed','subtitle','typewriter'];
+const CAPTION_SWATCHES_V15=['#1f7ae0','#ffd400','#22c55e','#ff4d6d','#a855f7','#ff8a00','#ffffff'];
+const LEGACY_FONTS_V15={'system-ui':'DM Sans',Arial:'DM Sans',Verdana:'DM Sans',Georgia:'DM Serif Display',monospace:'DM Mono'};
+const captionStyleV15=s=>{s=CAPTION_LEGACY_V15[s]||s;return CAPTION_STYLES_V15.some(([k])=>k===s)?s:'clean';};
+const fontListV15=()=>A11.fonts;
+const captionFontV15=f=>{f=LEGACY_FONTS_V15[f]||f;return fontListV15().some(([k])=>k===f)?f:'DM Sans';};
+const fontStackV15=f=>'"'+f+'", "DM Sans", system-ui, sans-serif';
+function captionLegacyV15(s){s.captionStyle=captionStyleV15(s.captionStyle);s.captionFont=captionFontV15(s.captionFont);if(s.style?.font)s.style.font=LEGACY_FONTS_V15[s.style.font]||s.style.font;}
+// words: [{text,start,end}], t: time in the source. Returns inner HTML for the caption line.
+function captionMarkupV15(style,words,t,group){
+ if(!words.length)return '';
+ let idx=words.findLastIndex(w=>t>=w.start);if(idx<0)idx=0;
+ const w0=words[idx],p=Math.max(0,Math.min(1,(t-w0.start)/Math.max(.05,w0.end-w0.start)));
+ let from=0,to=words.length;
+ if(style==='word'){from=idx;to=idx+1;}else if(!['subtitle','editorial'].includes(style)){group=group||3;from=Math.floor(idx/group)*group;to=Math.min(words.length,from+group);}
+ const shown=words.slice(from,to),key=style==='twotone'?shown.reduce((a,w,i)=>w.text.replace(/\W/g,'').length>shown[a].text.replace(/\W/g,'').length?i:a,0)+from:-1;
+ return shown.map((w,j)=>{const i=from+j,cls=[i<idx?'spoken':'',i===idx?'current spoken':'',i===key?'key':''].filter(Boolean).join(' ');
+  let text=esc(w.text);
+  if(style==='typewriter'){if(i>idx)text='<i class="tw-rest">'+text+'</i>';else if(i===idx){const n=Math.max(1,Math.ceil(w.text.length*p));text=esc(w.text.slice(0,n))+'<i class="tw-rest">'+esc(w.text.slice(n))+'</i>';}}
+  return '<b'+(cls?' class="'+cls+'"':'')+(i===idx?' style="--p:'+p.toFixed(3)+'"':'')+'>'+text+'</b>';}).join(' ');
+}
+function lineWordsV15(line){const texts=line.text.trim().split(/\s+/).filter(Boolean);
+ if(line.words?.length===texts.length)return texts.map((text,i)=>({text,start:line.words[i].start,end:line.words[i+1]?.start??line.words[i].end??line.end}));
+ const d=(line.end-line.start)/Math.max(1,texts.length);return texts.map((text,i)=>({text,start:line.start+i*d,end:line.start+(i+1)*d}));}
+function captionLookV15(el,style){el.classList.add('v15-cap');delete el.dataset.style;el.dataset.cs=style;el.dataset.plate=CAPTION_PLATE_V15.includes(style)&&state.captionBackground===false?'0':'1';
+ el.style.setProperty('--cs-accent',/^#[0-9a-f]{6}$/i.test(state.captionColour||'')?state.captionColour:'#1f7ae0');el.style.setProperty('--cs-text',/^#[0-9a-f]{6}$/i.test(state.captionText||'')?state.captionText:'#ffffff');el.style.fontFamily=fontStackV15(captionFontV15(state.captionFont));}
+function captionsV15(){
+ const cap=q('#ed-captions');if(!cap||cap.hidden)return;const src=source(),t=src.t,line=state.transcript.find(l=>(!l.asset||l.asset===src.clip.asset)&&t>=l.start&&t<l.end);if(!line)return;
+ const style=captionStyleV15(state.captionStyle),span=cap.querySelector('span');captionLookV15(cap,style);if(!span)return;span.style.background='';span.innerHTML=captionMarkupV15(style,lineWordsV15(line),t,state.captionGroup||3);
+}
+const paintBeforeCaptionsV15=paint;
+paint=function(){paintBeforeCaptionsV15();captionsV15();};
+function chooseCaptionStyleV15(k){state.captionStyle=k;state.captions=true;state.captionFont=CAPTION_FONT_V15[k]||'DM Sans';const portrait=Number(state.ratio.split('/')[0])<Number(state.ratio.split('/')[1]);state.captionPosition=['word','pop','outline'].includes(k)&&portrait?'middle':'bottom';}
+function captionThumbV15(k){const words=['Make','it','clear.'].map((text,i)=>({text,start:i,end:i+1}));return '<span class="v15-cap v15-cap-thumb" data-cs="'+k+'" data-plate="1" style="--cs-accent:'+esc(state.captionColour||'#1f7ae0')+';--cs-text:'+esc(state.captionText||'#ffffff')+';font-family:'+esc(fontStackV15(CAPTION_FONT_V15[k]))+'"><span>'+captionMarkupV15(k,words,k==='word'?2.4:1.6,3)+'</span></span>';}
+function fontOptionsV15(){return fontListV15().map(([k,n])=>'<option value="'+esc(k)+'">'+esc(n)+' · '+esc(k)+'</option>').join('');}
+function captionsPanelV15(p){
+ const script=q('#v5-script');if(script){const o=script.querySelector('option[value=roman]');if(o)o.textContent='Hinglish · Aap kaise hain?';const hint=q('#v5-language p');if(hint)hint.textContent='Hinglish writes Hindi words in English letters. Check names and spellings after generating.';}
+ const style=captionStyleV15(state.captionStyle);
+ const grid=p.querySelector('.ed-presets');if(grid){grid.className='v15-cap-grid';grid.innerHTML=CAPTION_STYLES_V15.map(([k,n])=>'<button type="button" class="v15-cap-tile'+(style===k?' active':'')+'" data-cs15="'+k+'" aria-pressed="'+(style===k)+'"><span class="v15-cap-art">'+captionThumbV15(k)+'</span><small>'+n+'</small></button>').join('');grid.querySelectorAll('[data-cs15]').forEach(b=>b.onclick=()=>transaction(()=>chooseCaptionStyleV15(b.dataset.cs15)));}
+ q('#ed-cap-browse')?.remove();
+ const font=q('#ed-cap-font');if(font){font.innerHTML=fontOptionsV15();font.value=captionFontV15(state.captionFont);}
+ const box=font?.closest('details');if(!box||q('#v15-cap-colours'))return;
+ box.open=true;box.querySelector('summary').textContent='Look';
+ const old=[...box.querySelectorAll('p')].find(x=>/Highlight colour/.test(x.textContent));
+ const accent=/^#[0-9a-f]{6}$/i.test(state.captionColour||'')?state.captionColour:'#1f7ae0',text=state.captionText||'#ffffff';
+ const colours=document.createElement('div');colours.id='v15-cap-colours';
+ colours.innerHTML='<span class="v15-label">'+(style==='neon'?'Glow colour':'Highlight colour')+'</span><div class="v15-swatches">'+CAPTION_SWATCHES_V15.map(c=>'<button type="button" class="v15-swatch'+(c.toLowerCase()===accent.toLowerCase()?' active':'')+'" data-cap-colour="'+c+'" style="background:'+c+'" aria-label="Highlight colour '+c+'"></button>').join('')+'<input type="color" id="v15-cap-accent" value="'+esc(accent)+'" aria-label="Custom highlight colour"></div><label class="v15-inline">Text colour <input type="color" id="v15-cap-text" value="'+esc(text)+'"></label>';
+ if(old)old.replaceWith(colours);else box.append(colours);
+ colours.querySelectorAll('[data-cap-colour]').forEach(b=>b.onclick=()=>transaction(()=>state.captionColour=b.dataset.capColour));
+ bind('v15-cap-accent',v=>state.captionColour=v);bind('v15-cap-text',v=>state.captionText=v);
+ const bg=q('#ed-cap-bg')?.closest('label');if(bg){bg.firstChild.textContent='Background plate';bg.hidden=!CAPTION_PLATE_V15.includes(style);}
+ const note=[...box.querySelectorAll('p')].find(x=>/Style changes apply/.test(x.textContent));if(note)note.textContent='Changes apply to every caption.';
+}
 const panelBeforeV15=panel;
-panel=function(){panelBeforeV15();const p=q('#ed-panel');if(state.panel==='clip')clipPanelV15(p);if(state.panel==='speed')speedPanelV15(p);if(state.panel==='effects')effectsSpeedButtonV15(p);compactHeaderV15(p);coverPanelV15(p);numberBoxesV15(p);highlightTabV15();lockPanelV15(p);icons();};
+panel=function(){panelBeforeV15();const p=q('#ed-panel');if(state.panel==='clip')clipPanelV15(p);if(state.panel==='speed')speedPanelV15(p);if(state.panel==='effects')effectsSpeedButtonV15(p);if(state.panel==='captions')captionsPanelV15(p);if(state.panel==='style'){const f=q('#ed-style-font');if(f){f.innerHTML=fontOptionsV15();f.value=captionFontV15(state.style?.font);}}compactHeaderV15(p);coverPanelV15(p);numberBoxesV15(p);highlightTabV15();lockPanelV15(p);icons();};
 
 wireV4();wireV5();wireV7();wireV10();wireV11();
-globalThis.visorEditor={blank:()=>clone(initial),explainer:explainerV12,explainerDialog:explainerDialogV12,selectOverlay:selectOverlayV12,shortcuts:shortcutsV10,appendAsset,addElement,get:()=>clone(state),saveData:()=>withoutView(clone(state)),pause:stop,set:data=>{selectionV7=[];previewOriginal=false;previewEffect=null;stop();pendingUndoV15=null;lastTabV15='media';state={...clone(initial),...clone(data)};uniqueIdsV15(state);legacyZoomV15(state);settleTracksV15();history=[];future=[];render(true);},reset:()=>{selectionV7=[];previewOriginal=false;previewEffect=null;stop();pendingUndoV15=null;state=clone(initial);settleTracksV15();history=[];future=[];render(true);},patch:data=>transaction(()=>Object.assign(state,clone(data))),open,undo,redo,applyStyle,importAssets,previewBefore:on=>{previewOriginal=on;paint();},previewEffect:id=>{previewEffect=id;paint();},jump:t=>{state.time=Math.max(0,Math.min(total(),t));paint();},removeSource:(a,b)=>transaction(()=>removeSource(a,b)),restoreRange:(a,b)=>{if(state.clips.length>=200)return notice('Remove a clip before restoring this range.');transaction(()=>{state.clips.push({id:uidV15(),asset:'walk',name:'Restored section',kind:'video',start:a,end:b,limit:32});state.clips.sort((x,y)=>x.asset==='walk'&&y.asset==='walk'?x.start-y.start:0);});},play};render(true);
+globalThis.visorEditor={blank:()=>clone(initial),explainer:explainerV12,explainerDialog:explainerDialogV12,selectOverlay:selectOverlayV12,shortcuts:shortcutsV10,appendAsset,addElement,get:()=>clone(state),saveData:()=>withoutView(clone(state)),pause:stop,set:data=>{selectionV7=[];previewOriginal=false;previewEffect=null;stop();pendingUndoV15=null;lastTabV15='media';state={...clone(initial),...clone(data)};uniqueIdsV15(state);legacyZoomV15(state);captionLegacyV15(state);settleTracksV15();history=[];future=[];render(true);},reset:()=>{selectionV7=[];previewOriginal=false;previewEffect=null;stop();pendingUndoV15=null;state=clone(initial);settleTracksV15();history=[];future=[];render(true);},patch:data=>transaction(()=>Object.assign(state,clone(data))),open,undo,redo,applyStyle,importAssets,previewBefore:on=>{previewOriginal=on;paint();},previewEffect:id=>{previewEffect=id;paint();},jump:t=>{state.time=Math.max(0,Math.min(total(),t));paint();},removeSource:(a,b)=>transaction(()=>removeSource(a,b)),restoreRange:(a,b)=>{if(state.clips.length>=200)return notice('Remove a clip before restoring this range.');transaction(()=>{state.clips.push({id:uidV15(),asset:'walk',name:'Restored section',kind:'video',start:a,end:b,limit:32});state.clips.sort((x,y)=>x.asset==='walk'&&y.asset==='walk'?x.start-y.start:0);});},play};render(true);
 })();

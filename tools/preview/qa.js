@@ -429,11 +429,66 @@ Object.assign(checks, {
   },
 });
 
+// Phase 5: captions and text.
+async function captioned() {
+  await freshEditor(); tab('captions').click(); await wait(200); panelButton(/Generate captions/).click(); await wait(1400); tab('captions').click(); await wait(200);
+}
+Object.assign(checks, {
+  async 'captions offer 12 distinct styles and a Hinglish script'() {
+    await captioned();
+    const tiles = $$('#ed-panel [data-cs15]').map(b => b.textContent.trim()), hinglish = [...($('#v5-script')?.options || [])].some(o => /^Hinglish/.test(o.textContent));
+    return { pass: tiles.length === 12 && new Set(tiles).size === 12 && hinglish && !$('#ed-cap-browse'), detail: { tiles, hinglish } };
+  },
+  async 'every caption style looks different'() {
+    await captioned(); const line = E().get().transcript[1], sigs = {};
+    for (const b of $$('#ed-panel [data-cs15]')) {
+      const k = b.dataset.cs15; $('#ed-panel [data-cs15="' + k + '"]').click(); await wait(60); E().jump(line.start + .9); await wait(30);
+      const cap = $('#ed-captions'), span = cap.querySelector(':scope>span'), cur = cap.querySelector('.current'), a = getComputedStyle(span), c = cur ? getComputedStyle(cur) : {};
+      sigs[k] = [cap.dataset.cs, cap.querySelectorAll('b').length, a.backgroundColor, a.fontFamily.split(',')[0], a.fontWeight, a.fontStyle, a.textTransform, a.webkitTextStroke, a.textShadow.slice(0, 30), c.color, c.backgroundImage?.slice(0, 20), c.transform, cap.querySelector('.key') ? 'key' : '', cap.querySelector('.tw-rest') ? 'tw' : ''].join('|');
+    }
+    const unique = new Set(Object.values(sigs)).size;
+    return { pass: unique === 12 && Object.keys(sigs).every(k => sigs[k].startsWith(k + '|')), detail: unique === 12 ? unique : sigs };
+  },
+  async 'old caption styles open as their new equivalents'() {
+    await freshEditor(); const s = E().get(); s.captionStyle = 'marker'; s.captionFont = 'Georgia'; E().set(s); await wait(200);
+    return { pass: E().get().captionStyle === 'highlighter' && E().get().captionFont === 'DM Serif Display', detail: [E().get().captionStyle, E().get().captionFont] };
+  },
+  async 'caption highlight colour applies to the spoken word'() {
+    await captioned(); $('#ed-panel [data-cs15="pop"]').click(); await wait(100);
+    $('#ed-panel [data-cap-colour="#ffd400"]').click(); await wait(100); E().jump(E().get().transcript[1].start + .9); await wait(50);
+    const cur = $('#ed-captions .current');
+    return { pass: E().get().captionColour === '#ffd400' && !!cur && getComputedStyle(cur).color === 'rgb(255, 212, 0)', detail: cur && getComputedStyle(cur).color };
+  },
+  async 'caption and title font lists match'() {
+    await captioned(); const cap = [...$('#ed-cap-font').options].map(o => o.value);
+    tab('style').click(); await wait(200); const style = [...($('#ed-style-font')?.options || [])].map(o => o.value);
+    const titles = window.titleModelV11.fonts.map(f => f[0]);
+    return { pass: JSON.stringify(cap) === JSON.stringify(titles) && JSON.stringify(style) === JSON.stringify(titles), detail: { cap, style, titles } };
+  },
+  async 'generating captions again keeps corrections'() {
+    await captioned(); const before = E().get(); before.transcript[0].text = 'Corrected by hand'; E().patch({ transcript: before.transcript });
+    const ask = window.confirm; let asked = 0; window.confirm = () => { asked++; return false; };
+    try { panelButton(/Generate captions/).click(); await wait(1400); } finally { window.confirm = ask; }
+    const kept = E().get().transcript[0].text;
+    window.confirm = () => true; try { panelButton(/Generate captions/).click(); await wait(1400); } finally { window.confirm = ask; }
+    const redone = E().get().transcript[0].text;
+    return { pass: asked === 1 && kept === 'Corrected by hand' && redone !== 'Corrected by hand', detail: { asked, kept, redone } };
+  },
+  async 'an SRT file can be imported from the Captions tab'() {
+    await freshEditor(); tab('captions').click(); await wait(200);
+    const b = panelButton(/Import SRT/); if (!b) return { pass: false, detail: 'no button' };
+    b.click(); await wait(500); const s = E().get(), l = s.transcript;
+    return { pass: l.length === 2 && l[0].asset === s.clips[0].asset && Math.abs(l[0].start - (s.clips[0].start + 1)) < .01 && s.captions, detail: l.map(x => [x.asset, x.start, x.end, x.text]) };
+  },
+});
+
+export const count = () => Object.keys(checks).length;
 export async function run(only) {
   const results = [];
   const errors = []; const onError = e => errors.push(e.message || String(e.reason)); window.addEventListener('error', onError); window.addEventListener('unhandledrejection', onError);
-  for (const [name, fn] of Object.entries(checks)) {
-    if (only && !name.includes(only)) continue;
+  // only: a name substring, or [from, to] indexes to run the suite in batches.
+  for (const [i, [name, fn]] of Object.entries(checks).entries()) {
+    if (Array.isArray(only) ? (i < only[0] || i >= only[1]) : (only && !name.includes(only))) continue;
     try { const r = await fn(); results.push({ name, pass: !!r.pass, detail: r.detail }); }
     catch (e) { results.push({ name, pass: false, detail: 'threw: ' + e.message }); }
   }

@@ -287,14 +287,30 @@ Still open from Phase 0: P0-02, one selection model in the code. The panel now f
 
 | ID | Change | Pri | Evidence | Was | ☐ |
 |---|---|---|---|---|---|
-| CP-01 | Rename "Roman Hindi · Aap kaise hain?" to **Hinglish** | H | Request | — | ☐ |
-| CP-02 | **Caption styles**: remove the look-alikes (Highlight, Karaoke, Stacked, Marker and Subtitle render identically today; Minimal ≈ Outline) and add the new set in Spec C | H | Repro, Request | — | ☐ |
-| CP-03 | Caption colour control. The same font names in caption and title font lists | M | Repro | B35 | ☐ |
-| CP-04 | "Generate captions" keeps manual corrections and transcribes only clips without captions | M | Code | E8 | ☐ |
-| CP-05 | Better Hinglish transliteration (today about 80 dictionary words plus a naive fallback, e.g. "meraa") | M | Code | O7 | ☐ |
-| CP-06 | Hindi and ₹ fallback font that matches Graphik (Mukta or Noto Sans Devanagari). Check Hindi word-by-word highlighting in the real app | M | Code, Suspected | — | ☐ |
-| CP-07 | Button to import SRT/VTT captions (the code exists, no button shows it) | L | Code | — | ☐ |
-| CP-08 | Separate SRT export: ask before overwriting; skip lines under removed gaps | L | Code | E10 | ☐ |
+| CP-01 | Rename "Roman Hindi · Aap kaise hain?" to **Hinglish** | H | Request | — | ✅ |
+| CP-02 | **Caption styles**: remove the look-alikes (Highlight, Karaoke, Stacked, Marker and Subtitle render identically today; Minimal ≈ Outline) and add the new set in Spec C | H | Repro, Request | — | ✅ |
+| CP-03 | Caption colour control. The same font names in caption and title font lists | M | Repro | B35 | ✅ |
+| CP-04 | "Generate captions" keeps manual corrections and transcribes only clips without captions | M | Code | E8 | ✅ |
+| CP-05 | Better Hinglish transliteration (today about 80 dictionary words plus a naive fallback, e.g. "meraa") | M | Code | O7 | ✅ |
+| CP-06 | Hindi and ₹ fallback font that matches Graphik (Mukta or Noto Sans Devanagari). Check Hindi word-by-word highlighting in the real app | M | Code, Suspected | — | ◐ |
+| CP-07 | Button to import SRT/VTT captions (the code exists, no button shows it) | L | Code | — | ✅ |
+| CP-08 | Separate SRT export: ask before overwriting; skip lines under removed gaps | L | Code | E10 | ✅ |
+
+
+### Phase 5 status (14 Nov)
+
+58 checks in `tools/preview/qa.js` pass (7 new). Six of the styles were also exported through the real export window (new `captions` step in `src/bench.cjs`); every one appears in the video as it does in the preview.
+
+| ID | What changed |
+|---|---|
+| CP-01 ✅ | "Hinglish · Aap kaise hain?" in the caption script list, with a plainer hint |
+| CP-02 ✅ | Twelve styles that each look different (an automatic check compares how each one is drawn): Clean, Soft box, One word, Karaoke, Editorial, Subtitle, Pop word, Bold outline, Highlighter, Two-tone, Typewriter, Neon glow. Every style is drawn from the playhead time alone, so karaoke fill, the highlighter sweep and typewriter letters match in the export. Each style sets its own font (and middle placement for One word, Pop word and Bold outline on portrait canvases). All 12 tiles show at once; "Browse all 12 styles" is gone. Older projects open with the nearest new style (Highlight and Marker → Highlighter, Stacked → Clean, Minimal → Subtitle, Bold → Bold outline). The AI connector and draft engine use the new names |
+| CP-03 ✅ | "Look" section, open by default: highlight colour swatches plus a custom colour, text colour, and "Background plate" only for the styles that have one. Caption, title and Style tab font lists are now the same six fonts; older font names (system-ui, Georgia…) map to the nearest one |
+| CP-04 ✅ | Generate captions transcribes only clips that have no captions yet and keeps the others, corrections included. When every clip already has captions it asks before replacing them |
+| CP-05 ✅ | Hinglish transliteration: about 220 common words (was 80), and the fallback now drops silent vowels the way Hindi is spoken (करना → karna, समझना → samajhna, कमरा → kamra, मेरा → mera, भारत → bharat). 23 of 25 test words match the usual chat spelling; the other two are acceptable variants (jankari, asani) |
+| CP-06 ◐ | Moved to Phase 6 with the Graphik embedding (UI-02): the fallback font has to be chosen to match Graphik |
+| CP-07 ✅ | "Import SRT / VTT" button next to Generate captions. Times in the file are treated as times in the finished video, so each caption lands on the clip playing at that moment. Asks before replacing existing captions |
+| CP-08 ✅ | Separate SRT export asks before replacing a caption file that already exists beside the video, and skips gaps |
 
 ---
 

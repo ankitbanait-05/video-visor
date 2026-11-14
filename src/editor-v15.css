@@ -121,3 +121,50 @@
 #visor-app #vv-editor #ed-panel .v15-speed-tile.on{outline:2px solid #4b8cf7;outline-offset:-2px;color:#1f7ae0}
 #visor-app #vv-editor #ed-panel .v15-speed-row{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:12px}
 #visor-app #vv-editor #ed-panel .v15-speed-row strong{flex:1}
+
+/* Phase 5: caption styles. P = body #vv-editor .v15-cap:is(#v15z,[data-cs]) outranks the older caption rules. */
+body #vv-editor .v15-cap:is(#v15z,[data-cs]){color:var(--cs-text,#fff);font-weight:600;line-height:1.25;text-shadow:0 .05em .22em #000b}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])>span{background:transparent;color:inherit;padding:.14em .4em;border-radius:.3em;box-decoration-break:clone;-webkit-box-decoration-break:clone;text-shadow:inherit}
+body #vv-editor .v15-cap:is(#v15z,[data-cs]) b,body #vv-editor .v15-cap:is(#v15z,[data-cs]) .current{font-weight:inherit;color:inherit;background:none;padding:0;border-radius:0;text-shadow:inherit;text-transform:inherit}
+body #vv-editor .v15-cap:is(#v15z,[data-cs]) .tw-rest{visibility:hidden;font-style:normal}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=clean]{text-shadow:0 .05em .25em #000d,0 0 .08em #0009}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=boxed]{text-shadow:none}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=boxed]>span{background:#fff;color:#1d2330;padding:.22em .6em;border-radius:.45em}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=boxed] .current{color:var(--cs-accent)}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=word]{font-weight:800;text-transform:uppercase;letter-spacing:.01em;text-shadow:0 .06em .3em #000d}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=word]>span{font-size:1.6em}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=word] .current{color:var(--cs-text)}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=karaoke]{font-weight:700}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=karaoke] .spoken{color:var(--cs-accent)}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=karaoke] .current{background:linear-gradient(90deg,var(--cs-accent) calc(var(--p,0)*100%),var(--cs-text) 0);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;filter:drop-shadow(0 .05em .12em #000b)}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=editorial]{font-style:italic;font-weight:400;text-shadow:0 .05em .3em #000c}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=subtitle]{font-weight:500;text-shadow:none}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=subtitle]>span{background:#000c;border-radius:.12em;padding:.08em .45em;font-size:.88em}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=pop]{font-weight:800}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=pop] .current{display:inline-block;color:var(--cs-accent);transform:scale(1.22);margin:0 .14em}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=outline]{font-weight:900;text-transform:uppercase;-webkit-text-stroke:.1em #000;paint-order:stroke fill;text-shadow:0 .07em 0 #000}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=outline] .current{color:var(--cs-accent)}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=highlighter]{font-weight:700}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=highlighter] .current{background:linear-gradient(var(--cs-accent),var(--cs-accent)) no-repeat 0 50%/calc(var(--p,0)*100%) 100%;padding:0 .14em;border-radius:.16em;text-shadow:none}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=twotone]{font-weight:500}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=twotone] .key{color:var(--cs-accent);font-weight:800}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=typewriter]{font-weight:500;text-shadow:none}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=typewriter]>span{background:#111d;padding:.16em .5em;border-radius:.2em}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=neon]{color:var(--cs-accent);font-weight:700;text-shadow:0 0 .06em #fffa,0 0 .25em var(--cs-accent),0 0 .6em var(--cs-accent)}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=neon] .current{color:#fff}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-plate="0"]>span{background:transparent}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-plate="0"]{text-shadow:0 .05em .25em #000d}
+body #vv-editor .v15-cap:is(#v15z,[data-cs])[data-cs=boxed][data-plate="0"]>span{color:var(--cs-text)}
+#vv-editor .v15-cap-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}
+#vv-editor .v15-cap-tile{display:flex;flex-direction:column;align-items:stretch;padding:0;overflow:hidden;gap:0;border-radius:8px;min-width:0}
+#vv-editor .v15-cap-tile.active{border:2px solid var(--v-purple);}
+#vv-editor .v15-cap-art{display:grid;place-items:center;height:46px;background:linear-gradient(135deg,#3a4652,#1d242c);overflow:hidden}
+#vv-editor .v15-cap-tile small{padding:5px 4px;font-size:10.5px;color:var(--v-ink);text-align:center}
+body #vv-editor .v15-cap:is(#v15z,[data-cs]).v15-cap-thumb{font-size:12.5px;white-space:nowrap;display:block;text-align:center;pointer-events:none}
+#vv-editor #v15-cap-colours{margin:8px 0}
+#vv-editor #v15-cap-colours .v15-label{font-size:11px;color:var(--v-sub)}
+#vv-editor #v15-cap-colours .v15-swatches{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:5px 0 4px}
+#vv-editor #v15-cap-colours .v15-swatch{width:22px;height:22px;padding:0;border-radius:50%;border:1px solid #0003}
+#vv-editor #v15-cap-colours .v15-swatch.active{outline:2px solid var(--v-purple);outline-offset:2px}
+#vv-editor #v15-cap-colours input[type=color]{width:28px;height:24px;padding:0;border:1px solid var(--v-border);border-radius:5px;background:none}
+#vv-editor #v15-cap-colours .v15-inline{display:flex;align-items:center;justify-content:space-between;color:var(--v-ink)}

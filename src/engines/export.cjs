@@ -1,6 +1,6 @@
 const fs=require('node:fs/promises'),path=require('node:path'),{spawn}=require('node:child_process'),{once}=require('node:events');
 const stamp=n=>{const ms=Math.round(n*1000),h=Math.floor(ms/3600000),m=Math.floor(ms/60000)%60,s=Math.floor(ms/1000)%60;return [h,m,s].map(x=>String(x).padStart(2,'0')).join(':')+','+String(ms%1000).padStart(3,'0');};
-function subtitles(state){const out=[];let offset=0;for(const c of state.clips){for(const l of state.transcript||[]){if(l.asset&&l.asset!==c.asset)continue;const a=Math.max(c.start,l.start),b=Math.min(c.end,l.end);if(b>a)out.push({a:(offset+a-c.start)/state.speed,b:(offset+b-c.start)/state.speed,text:l.text});}offset+=c.end-c.start;}return out.map((l,i)=>`${i+1}\n${stamp(l.a)} --> ${stamp(l.b)}\n${l.text}\n`).join('\n');}
+function subtitles(state){const out=[];let offset=0;for(const c of state.clips){if(!c.gap)for(const l of state.transcript||[]){if(l.asset&&l.asset!==c.asset)continue;const a=Math.max(c.start,l.start),b=Math.min(c.end,l.end);if(b>a)out.push({a:(offset+a-c.start)/state.speed,b:(offset+b-c.start)/state.speed,text:l.text});}offset+=c.end-c.start;}return out.map((l,i)=>`${i+1}\n${stamp(l.a)} --> ${stamp(l.b)}\n${l.text}\n`).join('\n');}
 function dimensions(ratio,height){const [a,b]=String(ratio||'16/9').split('/').map(Number);if(!a||!b||a/b<.1||a/b>10)throw Error('Invalid aspect ratio');return a>=b?[Math.round(height*a/b/2)*2,height]:[height,Math.round(height*b/a/2)*2];}
 // 0.15: checked once per run: whether Apple's hardware H.264 encoder works on this Mac.
 let hardwareV15=null;
@@ -60,7 +60,7 @@ async function exportProject(ctx){
  if(audioOnly){const codec=ext==='mp3'?['-c:a','libmp3lame','-b:a','256k']:ext==='m4a'?['-c:a','aac','-b:a','256k']:['-c:a','pcm_s16le'];await run(ffmpeg,['-y','-i',audio,...codec,output]);}
  else if(gif)await run(ffmpeg,['-y','-i',videoFile,'-filter_complex','split[a][b];[a]palettegen[p];[b][p]paletteuse','-loop','0',output]);
  else{const codec=ext==='webm'?['-c:v','copy','-c:a','libopus']:['-c:v','copy','-c:a','aac','-b:a','192k','-movflags','+faststart'];await run(ffmpeg,['-y','-i',videoFile,'-i',audio,'-map','0:v:0','-map','1:a:0',...codec,'-t',String(duration),output]);}
- check();await fs.copyFile(output,dest);let srt;if(cfg.captions?.startsWith('Separate')){srt=dest.replace(/\.[^.]+$/,'.srt');await ctx.validateOutput?.(srt);await fs.writeFile(srt,subtitles(state));}progress(100,'Export complete');return {path:dest,srt,timing:ctx.timing};
+ check();await fs.copyFile(output,dest);let srt;if(cfg.captions?.startsWith('Separate')){srt=dest.replace(/\.[^.]+$/,'.srt');await ctx.validateOutput?.(srt);/* 0.15: ask before replacing a caption file that is already there */const there=await fs.access(srt).then(()=>true,()=>false);if(there&&ctx.confirmReplace&&!(await ctx.confirmReplace(srt)))srt=undefined;else await fs.writeFile(srt,subtitles(state));}progress(100,'Export complete');return {path:dest,srt,timing:ctx.timing};
  }finally{renderer?.destroy();if(encoding&&!encoding.killed)encoding.kill();await fs.rm(dir,{recursive:true,force:true});}
 }
 module.exports={exportProject,subtitles,dimensions};
