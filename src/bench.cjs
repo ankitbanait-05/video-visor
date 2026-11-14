@@ -35,7 +35,7 @@ async function run(ctx) {
   // VV_BENCH_SOURCE=path exports from that file instead of the generated screen recording.
   const exportSource = process.env.VV_BENCH_SOURCE || null;
   const assets = {};
-  if (only.some(x => ['import', 'export', 'queue', 'webm'].includes(x))) {
+  if (only.some(x => ['import', 'export', 'queue', 'webm', 'fade'].includes(x))) {
     for (const [key, file] of [['screen', exportSource || screen], ['phone', phone], ['cover', cover]]) {
       try {
         const [a, ms] = await timed(() => register(file));
@@ -72,6 +72,14 @@ async function run(ctx) {
     const a = assets.screen, state = { clips: [{ id: 'w1', asset: a.id, name: a.name, kind: 'video', start: 0, end: Math.min(10, a.duration), limit: a.duration }], assets: [a], elements: [], transcript: [], zooms: [], overlays: [], audioClips: [], time: 0, selected: 0, ratio: '16/9', speed: 1, audio: { voice: 100, music: 20 } };
     const [, ms] = await timed(() => job(() => runExport(state, { format: 'WebM', resolution: '1080p', fps: 30 }, async () => path.join(dir, 'export.webm'))));
     out('webm', { seconds: 10, wallMs: ms, realtime: +(10000 / ms).toFixed(2) });
+  }
+  if (only.includes('fade') && assets.screen) {
+    // A clip with a 2 s fade-in (video and audio) and a crop: the exported picture must be dark at the start.
+    const a = assets.screen, state = { clips: [{ id: 'f1', asset: a.id, name: a.name, kind: 'video', start: 0, end: 8, limit: a.duration, fadeIn: 2, audioFadeIn: 2, crop: { l: 10, r: 10, t: 0, b: 0 } }], assets: [a], elements: [], transcript: [], zooms: [], overlays: [], audioClips: [], time: 0, selected: 0, ratio: '16/9', speed: 1, audio: { voice: 100, music: 20 } };
+    const target = path.join(dir, 'fade.mp4'); await job(() => runExport(state, { format: 'MP4', resolution: '720p', fps: 30 }, async () => target));
+    const luma = async t => { const b = await exec(ffmpeg, ['-v', 'error', '-ss', String(t), '-i', target, '-frames:v', '1', '-vf', 'scale=1:1,format=gray', '-f', 'rawvideo', '-']); return b[0]; };
+    const edge = async () => { const b = await exec(ffmpeg, ['-v', 'error', '-ss', '5', '-i', target, '-frames:v', '1', '-vf', 'crop=iw*0.05:ih:0:0,scale=1:1,format=gray', '-f', 'rawvideo', '-']); return b[0]; };
+    out('fade', { lumaAt0_1s: await luma(.1), lumaAt1s: await luma(1), lumaAt5s: await luma(5), leftEdgeAt5s_cropped: await edge() });
   }
   if (only.includes('export') && assets.screen) {
     const a = assets.screen;

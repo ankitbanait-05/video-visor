@@ -104,7 +104,7 @@ Also done in this pass: TL-04, TL-05, TL-07, TL-08, and the split half of TL-21.
 | TL-06 | Thin strips no longer draw over the Audio and Captions rows | M | Seen | B14 | ✅ |
 | TL-07 | Deleting an item keeps the current tab and the timeline scroll. Today deleting a graphic switches to Media and jumps to the main video | H | Repro | — || ✅ |
 | TL-08 | Delete / Backspace act only on a selection. Today, with nothing selected, they delete the clip under the playhead, one per press | H | Repro | B1 || ✅ |
-| TL-09 | "Source · clip" audio is **linked** to its video by design (as in Premiere), so delete and drag act on both. Add "Delete audio only", Unlink and Re-link in the right-click menu (with PN-04) | M | Code | B4 | ☐ |
+| TL-09 | "Source · clip" audio is **linked** to its video by design (as in Premiere), so delete and drag act on both. Add "Delete audio only", Unlink and Re-link in the right-click menu (with PN-04) | M | Code | B4 | ✅ |
 | TL-10 | Tracking blur can be trimmed and moved on the timeline, and has start/end fields in its panel. The tracked range is chosen by the user, not forced to the end of the clip | H | Repro | R1, B2 | ✅ |
 | TL-11 | Adding a second tracking blur no longer cuts the first one off at the playhead | H | Code | B3 | ◐ |
 | TL-12 | Deleting a clip also removes its tracking masks (today they stay hidden and count toward the 100-item limit) | L | Code | — | ◐ |
@@ -214,18 +214,40 @@ Notes:
 
 | ID | Change | Pri | Evidence | Was | ☐ |
 |---|---|---|---|---|---|
-| PN-01 | **The panel follows the selection.** Click a clip: clip properties. Click empty timeline or press Esc: back to the tab you were in. Today Transform stays open and no tab is highlighted | H | Repro | — | ☐ |
-| PN-02 | One **Clip** panel with collapsible Video and Audio sections (Spec D), replacing the Transform-only panel | H | Request | U3 | ☐ |
-| PN-03 | **Fade in / fade out** for video and audio: sliders (0–3 s) in the Clip panel, plus drag handles at each clip's top corners on the timeline | H | Request | — | ☐ |
-| PN-04 | **Re-attach detached audio** (right-click, when it still lines up) or "Restore original audio". A muted clip can be unmuted | H | Request, Code | B5 | ☐ |
-| PN-05 | Compact back header `←  Panel name` in every sub-panel, returning to the tab you came from. Remove the duplicate "Browse elements" button | H | Request | R4, U2 | ☐ |
-| PN-06 | Blur region, Solid cover and Tracking blur open under **Effects**; Back, Remove and the tab highlight all return to Effects | H | Repro | R2, B13 | ☐ |
-| PN-07 | Every slider has a number box beside it | M | Review | U4 | ☐ |
-| PN-08 | Long panels grouped into collapsible sections, e.g. the title editor's ~25 controls into Text / Style / Animation | M | Repro | U7 | ☐ |
-| PN-09 | Correct panel headings ("Edit lower third", "Edit chapter"…). No raw internal names such as `tracking-blur` | L | Repro | B33, B34 | ◐ |
-| PN-10 | Confirmations ("Captions generated", "Music added") shown near the action, not only in the small footer | M | Repro | U6 | ☐ |
-| PN-11 | Per-clip crop | M | Review | U3 | ☐ |
-| PN-12 | The editor tab row never wraps to two lines at the default window width | M | Repro | B30 | ☐ |
+| PN-01 | **The panel follows the selection.** Click a clip: clip properties. Click empty timeline or press Esc: back to the tab you were in. Today Transform stays open and no tab is highlighted | H | Repro | — | ✅ |
+| PN-02 | One **Clip** panel with collapsible Video and Audio sections (Spec D), replacing the Transform-only panel | H | Request | U3 | ✅ |
+| PN-03 | **Fade in / fade out** for video and audio: sliders (0–3 s) in the Clip panel, plus drag handles at each clip's top corners on the timeline | H | Request | — | ✅ |
+| PN-04 | **Re-attach detached audio** (right-click, when it still lines up) or "Restore original audio". A muted clip can be unmuted | H | Request, Code | B5 | ✅ |
+| PN-05 | Compact back header `←  Panel name` in every sub-panel, returning to the tab you came from. Remove the duplicate "Browse elements" button | H | Request | R4, U2 | ✅ |
+| PN-06 | Blur region, Solid cover and Tracking blur open under **Effects**; Back, Remove and the tab highlight all return to Effects | H | Repro | R2, B13 | ✅ |
+| PN-07 | Every slider has a number box beside it | M | Review | U4 | ✅ |
+| PN-08 | Long panels grouped into collapsible sections, e.g. the title editor's ~25 controls into Text / Style / Animation | M | Repro | U7 | ◐ |
+| PN-09 | Correct panel headings ("Edit lower third", "Edit chapter"…). No raw internal names such as `tracking-blur` | L | Repro | B33, B34 | ✅ |
+| PN-10 | Confirmations ("Captions generated", "Music added") shown near the action, not only in the small footer | M | Repro | U6 | ✅ |
+| PN-11 | Per-clip crop | M | Review | U3 | ✅ |
+| PN-12 | The editor tab row never wraps to two lines at the default window width | M | Repro | B30 | ✅ |
+
+### Phase 3 status (14 Nov)
+
+42 checks in `tools/preview/qa.js` pass (11 new). A real export with a fade-in and a crop was measured: brightness 27 → 71 → 119 at 0.1 s → 1 s → 5 s, and the cropped edge is dark.
+
+| ID | What changed |
+|---|---|
+| PN-01 ✅ | The left panel follows the selection. Select a clip or item and its panel opens; press **Esc** or click empty timeline and you are back in the tab you were working in |
+| PN-02 ✅ | One **Clip** panel with collapsible **Video** (position, scale, rotation, opacity, fade in / out, crop, reset) and **Audio** (volume up to 150 %, fade in / out, Delete audio only, Detach / Re-attach / Restore) sections. Gaps get their own panel with "Delete gap". Per-clip speed comes with FX-07 |
+| PN-03 ✅ | Fades: sliders in the Clip panel, and drag handles at the top corners of clips, their audio, audio clips and video layers, with a visible ramp. Video fades to black; audio fades in the preview and the export |
+| PN-04 ✅ | Detach audio remembers its clip; **Re-attach audio** joins it back; **Restore audio** turns a muted clip's sound back on |
+| PN-05 ✅ | One compact header in every item panel: ← and its name. The arrow goes back to the tab the item belongs to (or the tab you were in, for clips and layers). The duplicate "Browse elements" button is gone |
+| PN-06 ✅ | Blur region, Solid cover and Tracking blur highlight **Effects**; Back and Remove return to Effects |
+| PN-07 ✅ | Every slider has a number box on the same row |
+| PN-08 ◐ | The Clip panel is grouped into sections. Grouping the title editor's ~25 controls is still open |
+| PN-09 ✅ | Headings by kind: Edit title / lower third / chapter / callout / number, Edit icon, Blur region, Solid cover, Tracking blur |
+| PN-10 ✅ | Confirmations also appear as a short toast at the top of the window |
+| PN-11 ✅ | Per-clip crop (left / right / top / bottom), in preview and export |
+| PN-12 ✅ | The editor tabs stay on one row (they scroll sideways in a very narrow window) |
+| TL-09 ✅ | Right-click a clip or its audio: **Delete audio only**, **Re-attach audio** or **Restore audio** |
+
+Still open from Phase 0: P0-02, one selection model in the code. The panel now follows the selection, but the two internal selection lists still coexist.
 
 ---
 

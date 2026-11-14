@@ -296,6 +296,83 @@ Object.assign(checks, {
   },
 });
 
+// ---------- Phase 3 ----------
+const press = el => { const [x, y] = centre(el); pointer(el, x, y, x, y); };
+const selectClip = async (i = 0) => { press(block('video', E().get().clips[i].id)); await wait(250); };
+const num = label => $$('#ed-panel label').find(l => l.textContent.trim().startsWith(label))?.querySelector('input.v15-num');
+const setNum = async (label, v) => { const n = num(label); n.value = v; n.dispatchEvent(new Event('change', { bubbles: true })); await wait(250); };
+Object.assign(checks, {
+  async 'Esc returns from the clip panel to the tab you were in'() {
+    await freshEditor(); tab('captions').click(); await wait(200); await selectClip();
+    const opened = E().get().panel; key('Escape'); await wait(250);
+    return { pass: opened === 'clip' && E().get().panel === 'captions' && activeTab() === 'captions', detail: { opened, after: E().get().panel, tab: activeTab() } };
+  },
+  async 'clicking empty timeline closes an item panel'() {
+    await freshEditor(); await addTitle('Callouts', 0); tab('elements').click(); await wait(200);
+    press(block('element', E().get().elements[0].id)); await wait(250); const opened = E().get().panel;
+    const laneEl = $('#vt-tracks .vt-lane[data-group="graphics"]'), r = laneEl.getBoundingClientRect();
+    pointer(laneEl, r.right - 20, r.top + r.height / 2, r.right - 20, r.top + r.height / 2); await wait(250);
+    return { pass: opened === 'element' && E().get().panel === 'elements', detail: { opened, after: E().get().panel } };
+  },
+  async 'a solid cover belongs to Effects (tab, back arrow, remove)'() {
+    await freshEditor(); tab('effects').click(); await wait(200); panelButton(/Solid cover/).click(); await wait(300);
+    const back = $('#ed-panel .v15-back'), info = { panel: E().get().panel, tab: activeTab(), back: back?.title, heading: $('#ed-panel .v15-head h3')?.textContent };
+    back.click(); await wait(250); info.afterBack = E().get().panel;
+    return { pass: info.panel === 'element' && info.tab === 'effects' && info.back === 'Back to Effects' && info.heading === 'Solid cover' && info.afterBack === 'effects', detail: info };
+  },
+  async 'the clip panel has Video and Audio sections with number boxes'() {
+    await freshEditor(); await selectClip();
+    const sections = $$('#ed-panel .v15-section > summary').map(s => s.textContent), ranges = $$('#ed-panel input[type=range]').length, boxes = $$('#ed-panel input.v15-num').length;
+    return { pass: JSON.stringify(sections) === '["Video","Audio"]' && ranges > 8 && ranges === boxes, detail: { sections, ranges, boxes } };
+  },
+  async 'a fade in darkens the start of the clip'() {
+    await freshEditor(); await selectClip(); await setNum('Fade in', 2);
+    await setTime(1); const v = $('#native-video'), op = +getComputedStyle(v).opacity;
+    return { pass: E().get().clips[0].fadeIn === 2 && op > .4 && op < .6, detail: { fadeIn: E().get().clips[0].fadeIn, opacityAt1s: op } };
+  },
+  async 'audio can be detached and re-attached'() {
+    await freshEditor(); await selectClip(); panelButton(/^Detach audio$/).click(); await wait(300);
+    const d = E().get(), detached = { muted: d.clips[0].muted, audioClips: (d.audioClips || []).length, from: d.audioClips?.[0]?.detachedFrom === d.clips[0].id };
+    await selectClip(); panelButton(/Re-attach audio/).click(); await wait(300);
+    const r = E().get();
+    return { pass: detached.muted && detached.audioClips === 1 && detached.from && !r.clips[0].muted && !(r.audioClips || []).length, detail: { detached, reattached: { muted: !!r.clips[0].muted, audioClips: (r.audioClips || []).length } } };
+  },
+  async 'right-click: delete audio only keeps the video'() {
+    await freshEditor(); const id = E().get().clips[0].id, n = E().get().clips.length;
+    const src = $('#vt-tracks .vt-item-source'); const [x, y] = centre(src);
+    src.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: x, clientY: y })); await wait(200);
+    const item = $$('#v7-context button').find(b => b.textContent.trim() === 'Delete audio only'); if (!item) return { pass: false, detail: $$('#v7-context button').map(b => b.textContent) };
+    item.click(); await wait(300);
+    const c = E().get().clips.find(c => c.id === id);
+    return { pass: !!c && c.muted === true && E().get().clips.length === n, detail: { muted: c?.muted, clips: E().get().clips.length } };
+  },
+  async 'dragging a fade handle on the timeline sets a fade'() {
+    await freshEditor(); const b = block('video', E().get().clips[0].id), knob = b.querySelector('.v15-fade.in'); if (!knob) return { pass: false, detail: 'no fade handle' };
+    const [x, y] = centre(knob); const base = { bubbles: true, pointerId: 9, button: 0 };
+    knob.dispatchEvent(new PointerEvent('pointerdown', { ...base, clientX: x, clientY: y, buttons: 1 }));
+    knob.onpointermove?.(new PointerEvent('pointermove', { ...base, clientX: x + 1.5 / secondsPerPx(), clientY: y, buttons: 1 }));
+    knob.onpointerup?.(new PointerEvent('pointerup', { ...base, clientX: x + 1.5 / secondsPerPx(), clientY: y }));
+    await wait(250);
+    const f = E().get().clips[0].fadeIn;
+    return { pass: f >= 1.3 && f <= 1.7, detail: { fadeIn: f } };
+  },
+  async 'the editor tabs stay on one row'() {
+    localStorage.removeItem('vv-mock'); E().reset(); $('.v-nav [data-route=editor]').click(); await wait(400);
+    const tops = [...new Set($$('.ed-tabs button').filter(b => b.offsetParent).map(b => Math.round(b.getBoundingClientRect().top)))];
+    return { pass: tops.length === 1, detail: tops };
+  },
+  async 'typing in a number box changes the setting'() {
+    await freshEditor(); tab('adjustments').click(); await wait(250); await setNum('Exposure', 30);
+    const adj = E().get().clips[E().get().selected]?.adjustments; // adjustments belong to the selected clip
+    return { pass: adj?.exposure === 30, detail: adj };
+  },
+  async 'panel headings name the kind of item'() {
+    await freshEditor(); await addTitle('Lower thirds', 0); const lower = $('#ed-panel .v15-head h3')?.textContent;
+    await addTitle('Callouts', 0); const callout = $('#ed-panel .v15-head h3')?.textContent;
+    return { pass: lower === 'Edit lower third' && callout === 'Edit callout', detail: { lower, callout } };
+  },
+});
+
 export async function run(only) {
   const results = [];
   const errors = []; const onError = e => errors.push(e.message || String(e.reason)); window.addEventListener('error', onError); window.addEventListener('unhandledrejection', onError);
