@@ -34,7 +34,7 @@ class RecorderController {
     if(this.panel&&!this.panel.isDestroyed()){this.show();if(!this.busy()&&typeof options.camera==='boolean')this.command(options.camera?'camera-on':'camera-off');return true;}
     this.config={kind:options.kind||'video',voiceStart:Number(options.voiceStart)||0,camera:(options.kind||'video')==='video'&&!!options.camera};this.phase='idle';this.area=null;this.areaSourceId=null;this.display=null;this.source=null;
     const b=screen.getPrimaryDisplay().workArea;
-    this.panel=new BrowserWindow({width:680,height:SETUP_HEIGHT,x:b.x+Math.round((b.width-680)/2),y:b.y+Math.round((b.height-SETUP_HEIGHT)/2),frame:false,transparent:false,resizable:false,alwaysOnTop:true,title:'Video Visor — Recorder',backgroundColor:'#f5f8fc',webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,backgroundThrottling:false}});
+    this.panel=new BrowserWindow({width:680,height:SETUP_HEIGHT,x:b.x+Math.round((b.width-680)/2),y:b.y+Math.round((b.height-SETUP_HEIGHT)/2),frame:false,transparent:false,resizable:false,alwaysOnTop:true,title:'Video Visor — Recorder',backgroundColor:require('electron').nativeTheme.shouldUseDarkColors?'#0e1823':'#f5f8fc',webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,backgroundThrottling:false}});
     this.panel.setAlwaysOnTop(true,'floating');
     this.panel.webContents.on('before-input-event',(event,input)=>{if(this.handleInput(input))event.preventDefault();});
     this.panel.webContents.setWindowOpenHandler(()=>({action:'deny'}));this.panel.webContents.on('will-navigate',e=>e.preventDefault());

@@ -292,7 +292,7 @@ Still open from Phase 0: P0-02, one selection model in the code. The panel now f
 | CP-03 | Caption colour control. The same font names in caption and title font lists | M | Repro | B35 | ✅ |
 | CP-04 | "Generate captions" keeps manual corrections and transcribes only clips without captions | M | Code | E8 | ✅ |
 | CP-05 | Better Hinglish transliteration (today about 80 dictionary words plus a naive fallback, e.g. "meraa") | M | Code | O7 | ✅ |
-| CP-06 | Hindi and ₹ fallback font that matches Graphik (Mukta or Noto Sans Devanagari). Check Hindi word-by-word highlighting in the real app | M | Code, Suspected | — | ◐ |
+| CP-06 | Hindi and ₹ fallback font that matches Graphik (Mukta or Noto Sans Devanagari). Check Hindi word-by-word highlighting in the real app | M | Code, Suspected | — | ✅ |
 | CP-07 | Button to import SRT/VTT captions (the code exists, no button shows it) | L | Code | — | ✅ |
 | CP-08 | Separate SRT export: ask before overwriting; skip lines under removed gaps | L | Code | E10 | ✅ |
 
@@ -308,7 +308,7 @@ Still open from Phase 0: P0-02, one selection model in the code. The panel now f
 | CP-03 ✅ | "Look" section, open by default: highlight colour swatches plus a custom colour, text colour, and "Background plate" only for the styles that have one. Caption, title and Style tab font lists are now the same six fonts; older font names (system-ui, Georgia…) map to the nearest one |
 | CP-04 ✅ | Generate captions transcribes only clips that have no captions yet and keeps the others, corrections included. When every clip already has captions it asks before replacing them |
 | CP-05 ✅ | Hinglish transliteration: about 220 common words (was 80), and the fallback now drops silent vowels the way Hindi is spoken (करना → karna, समझना → samajhna, कमरा → kamra, मेरा → mera, भारत → bharat). 23 of 25 test words match the usual chat spelling; the other two are acceptable variants (jankari, asani) |
-| CP-06 ◐ | Moved to Phase 6 with the Graphik embedding (UI-02): the fallback font has to be chosen to match Graphik |
+| CP-06 ✅ | Done in Phase 6 with Graphik (UI-02): Hindi and ₹ are drawn by Kohinoor Devanagari inside the Graphik family |
 | CP-07 ✅ | "Import SRT / VTT" button next to Generate captions. Times in the file are treated as times in the finished video, so each caption lands on the clip playing at that moment. Asks before replacing existing captions |
 | CP-08 ✅ | Separate SRT export asks before replacing a caption file that already exists beside the video, and skips gaps |
 
@@ -318,18 +318,40 @@ Still open from Phase 0: P0-02, one selection model in the code. The panel now f
 
 | ID | Change | Pri | Evidence | Was | ☐ |
 |---|---|---|---|---|---|
-| UI-01 | **One theme across the app, with Light / Dark / Match system in Settings.** The timeline and preview are dark while the rest is light today. About 850 hard-coded colours to move to shared tokens, including the recorder panel | H | Request | R7, U1 | ☐ |
-| UI-02 | **Graphik embedded** (D1): in the title, caption and Style font lists, and the default of the company style preset; with the CP-06 fallback | H | Request | — | ☐ |
-| UI-03 | **Canvas shape as tiles** drawn to shape (16:9, 9:16, 1:1, 4:5, Custom). Same tile pattern for Framing (Fit / Fill), caption position (Top / Middle / Bottom) and other short choice lists | M | Request | — | ☐ |
-| UI-04 | Home: one "New video" entry instead of four that do the same thing; remove "A guided start" until one exists; headline that says what the app does; no version pill in the header | M | Repro | U5 | ☐ |
-| UI-05 | Minimum text size 12–13 px (much of the interface is 10–11 px) | M | Code | U12 | ☐ |
-| UI-06 | Export dialog: Format and Resolution only under "Custom"; vertical and square shapes surfaced instead of hidden under "Render several frame shapes…" | M | Repro | U9 | ☐ |
-| UI-07 | Magic Edit review: click a pause to hear it | L | Repro | U8 | ☐ |
+| UI-01 | **One theme across the app, with Light / Dark / Match system in Settings.** The timeline and preview are dark while the rest is light today. About 850 hard-coded colours to move to shared tokens, including the recorder panel | H | Request | R7, U1 | ✅ |
+| UI-02 | **Graphik embedded** (D1): in the title, caption and Style font lists, and the default of the company style preset; with the CP-06 fallback | H | Request | — | ✅ |
+| UI-03 | **Canvas shape as tiles** drawn to shape (16:9, 9:16, 1:1, 4:5, Custom). Same tile pattern for Framing (Fit / Fill), caption position (Top / Middle / Bottom) and other short choice lists | M | Request | — | ✅ |
+| UI-04 | Home: one "New video" entry instead of four that do the same thing; remove "A guided start" until one exists; headline that says what the app does; no version pill in the header | M | Repro | U5 | ✅ |
+| UI-05 | Minimum text size 12–13 px (much of the interface is 10–11 px) | M | Code | U12 | ✅ |
+| UI-06 | Export dialog: Format and Resolution only under "Custom"; vertical and square shapes surfaced instead of hidden under "Render several frame shapes…" | M | Repro | U9 | ✅ |
+| UI-07 | Magic Edit review: click a pause to hear it | L | Repro | U8 | ✅ |
 | UI-08 | PDF and image tools move under "More tools" (or rename the product); only tools that really work are listed (Phase 10) | M | Review | U11 | ☐ |
 | UI-09 | Simple mode for beginners: guided trim → captions → music → export, with the full timeline behind "Advanced" | M | Review | — | ☐ |
-| UI-10 | Rename dialog: Enter submits, an empty name shows a message, names containing `&` display correctly | L | Repro | B31 | ☐ |
-| UI-11 | Respect the macOS "Reduce motion" setting | L | Code | — | ☐ |
-| UI-12 | Replace the default Electron menu, which lets users reach Reload and Developer Tools | L | Code | O5 | ☐ |
+| UI-10 | Rename dialog: Enter submits, an empty name shows a message, names containing `&` display correctly | L | Repro | B31 | ✅ |
+| UI-11 | Respect the macOS "Reduce motion" setting | L | Code | — | ✅ |
+| UI-12 | Replace the default Electron menu, which lets users reach Reload and Developer Tools | L | Code | O5 | ✅ |
+
+
+### Phase 6 status (14 Nov)
+
+66 checks in `tools/preview/qa.js` pass (8 new). A new contrast audit (`tools/preview/contrast.js`) finds no text under 3:1 contrast on any screen or editor tab in either theme. Checked in the real app: the theme switch through its IPC path, Graphik loading, the menu, and a Graphik caption export with ₹ and Hindi text.
+
+| ID | What changed |
+|---|---|
+| UI-01 ✅ | **Settings → Appearance: Light, Dark or Match system**, as drawn tiles. Light makes the preview surround and timeline light like the rest of the app; Dark makes the whole app dark. The main process sets the macOS theme too, so save dialogs, the window background and the recorder window follow. The ~1,000 hard-coded colours are handled by `tools/theme_dark.py`, which reads the stylesheets and writes a dark copy of every coloured rule in the same order (light surfaces and borders become dark, dark text becomes light, accents stay), skipping anything that draws the video picture so exports never depend on the theme. Hand fixes live in `src/theme-v15.css` |
+| UI-02 ✅ | **Graphik embedded** (Light, Regular, Italic, Medium, Semibold, Bold, Black). It is the interface font, first in the title, caption and Style font lists ("Company"), the default for new videos, and the company preset. "Use company preset" did nothing before; it now applies the saved preset, or Graphik with smallcase blue |
+| UI-03 ✅ | Canvas shape (in the editor and in Settings → New videos), Framing and caption Placement are tiles drawn to what they choose |
+| UI-04 ✅ | Home: headline says what the app does ("Record, edit and share clear videos."), one **New video** button, no duplicate "Edit a video" (with its "A guided start" text) or "Continue a project" cards, and no version pill in the header (the version is in Settings → About) |
+| UI-05 ✅ | Interface text is at least 12 px (generated by the same tool into `src/ui-size-v15.css`); a check confirms nothing smaller is visible |
+| UI-06 ✅ | Export: Format and Resolution show only under Custom. Vertical, square and portrait versions are a visible button with shape icons instead of a quiet text link |
+| UI-07 ✅ | Magic Edit review: a ▶ button on each pause plays it with a little speech either side; press again to stop |
+| UI-08 ☐ | Waits for Phase 10, which decides which tools stay |
+| UI-09 ☐ | Simple mode is a feature of its own; proposed as a separate phase |
+| UI-10 ✅ | Rename: Enter saves; an empty name shows a message in the dialog. Names with `&` already displayed correctly (checked in Projects, Home and the editor title) |
+| UI-11 ✅ | Reduce motion applies to the whole app, not only the editor; the video picture keeps its animations |
+| UI-12 ✅ | The app's own menu: Settings… (⌘,), New Video (⌘N), Record Screen, Projects, Edit, View (zoom, full screen), Window, Help → Keyboard Shortcuts. Reload and Developer Tools only in Dev builds |
+
+Also fixed: dragging a clip near the bottom of the timeline scrolled it even with nothing hidden below, so the drop landed on the wrong row and was refused.
 
 ---
 

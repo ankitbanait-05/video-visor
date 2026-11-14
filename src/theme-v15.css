@@ -1,0 +1,102 @@
+/* 0.15 Phase 6: one theme across the app (Light, Dark or Match system, set in Settings) and the Graphik
+   company font. Loaded last. shell.js sets data-theme="light" or "dark" on #visor-app.
+   Light: the preview surround and timeline, dark until now, take light tokens.
+   Dark: the app's own tokens (--v-*) switch, and the few hard-coded light surfaces follow. */
+
+@font-face{font-family:'Graphik';src:url('fonts/graphik/Graphik-Light.otf') format('opentype');font-weight:300;font-style:normal;font-display:block}
+@font-face{font-family:'Graphik';src:url('fonts/graphik/Graphik-Regular.otf') format('opentype');font-weight:400;font-style:normal;font-display:block}
+@font-face{font-family:'Graphik';src:url('fonts/graphik/Graphik-RegularItalic.otf') format('opentype');font-weight:400;font-style:italic;font-display:block}
+@font-face{font-family:'Graphik';src:url('fonts/graphik/Graphik-Medium.otf') format('opentype');font-weight:500;font-style:normal;font-display:block}
+@font-face{font-family:'Graphik';src:url('fonts/graphik/Graphik-Semibold.otf') format('opentype');font-weight:600;font-style:normal;font-display:block}
+@font-face{font-family:'Graphik';src:url('fonts/graphik/Graphik-Bold.otf') format('opentype');font-weight:700;font-style:normal;font-display:block}
+@font-face{font-family:'Graphik';src:url('fonts/graphik/Graphik-Black.otf') format('opentype');font-weight:800 900;font-style:normal;font-display:block}
+/* Graphik has no Devanagari and no ₹. Kohinoor Devanagari, part of macOS, draws those characters inside the
+   same 'Graphik' family (declared after the Graphik files, limited to those characters), so Hindi captions and
+   prices match in weight without a second font name. */
+@font-face{font-family:'Graphik';src:local('Kohinoor Devanagari'),local('KohinoorDevanagari-Regular');unicode-range:U+0900-097F,U+20B9,U+A8E0-A8FF;font-weight:300 500}
+@font-face{font-family:'Graphik';src:local('Kohinoor Devanagari Semibold'),local('KohinoorDevanagari-Semibold');unicode-range:U+0900-097F,U+20B9,U+A8E0-A8FF;font-weight:600 900}
+
+/* ---- Interface font --------------------------------------------------------------------------- */
+#visor-app,#visor-app #vv-editor,#visor-app #vv-editor button,#visor-app #vv-editor select,#visor-app #vv-editor input,#visor-app #vv-editor textarea,#visor-app button,#visor-app input,#visor-app select,#visor-app textarea,#v15-tip,#v15-toast{font-family:'Graphik','DM Sans',system-ui,sans-serif}
+
+/* ---- Light: the editor surround and timeline ------------------------------------------------- */
+#visor-app[data-theme=light] #vv-editor{--v10-bg:#e9eef4;--v10-surface:#ffffff;--v10-raised:#eef2f7;--v10-line:#d9e1ea;--v10-text:#2f363f;--v10-muted:#5d6874;--v10-accent:#1f7ae0}
+#visor-app[data-theme=light] #vv-editor .ed-canvas{box-shadow:0 0 0 1px #0002,0 8px 24px #1b2a3b26}
+#visor-app[data-theme=light] #vv-editor .ed-main button:hover,#visor-app[data-theme=light] #vv-editor .ed-timeline button:not(.vt-block):not(.vt-transition):hover{background:#e2e8f0}
+#visor-app[data-theme=light] #vv-editor #vt-tracks .vt-row{border-bottom-color:#e4eaf1}
+#visor-app[data-theme=light] #vv-editor .vt-block{background:#dbe8f8;color:#1d4f86;border-color:#b5cdea}
+#visor-app[data-theme=light] #vv-editor .vt-item-source,#visor-app[data-theme=light] #vv-editor .vt-item-voiceover{background:#dce9f8!important;color:#1d4f86!important;border-color:#b5cdea}
+#visor-app[data-theme=light] #vv-editor .vt-audio .vt-block{background:#d6efe8;color:#17604f;border-color:#a9d9cb}
+#visor-app[data-theme=light] #vv-editor .vt-item-music{background:#d4efe2!important;color:#16603f!important}
+#visor-app[data-theme=light] #vv-editor .vt-text .vt-block{background:#e7e2fb;color:#4a3ea0;border-color:#c9c0f1}
+#visor-app[data-theme=light] #vv-editor .vt-captions .vt-block,#visor-app[data-theme=light] #vv-editor .vt-item-caption{background:#1f7ae0!important;color:#fff!important;border-color:#1866bd}
+#visor-app[data-theme=light] #vv-editor .vt-item-video{border-color:#9fb3c8}
+#visor-app[data-theme=light] #vv-editor .vt-block.selected{outline:2px solid #1f7ae0!important;box-shadow:0 0 0 4px #1f7ae033!important}
+#visor-app[data-theme=light] #vv-editor .vt-transition{background:#fff;border-color:#1f7ae0;color:#1f7ae0}
+#visor-app[data-theme=light] #vv-editor .v8-drop-denied{background:#fde8e4!important;box-shadow:inset 0 0 0 2px #e0745a}
+#visor-app[data-theme=light] #vv-editor #vt-tracks .v10-strip:hover{background:#eef3f8}
+#visor-app[data-theme=light] #vv-editor .v10-strip-label small{background:#e3e9f0}
+#visor-app[data-theme=light] #vv-editor .ed-timeline #ed-delete:not(:disabled):hover{color:#b3372c;border-color:#efcdc8}
+#visor-app[data-theme=light] #vv-editor #vt-tracks .v15-placeholder-lane.v8-drop-target{color:#1d4f86}
+#visor-app[data-theme=light] #vv-editor #vt-tracks .v15-placeholder .vt-label,#visor-app[data-theme=light] #vv-editor #vt-tracks .v15-empty-main{color:#5d6874}
+#visor-app[data-theme=light] #vv-editor #vt-tracks .v15-empty-main{border-color:#b9c6d4}
+#visor-app[data-theme=light] #vv-editor #vt-tracks .vt-block.v15-gap{background:repeating-linear-gradient(135deg,#f1f4f8 0 6px,#e6ebf1 6px 12px)!important;border-color:#c3cfdc!important;color:#5d6874!important}
+#visor-app[data-theme=light] #vv-editor .v15-locked-note{background:#fff4d6;color:#7a5a00}
+#visor-app[data-theme=light] #vv-editor #v15-snap.active{color:#b07d00}
+#visor-app[data-theme=light] #v15-snapline,#visor-app[data-theme=light] ~ #v15-snapline{background:#e0a100}
+
+/* ---- Dark: the whole app ---------------------------------------------------------------------- */
+#visor-app[data-theme=dark]{color-scheme:dark;--v-bg:#121418;--v-panel:#1a1e24;--v-ink:#e4e9ef;--v-sub:#a3adb9;--v-border:#2d343e;--v-soft:#232931;--v-purple:#4c9bff;--v-tint:#1b3150;background:#121418;border-color:#2d343e;box-shadow:none}
+#visor-app[data-theme=dark] #vv-editor{background:var(--v-bg)}
+#visor-app[data-theme=dark] #vv-editor .ed-panel{background:var(--v-panel);border-right-color:var(--v-border)}
+
+/* ---- Settings → Appearance tiles ---------------------------------------------------------------- */
+#visor-app .v15-theme-tiles{display:flex;gap:10px;flex-wrap:wrap}
+#visor-app .v15-theme-tile{display:flex;flex-direction:column;align-items:center;gap:7px;width:118px;padding:8px 8px 9px;border:1px solid var(--v-border);border-radius:10px;background:var(--v-panel);color:var(--v-ink);font-size:13px;cursor:pointer}
+#visor-app .v15-theme-tile.on{border:2px solid var(--v-purple);padding:7px 7px 8px}
+#visor-app .v15-theme-art{position:relative;display:block;width:100%;height:58px;border-radius:6px;overflow:hidden;border:1px solid #0002}
+#visor-app .v15-theme-art i,#visor-app .v15-theme-art b{position:absolute;display:block;border-radius:3px}
+#visor-app .v15-theme-art i{left:8px;top:8px;width:28px;bottom:8px}
+#visor-app .v15-theme-art b{left:42px;right:8px;top:8px;height:16px}
+#visor-app .v15-theme-art.light{background:#f2f5f9}#visor-app .v15-theme-art.light i{background:#dfe6ee}#visor-app .v15-theme-art.light b{background:#1f7ae0}
+#visor-app .v15-theme-art.dark{background:#15181d}#visor-app .v15-theme-art.dark i{background:#262c35}#visor-app .v15-theme-art.dark b{background:#4c9bff}
+#visor-app .v15-theme-art.system{background:linear-gradient(115deg,#f2f5f9 50%,#15181d 50%)}#visor-app .v15-theme-art.system i{background:#dfe6ee}#visor-app .v15-theme-art.system b{background:#4c9bff}
+
+/* ---- Light fixes found by tools/preview/contrast.js --------------------------------------------- */
+#visor-app[data-theme=light] #vv-editor .v8-group-collapse small{background:#e1e7ee;color:#3d4753}
+#visor-app[data-theme=light] #vv-editor #vt-tracks .v15-placeholder-lane{color:#5d6874}
+#visor-app[data-theme=light] .v-nav small{color:#66788a}
+#visor-app[data-theme=dark] .v-nav small{color:#8f9cab}
+
+/* ---- Choice tiles (UI-03): canvas shape, framing, caption placement ----------------------------- */
+#visor-app .v15-choice-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:6px;margin:6px 0 4px}
+#visor-app .v15-choice-tiles.fit,#visor-app .v15-choice-tiles.place{grid-template-columns:repeat(auto-fill,minmax(64px,1fr))}
+#visor-app .v15-choice{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;padding:7px 4px 6px;border:1px solid var(--v-border);border-radius:8px;background:var(--v-panel);color:var(--v-ink);cursor:pointer;font-size:12px;line-height:1.2}
+#visor-app .v15-choice:hover{background:var(--v-soft)}
+#visor-app .v15-choice.on{border:2px solid var(--v-purple);padding:6px 3px 5px;background:var(--v-tint)}
+#visor-app .v15-choice small{font-size:12px;color:var(--v-sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+#visor-app .v15-choice-art{display:grid;place-items:center;height:28px}
+#visor-app .v15-art-box{display:block;position:relative;border:1.5px solid currentColor;border-radius:3px;opacity:.85}
+#visor-app .v15-art-box.dashed{border-style:dashed}
+#visor-app .v15-art-box.frame{width:34px;height:22px;overflow:hidden}
+#visor-app .v15-art-box.frame b{position:absolute;background:var(--v-purple);opacity:.55}
+#visor-app .v15-art-box.frame b.fit{left:8px;right:8px;top:0;bottom:0}
+#visor-app .v15-art-box.frame b.fill{left:-6px;right:-6px;top:-6px;bottom:-6px}
+#visor-app .v15-art-box.place b{left:5px;right:5px;height:4px;border-radius:2px;opacity:.9}
+#visor-app .v15-art-box.place b.top{top:3px}#visor-app .v15-art-box.place b.middle{top:8px}#visor-app .v15-art-box.place b.bottom{bottom:3px}
+#visor-app .v10-settings .v15-choice-tiles{max-width:520px}
+
+/* ---- Export dialog (UI-06) ----------------------------------------------------------------------- */
+#visor-app .v15-shapes-button{gap:10px;margin-top:8px}
+#visor-app .v15-mini-shapes{display:inline-flex;align-items:flex-end;gap:3px;height:16px}
+#visor-app .v15-mini-shapes i{display:block;height:100%;border:1.5px solid currentColor;border-radius:2px;opacity:.8}
+#visor-app .v15-pause-row{display:flex;align-items:center;gap:8px}
+#visor-app .v15-pause-row .v-check{flex:1}
+#visor-app .v15-hear{width:30px;height:30px;padding:0;flex:none;font-size:12px}
+#visor-app .v15-hear.playing{color:var(--v-purple);border-color:var(--v-purple)}
+#visor-app .v15-field-error{color:#c2412d;font-size:12px;margin:6px 0 0}#visor-app[data-theme=dark] .v15-field-error{color:#ff8f7d}
+
+/* ---- Reduce motion (UI-11): the whole app, not only the editor. The video picture keeps its animations. */
+@media (prefers-reduced-motion: reduce){
+#visor-app *:not(#ed-canvas):not(#ed-canvas *),#visor-app *:not(#ed-canvas *)::before,#visor-app *:not(#ed-canvas *)::after,#v15-toast,#v13-queue-chip{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}

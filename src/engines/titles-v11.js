@@ -13,7 +13,7 @@ const ease={
  spring:x=>{x=clamp(x);return x>=1?1:1-Math.exp(-6.5*x)*Math.cos(9.5*x);},
  back:x=>{x=clamp(x);const c=1.70158;return 1+(c+1)*Math.pow(x-1,3)+c*Math.pow(x-1,2);}
 };
-const fonts=[['DM Sans','Clean sans'],['Space Grotesk','Modern'],['DM Serif Display','Editorial serif'],['Oswald','Condensed bold'],['DM Mono','Mono'],['Caveat','Handwritten']];
+const fonts=[['Graphik','Company'],['DM Sans','Clean sans'],['Space Grotesk','Modern'],['DM Serif Display','Editorial serif'],['Oswald','Condensed bold'],['DM Mono','Mono'],['Caveat','Handwritten']];
 const categories=[['titles','Titles'],['lower','Lower thirds'],['chapters','Chapters'],['callouts','Callouts'],['numbers','Numbers']]; /* 0.15: Quotes merged into Titles and Lower thirds */
 const legibility=[['soft','Soft shadow'],['strong','Strong shadow'],['outline','Outline'],['scrim','Dark glow behind'],['none','None']];
 

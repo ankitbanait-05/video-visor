@@ -1,4 +1,4 @@
-const {app,BrowserWindow,ipcMain,dialog,protocol,net,session,desktopCapturer,screen,systemPreferences,shell,safeStorage}=require('electron');
+const {app,BrowserWindow,ipcMain,dialog,protocol,net,session,desktopCapturer,screen,systemPreferences,shell,safeStorage,nativeTheme,Menu}=require('electron');
 const fs=require('node:fs/promises'),path=require('node:path'),{pathToFileURL}=require('node:url'),{randomUUID}=require('node:crypto'),{spawn}=require('node:child_process');
 const ffmpeg=require('ffmpeg-static').replace('app.asar/','app.asar.unpacked/'),ffprobe=require('ffprobe-static').path.replace('app.asar/','app.asar.unpacked/');
 if(process.env.VIDEO_VISOR_TEST_HOME&&!app.isPackaged)app.setPath('userData',path.resolve(process.env.VIDEO_VISOR_TEST_HOME));
@@ -70,7 +70,22 @@ async function offerReload(message){
  recoveryPrompt=true;
  try{const result=await dialog.showMessageBox(win,{type:'warning',message,detail:'Reload the last saved project to continue. Any unsaved change may be lost.',buttons:['Wait','Reload saved project'],defaultId:0,cancelId:0});if(result.response===1&&!win.isDestroyed()){await projectStore.flush().catch(()=>{});win.webContents.forcefullyCrashRenderer();win.reload();}}finally{recoveryPrompt=false;}
 }
-app.whenReady().then(async()=>{
+// 0.15: the app's own menu. Electron's default one offered Reload and Developer Tools, which lose unsaved
+// work; Dev builds keep them under View.
+function menuV15(){
+ const go=js=>()=>win?.webContents.executeJavaScript(js).catch(()=>{});
+ const nav=r=>go("document.querySelector('.v-nav [data-route="+r+"]')?.click()");
+ const dev=require('../package.json').name==='video-visor-dev';
+ Menu.setApplicationMenu(Menu.buildFromTemplate([
+  {label:app.name,submenu:[{role:'about',label:'About Video Visor'},{type:'separator'},{label:'Settings…',accelerator:'CmdOrCtrl+,',click:nav('settings')},{type:'separator'},{role:'services'},{type:'separator'},{role:'hide',label:'Hide Video Visor'},{role:'hideOthers'},{role:'unhide'},{type:'separator'},{role:'quit',label:'Quit Video Visor'}]},
+  {label:'File',submenu:[{label:'New Video',accelerator:'CmdOrCtrl+N',click:go("document.querySelector('.v-nav [data-route=home]')?.click();setTimeout(()=>document.querySelector('[data-flow=start-edit]')?.click(),150)")},{label:'Record Screen…',click:nav('record')},{label:'Projects',click:nav('projects')},{type:'separator'},{role:'close'}]},
+  {role:'editMenu'},
+  {label:'View',submenu:[{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{type:'separator'},{role:'togglefullscreen'},...(dev?[{type:'separator'},{role:'reload'},{role:'toggleDevTools'}]:[])]},
+  {role:'windowMenu'},
+  {role:'help',submenu:[{label:'Keyboard Shortcuts',click:go("globalThis.visorEditor?.shortcuts?.()")}]}
+ ]));
+}
+app.whenReady().then(async()=>{menuV15();
  root=path.join(app.getPath('userData'),'workspace-v2');await fs.mkdir(root,{recursive:true});storage=path.join(root,'projects.json');projectStore=require('./engines/project-store.cjs').createProjectStore(storage);try{registry=JSON.parse(await fs.readFile(path.join(root,'media.json'),'utf8'));}catch{}
  protocol.handle('visor',async req=>{const u=new URL(req.url);let file;if(u.host==='media')file=registry[u.pathname.slice(1)]?.previewPath||registry[u.pathname.slice(1)]?.path;else if(u.host==='app'){const rel=decodeURIComponent(u.pathname==='/'?'/index.html':u.pathname);file=path.resolve(__dirname,'.'+rel);if(!file.startsWith(__dirname+path.sep))file=null;}if(!file)return new Response('Not found',{status:404});if(u.host==='media')return require('./engines/file-response.cjs').fileResponse(file,req);const response=await net.fetch(pathToFileURL(file).href,{headers:req.headers});if(u.host==='app'){const headers=new Headers(response.headers);headers.set('Cache-Control','no-store');return new Response(response.body,{status:response.status,headers});}return response;});
  session.defaultSession.setPermissionRequestHandler((wc,permission,cb)=>cb((wc===win?.webContents||recorderController?.isCaptureClient(wc))&&['media','display-capture'].includes(permission)));
@@ -111,6 +126,7 @@ app.whenReady().then(async()=>{
   const result=await runExport(state,cfg,async ext=>{for(let i=1;;i++){const file=path.join(folder,base+(i>1?' '+i:'')+'.'+ext);if(!(await fs.access(file).then(()=>true,()=>false))){await validateOutput(file);return file;}}},{background:true});
   logExportV15(result,cfg,state);if(result?.path)exported.add(result.path);return result;
  }));
+ event('setTheme',async mode=>{nativeTheme.themeSource=['light','dark'].includes(mode)?mode:'system';win?.setBackgroundColor(nativeTheme.shouldUseDarkColors?'#121418':'#f5f8fc');return true;});
  event('cancelQueued',()=>{if(backgroundJob){backgroundJob.cancelled=true;backgroundJob.child?.kill('SIGTERM');}return true;});
  // 0.13 connector: lets an AI assistant on this Mac use the app. Off until switched on in Settings.
  connectionFile=path.join(app.getPath('userData'),'connector.json');

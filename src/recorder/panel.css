@@ -2,3 +2,6 @@
 
 /* 0.12 Record explainer */
 .hint-row{display:flex;align-items:center;gap:14px}.hint-row .hint{flex:1}#camera-preview-box{display:flex;align-items:center;gap:9px;max-width:270px;font-size:11px;color:#607489;line-height:1.4}#camera-preview,#camera-live{border-radius:50%;object-fit:cover;background:#dfe8f2;border:2px solid #fff;box-shadow:0 2px 8px #1c4f8e33;transform:scaleX(-1);flex:none}#camera-preview{width:58px;height:58px}#camera-live{width:40px;height:40px}body.voice #camera-option,body.voice #camera-device,body.shot #camera-option,body.shot #camera-device{display:none!important}
+
+/* 0.15 Graphik, the company font (also used in the main window) */
+@font-face{font-family:'Graphik';src:url('../fonts/graphik/Graphik-Regular.otf') format('opentype');font-weight:400}@font-face{font-family:'Graphik';src:url('../fonts/graphik/Graphik-Medium.otf') format('opentype');font-weight:500}@font-face{font-family:'Graphik';src:url('../fonts/graphik/Graphik-Semibold.otf') format('opentype');font-weight:600}body,button,select{font-family:'Graphik','DM Sans',sans-serif}

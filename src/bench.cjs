@@ -16,6 +16,13 @@ async function run(ctx) {
   const make = async (name, args) => { const file = path.join(dir, name); if (!(await fs.stat(file).catch(() => null))) await exec(ffmpeg, ['-v', 'error', '-y', ...args, file]); return file; };
   win?.hide();
 
+  if (only.includes('theme')) {
+    // Settings → Appearance through the real IPC path; the menu must not offer Reload outside Dev builds.
+    const { nativeTheme, Menu } = require('electron'), res = {};
+    for (const mode of ['dark', 'light', 'system']) { await win.webContents.executeJavaScript(`native.setTheme(${JSON.stringify(mode)})`); res[mode] = { source: nativeTheme.themeSource, dark: nativeTheme.shouldUseDarkColors, page: await win.webContents.executeJavaScript("matchMedia('(prefers-color-scheme: dark)').matches") }; }
+    const labels = Menu.getApplicationMenu().items.map(i => i.label + ':' + i.submenu.items.map(x => x.label || x.role).filter(Boolean).join('/'));
+    out('theme', { ...res, graphik: await win.webContents.executeJavaScript("document.fonts.load('600 16px Graphik').then(f=>f.length)"), menu: labels });
+  }
   if (only.includes('env')) {
     const env = await win.webContents.executeJavaScript(`({
       mp4avc: ['video/mp4;codecs=avc1','video/mp4;codecs=avc1.640028','video/mp4;codecs=avc1,opus','video/mp4;codecs=avc1,mp4a.40.2','video/mp4;codecs=avc3'].filter(t=>MediaRecorder.isTypeSupported(t)),
@@ -83,10 +90,10 @@ async function run(ctx) {
   }
   if (only.includes('captions') && assets.screen) {
     // Each caption style through the real export window; one frame per style is saved as PNG for inspection.
-    const a = assets.screen, words = 'Make it really clear today'.split(' ').map((text, i) => ({ text, start: .5 + i * .5, end: 1 + i * .5 }));
+    const a = assets.screen, words = (process.env.VV_BENCH_TEXT || 'Make it really clear today').split(' ').map((text, i) => ({ text, start: .5 + i * .5, end: 1 + i * .5 }));
     for (const style of (process.env.VV_BENCH_STYLES || 'boxed,karaoke,outline,highlighter,typewriter,neon').split(',')) {
       const state = { clips: [{ id: 'c1', asset: a.id, name: a.name, kind: 'video', start: 0, end: 3, limit: a.duration }], assets: [a], elements: [], zooms: [], overlays: [], audioClips: [], time: 0, selected: 0, ratio: '16/9', speed: 1, audio: { voice: 100, music: 20 },
-        captions: true, captionStyle: style, captionFont: 'DM Sans', captionSize: 18, captionPosition: 'bottom', captionColour: '#ffd400', captionGroup: 3, transcript: [{ id: 'l1', asset: a.id, start: .5, end: 3, text: words.map(w => w.text).join(' '), words }] };
+        captions: true, captionStyle: style, captionFont: process.env.VV_BENCH_FONT || 'DM Sans', captionSize: 18, captionPosition: 'bottom', captionColour: '#ffd400', captionGroup: 3, transcript: [{ id: 'l1', asset: a.id, start: .5, end: 3, text: words.map(w => w.text).join(' '), words }] };
       const target = path.join(dir, 'captions-' + style + '.mp4'); await job(() => runExport(state, { format: 'MP4', resolution: '720p', fps: 30, captions: 'Burn into video' }, async () => target));
       await exec(ffmpeg, ['-v', 'error', '-y', '-ss', '1.2', '-i', target, '-frames:v', '1', path.join(dir, 'captions-' + style + '.png')]);
       out('captions', { style, frame: path.join(dir, 'captions-' + style + '.png') });

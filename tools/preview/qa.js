@@ -17,7 +17,7 @@ async function freshEditor() {
   localStorage.removeItem('vv-mock');
   E().reset();
   $('.v-nav [data-route=home]').click(); await wait(200);
-  $$('#v-content button').find(b => /Create a video/.test(b.textContent)).click(); await wait(900);
+  $$('#v-content button').find(b => /New video|Create a video/.test(b.textContent)).click(); await wait(900);
 }
 async function addTitle(category = 'Callouts', index = 0) {
   tab('elements').click(); await wait(200);
@@ -38,7 +38,7 @@ const checks = {
     $('#vt-tracks [aria-label="Add Audio track"]').click(); await wait(300);
     const before = rows();
     $('.v-nav [data-route=home]').click(); await wait(200);
-    $$('#v-content button').find(b => /Create a video/.test(b.textContent)).click(); await wait(900);
+    $$('#v-content button').find(b => /New video|Create a video/.test(b.textContent)).click(); await wait(900);
     const after = rows();
     return { pass: before.length === 4 && JSON.stringify(after) === JSON.stringify(['video-main', 'audio-1']), detail: { before, after } };
   },
@@ -273,9 +273,11 @@ Object.assign(checks, {
     if (!$('#v-overlay').hidden) $('#v-dialog-close').click();
     tab('audio').click(); await wait(300);
     const m = E().get().music, b = block('music', m.asset); if (!b) return { pass: false, detail: 'no music block' };
+    b.scrollIntoView({ block: 'nearest' }); await wait(100);
     const edge = b.querySelector('.v6-edge.end'); if (!edge) return { pass: false, detail: 'no end handle on music' };
     const [x, y] = centre(edge); pointer(edge, x, y, x - 10 / secondsPerPx(), y); await wait(300);
     const trimmed = E().get().music;
+    block('music', m.asset).scrollIntoView({ block: 'nearest' }); await wait(100);
     const b2 = block('music', m.asset), [bx, by] = centre(b2); pointer(b2, bx, by, bx + 3 / secondsPerPx(), by); await wait(300);
     const moved = E().get().music;
     return { pass: trimmed.end < 20 && moved.start > 2, detail: { trimmed: [trimmed.start, trimmed.end], moved: [moved.start, moved.end] } };
@@ -479,6 +481,68 @@ Object.assign(checks, {
     const b = panelButton(/Import SRT/); if (!b) return { pass: false, detail: 'no button' };
     b.click(); await wait(500); const s = E().get(), l = s.transcript;
     return { pass: l.length === 2 && l[0].asset === s.clips[0].asset && Math.abs(l[0].start - (s.clips[0].start + 1)) < .01 && s.captions, detail: l.map(x => [x.asset, x.start, x.end, x.text]) };
+  },
+});
+
+// Phase 6: look, theme, navigation.
+async function setTheme(mode) {
+  $('.v-nav [data-route=settings]').click(); await wait(250);
+  $('[data-theme-choice="' + mode + '"]').click(); await wait(150);
+}
+const bgLum = el => { const m = getComputedStyle(el).backgroundColor.match(/\d+/g).map(Number); return (m[0] * .299 + m[1] * .587 + m[2] * .114) / 255; };
+Object.assign(checks, {
+  async 'Settings switches the whole app between light and dark'() {
+    await setTheme('dark'); await freshEditor(); const dark = { app: $('#visor-app').dataset.theme, timeline: bgLum($('.ed-timeline')), panel: bgLum($('#ed-panel')) };
+    await setTheme('light'); await freshEditor(); const light = { app: $('#visor-app').dataset.theme, timeline: bgLum($('.ed-timeline')), panel: bgLum($('#ed-panel')) };
+    await setTheme('system');
+    return { pass: dark.app === 'dark' && dark.timeline < .3 && dark.panel < .3 && light.app === 'light' && light.timeline > .8 && light.panel > .8, detail: { dark, light } };
+  },
+  async 'the primary button keeps its colour in dark'() {
+    await setTheme('dark'); await freshEditor(); const b = $$('#vv-editor button').find(x => /^Export/.test(x.textContent.trim())), bg = getComputedStyle(b).backgroundImage;
+    await setTheme('system');
+    return { pass: /rgb\(31, 122, 224\)/.test(bg), detail: bg.slice(0, 60) };
+  },
+  async 'no interface text is smaller than 12 px'() {
+    await freshEditor(); const small = [];
+    for (const t of ['media', 'elements', 'captions', 'effects']) {
+      tab(t).click(); await wait(250);
+      for (const el of $$('#visor-app *')) {
+        if (el.closest('#ed-canvas, svg, .v15-cap-art, .v10-cap-thumb, .cap-art, .template-art, .v11-card, .v5-transition-demo')) continue;
+        const r = el.getBoundingClientRect(); if (!r.width || r.bottom < 0 || r.top > innerHeight) continue;
+        if (![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) continue;
+        const fs = parseFloat(getComputedStyle(el).fontSize); if (fs < 12) small.push(t + ': ' + el.tagName + '.' + el.className + ' ' + fs);
+      }
+    }
+    return { pass: !small.length, detail: small.slice(0, 8) };
+  },
+  async 'Graphik is the company font for titles and captions'() {
+    await freshEditor(); const s = E().get(), fonts = window.titleModelV11.fonts.map(f => f[0]);
+    await document.fonts.load('600 20px Graphik');
+    return { pass: fonts[0] === 'Graphik' && s.captionFont === 'Graphik' && s.style.font === 'Graphik' && document.fonts.check('600 20px Graphik'), detail: { fonts, caption: s.captionFont, style: s.style.font } };
+  },
+  async 'canvas shape and framing are tiles'() {
+    await freshEditor(); $('#v5-canvas').click(); await wait(300);
+    const tile = $$('#ed-panel .v15-choice').find(b => /^1:1/.test(b.textContent)); if (!tile) return { pass: false, detail: 'no tiles' };
+    tile.click(); await wait(250); const fill = $$('#ed-panel .v15-choice').find(b => /^Fill/.test(b.textContent)); fill?.click(); await wait(250);
+    return { pass: E().get().ratio === '1/1' && !!fill && $('#v5-ratio-select').hidden, detail: { ratio: E().get().ratio } };
+  },
+  async 'export shows format and resolution only for Custom'() {
+    await freshEditor(); $$('#vv-editor button').find(x => /^Export/.test(x.textContent.trim())).click(); await wait(400);
+    const before = $('#v15-export-custom').hidden; $('[data-purpose=custom]').click(); await wait(100); const after = $('#v15-export-custom').hidden;
+    const shapes = !!$('#v13-export-queue.v15-shapes-button'); $('#v-dialog-body')?.closest('dialog, .v-modal, #v-dialog')?.querySelector('[data-action=close], .v-close, button[aria-label=Close]')?.click(); key('Escape'); await wait(200);
+    return { pass: before === true && after === false && shapes, detail: { before, after, shapes } };
+  },
+  async 'home has one New video entry and no version pill'() {
+    $('.v-nav [data-route=home]').click(); await wait(300);
+    const starts = $$('#v-content [data-flow=start-edit]').length, pill = !!$('.v-top .v-pill');
+    return { pass: starts === 1 && !pill && /New video/.test($('#v-content [data-flow=start-edit]').textContent), detail: { starts, pill } };
+  },
+  async 'rename: Enter saves, an empty name explains itself'() {
+    $('.v-nav [data-route=projects]').click(); await wait(300); $('[data-v10=project-rename]').click(); await wait(200);
+    const f = $('#v10-project-name'), old = f.value; f.value = ''; f.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await wait(100);
+    const msg = $('#v15-name-error')?.textContent; f.value = old + ' & co'; f.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await wait(250);
+    const saved = !$('#v10-project-name') && $$('#v-content *').some(x => !x.children.length && x.textContent === old + ' & co');
+    return { pass: !!msg && saved, detail: { msg, saved } };
   },
 });
 

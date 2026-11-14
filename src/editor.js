@@ -6,7 +6,7 @@
 function ratioLabelV9(ratio){let [w,h]=String(ratio||'16/9').split('/').map(Number);if(!(w>0&&h>0))return '16:9';if(Number.isInteger(w)&&Number.isInteger(h)){let a=w,b=h;while(b)[a,b]=[b,a%b];w/=a;h/=a;}return w<=32&&h<=32?w+':'+h:(w/h).toFixed(2).replace(/\.?0+$/,'')+':1';}
 const onKeyV9=fn=>window.addEventListener('keydown',ev=>{const r=document.getElementById('vv-editor'),o=document.getElementById('v-overlay'),t=ev.target;if(!r||!r.getClientRects().length||(o&&!o.hidden))return;if(t instanceof Element&&!r.contains(t)&&t!==document.body&&t!==document.documentElement)return;fn(ev);});
 (()=>{const root=document.getElementById('vv-editor'),q=s=>root.querySelector(s),clone=o=>JSON.parse(JSON.stringify(o)),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),icon=n=>'<i data-lucide="'+n+'" aria-hidden="true"></i>',icons=()=>globalThis.lucide?.createIcons({attrs:{width:16,height:16}}),fmt=n=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(Math.floor(n%60)).padStart(2,'0');
-const initial={clips:[{id:'blank',asset:'blank',name:'Add footage',kind:'image',start:0,end:5,limit:5}],assets:[],time:0,selected:0,panel:'media',elements:[],active:null,zoom:false,strength:1.35,captions:false,captionStyle:'highlight',captionFont:'system-ui',captionSize:18,captionPosition:'bottom',captionColour:'#1f7ae0',captionBackground:true,ratio:'16/9',speed:1,transcript:[],audio:{voice:100,system:70,music:20,noise:false,level:false},focus:{mode:'manual',x:50,y:50,start:0,end:5},style:{name:'smallcase blue',font:'system-ui',colour:'#8ac7ff',logo:'VV'},transition:'cut',camera:false};
+const initial={clips:[{id:'blank',asset:'blank',name:'Add footage',kind:'image',start:0,end:5,limit:5}],assets:[],time:0,selected:0,panel:'media',elements:[],active:null,zoom:false,strength:1.35,captions:false,captionStyle:'highlight',captionFont:'Graphik',captionSize:18,captionPosition:'bottom',captionColour:'#1f7ae0',captionBackground:true,ratio:'16/9',speed:1,transcript:[],audio:{voice:100,system:70,music:20,noise:false,level:false},focus:{mode:'manual',x:50,y:50,start:0,end:5},style:{name:'smallcase',font:'Graphik',colour:'#1f7ae0',logo:'VV'},transition:'cut',camera:false};
 let state=clone(initial),history=[],future=[],playing=false,last=0,raf=0,expandedCaps=false,elementCategory='titles',previewOriginal=false,previewEffect=null;
 const saved=window.openai?.widgetState?.privateContent;if(saved?.prototypeVersion===3&&saved.editorState?.clips?.length)state={...clone(initial),...clone(saved.editorState)};
 const total=()=>state.clips.reduce((n,c)=>n+c.end-c.start,0),notice=t=>{q('#ed-status').textContent=t;window.nativeShell?.notify(t);};
@@ -545,7 +545,7 @@ dragBlockV6=function(b,lane,type,id){
   const clean=()=>{clearGhostsV7();hideSnapLineV15();q('#vt-tracks').querySelectorAll('.v8-drop-target,.v8-drop-denied').forEach(n=>n.classList.remove('v8-drop-target','v8-drop-denied'));};
   pointerV7(e=>{
    if(!moved&&Math.hypot(e.clientX-x,e.clientY-y)<4)return;moved=true;clean();
-   const host=q('#vt-tracks'),bounds=host.getBoundingClientRect();if(e.clientX>bounds.right-25)host.scrollLeft+=12;if(e.clientX<bounds.left+130)host.scrollLeft-=12;if(e.clientY>bounds.bottom-20)host.scrollTop+=8;if(e.clientY<bounds.top+20)host.scrollTop-=8;
+   const host=q('#vt-tracks'),bounds=host.getBoundingClientRect();if(e.clientX>bounds.right-25)host.scrollLeft+=12;if(e.clientX<bounds.left+130)host.scrollLeft-=12;if(e.clientY>bounds.bottom-20&&[...host.querySelectorAll('.vt-row')].some(r=>r.offsetParent&&r.getBoundingClientRect().bottom>bounds.bottom+1))host.scrollTop+=8;/* 0.15: only when a track is hidden below */if(e.clientY<bounds.top+20)host.scrollTop-=8;
    delta=Math.abs(e.clientX-x)<6?0:(e.clientX-x+host.scrollLeft-scroll)*seconds;if(entry?.item.tracking||entry?.item.linkId)delta=0;
    const entries=T8.entries(state).filter(a=>chosen.some(s=>s.type===a.type&&s.id===a.id)),ranges=entries.flatMap(e=>e.ranges),lo=Math.min(...ranges.map(r=>r.start)),hi=Math.max(...ranges.map(r=>r.end));
    if(delta)delta=snapDeltaV15(lo,hi,delta,snapPointsV15(a=>entries.includes(a)),seconds*8,e);else hideSnapLineV15();
@@ -1278,7 +1278,7 @@ function captionsV15(){
 }
 const paintBeforeCaptionsV15=paint;
 paint=function(){paintBeforeCaptionsV15();captionsV15();};
-function chooseCaptionStyleV15(k){state.captionStyle=k;state.captions=true;state.captionFont=CAPTION_FONT_V15[k]||'DM Sans';const portrait=Number(state.ratio.split('/')[0])<Number(state.ratio.split('/')[1]);state.captionPosition=['word','pop','outline'].includes(k)&&portrait?'middle':'bottom';}
+function chooseCaptionStyleV15(k){state.captionStyle=k;state.captions=true;state.captionFont=state.style?.font==='Graphik'&&!['editorial','typewriter'].includes(k)?'Graphik':CAPTION_FONT_V15[k]||'DM Sans';const portrait=Number(state.ratio.split('/')[0])<Number(state.ratio.split('/')[1]);state.captionPosition=['word','pop','outline'].includes(k)&&portrait?'middle':'bottom';}
 function captionThumbV15(k){const words=['Make','it','clear.'].map((text,i)=>({text,start:i,end:i+1}));return '<span class="v15-cap v15-cap-thumb" data-cs="'+k+'" data-plate="1" style="--cs-accent:'+esc(state.captionColour||'#1f7ae0')+';--cs-text:'+esc(state.captionText||'#ffffff')+';font-family:'+esc(fontStackV15(CAPTION_FONT_V15[k]))+'"><span>'+captionMarkupV15(k,words,k==='word'?2.4:1.6,3)+'</span></span>';}
 function fontOptionsV15(){return fontListV15().map(([k,n])=>'<option value="'+esc(k)+'">'+esc(n)+' · '+esc(k)+'</option>').join('');}
 function captionsPanelV15(p){
@@ -1299,8 +1299,28 @@ function captionsPanelV15(p){
  const bg=q('#ed-cap-bg')?.closest('label');if(bg){bg.firstChild.textContent='Background plate';bg.hidden=!CAPTION_PLATE_V15.includes(style);}
  const note=[...box.querySelectorAll('p')].find(x=>/Style changes apply/.test(x.textContent));if(note)note.textContent='Changes apply to every caption.';
 }
+// 0.15: the company preset. "Save company preset" keeps it on this Mac; "Use company preset" applies it, or Graphik with smallcase blue when none was saved.
+const COMPANY_STYLE_V15={name:'smallcase',font:'Graphik',colour:'#1f7ae0',logo:'VV'};
+window.addEventListener('vv-brand-save',e=>{try{localStorage.setItem('vv-brand',JSON.stringify(e.detail));}catch{}notice('Company preset saved.');});
+window.addEventListener('vv-brand-load',()=>{let saved=null;try{saved=JSON.parse(localStorage.getItem('vv-brand')||'null');}catch{}const style={...COMPANY_STYLE_V15,...(saved||{})};style.font=captionFontV15(style.font);applyStyle(style);panel();notice('Company preset applied to titles and captions.');});
+// 0.15 (UI-03): short choice lists as tiles drawn to what they choose. The <select> stays (hidden) so existing
+// bindings keep working; a tile sets its value and fires change.
+function choiceArtV15(kind,value){
+ if(kind==='ratio'){if(value==='custom')return '<i class="v15-art-box dashed" style="width:26px;height:20px"></i>';const [w,h]=String(value).split('/').map(Number);const k=Math.min(34/(w||16),24/(h||9));return '<i class="v15-art-box" style="width:'+Math.round((w||16)*k)+'px;height:'+Math.round((h||9)*k)+'px"></i>';}
+ if(kind==='fit')return '<i class="v15-art-box frame"><b class="'+(value==='cover'?'fill':'fit')+'"></b></i>';
+ if(kind==='place')return '<i class="v15-art-box frame place"><b class="'+value+'"></b></i>';
+ return '';
+}
+function tileSelectV15(sel,kind){
+ if(!sel||sel.dataset.tiles)return;sel.dataset.tiles='1';sel.hidden=true;
+ const box=document.createElement('div');box.className='v15-choice-tiles '+kind;box.setAttribute('role','radiogroup');
+ for(const o of sel.options){const b=document.createElement('button');b.type='button';b.setAttribute('role','radio');const on=o.value===sel.value;b.className='v15-choice'+(on?' on':'');b.setAttribute('aria-checked',on);const [title,sub]=o.textContent.split(' · ');b.innerHTML='<span class="v15-choice-art">'+choiceArtV15(kind,o.value)+'</span><span class="v15-choice-name">'+esc(title)+'</span>'+(sub?'<small>'+esc(sub)+'</small>':'');b.onclick=()=>{sel.value=o.value;box.querySelectorAll('.v15-choice').forEach(x=>{x.classList.toggle('on',x===b);x.setAttribute('aria-checked',x===b);});sel.dispatchEvent(new Event('change',{bubbles:true}));};box.append(b);}
+ sel.after(box);
+}
+window.tileSelectV15=tileSelectV15;
+function choiceTilesV15(p){tileSelectV15(p.querySelector('#v5-ratio-select'),'ratio');tileSelectV15(p.querySelector('#v5-fit'),'fit');tileSelectV15(p.querySelector('#ed-cap-place'),'place');}
 const panelBeforeV15=panel;
-panel=function(){panelBeforeV15();const p=q('#ed-panel');if(state.panel==='clip')clipPanelV15(p);if(state.panel==='speed')speedPanelV15(p);if(state.panel==='effects')effectsSpeedButtonV15(p);if(state.panel==='captions')captionsPanelV15(p);if(state.panel==='style'){const f=q('#ed-style-font');if(f){f.innerHTML=fontOptionsV15();f.value=captionFontV15(state.style?.font);}}compactHeaderV15(p);coverPanelV15(p);numberBoxesV15(p);highlightTabV15();lockPanelV15(p);icons();};
+panel=function(){panelBeforeV15();const p=q('#ed-panel');if(state.panel==='clip')clipPanelV15(p);if(state.panel==='speed')speedPanelV15(p);if(state.panel==='effects')effectsSpeedButtonV15(p);if(state.panel==='captions')captionsPanelV15(p);if(state.panel==='style'){const f=q('#ed-style-font');if(f){f.innerHTML=fontOptionsV15();f.value=captionFontV15(state.style?.font);}}compactHeaderV15(p);coverPanelV15(p);choiceTilesV15(p);numberBoxesV15(p);highlightTabV15();lockPanelV15(p);icons();};
 
 wireV4();wireV5();wireV7();wireV10();wireV11();
 globalThis.visorEditor={blank:()=>clone(initial),explainer:explainerV12,explainerDialog:explainerDialogV12,selectOverlay:selectOverlayV12,shortcuts:shortcutsV10,appendAsset,addElement,get:()=>clone(state),saveData:()=>withoutView(clone(state)),pause:stop,set:data=>{selectionV7=[];previewOriginal=false;previewEffect=null;stop();pendingUndoV15=null;lastTabV15='media';state={...clone(initial),...clone(data)};uniqueIdsV15(state);legacyZoomV15(state);captionLegacyV15(state);settleTracksV15();history=[];future=[];render(true);},reset:()=>{selectionV7=[];previewOriginal=false;previewEffect=null;stop();pendingUndoV15=null;state=clone(initial);settleTracksV15();history=[];future=[];render(true);},patch:data=>transaction(()=>Object.assign(state,clone(data))),open,undo,redo,applyStyle,importAssets,previewBefore:on=>{previewOriginal=on;paint();},previewEffect:id=>{previewEffect=id;paint();},jump:t=>{state.time=Math.max(0,Math.min(total(),t));paint();},removeSource:(a,b)=>transaction(()=>removeSource(a,b)),restoreRange:(a,b)=>{if(state.clips.length>=200)return notice('Remove a clip before restoring this range.');transaction(()=>{state.clips.push({id:uidV15(),asset:'walk',name:'Restored section',kind:'video',start:a,end:b,limit:32});state.clips.sort((x,y)=>x.asset==='walk'&&y.asset==='walk'?x.start-y.start:0);});},play};render(true);

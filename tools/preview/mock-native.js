@@ -5,7 +5,7 @@ let n=0;const mk=(kind,name,u,extra={})=>({id:'mock-'+(++n),name,kind,size:42000
 const wave=Array.from({length:180},(_,i)=>.25+.5*Math.abs(Math.sin(i/7)));
 let cat=null;
 const ai={provider:'anthropic',keychain:true,busy:false,services:[{id:'anthropic',name:'Anthropic (Claude)',company:'Anthropic',keyPage:'console.anthropic.com → API keys',defaultModel:'claude-opus-5-5',ready:true,model:'claude-opus-5-5'},{id:'openai',name:'OpenAI',company:'OpenAI',keyPage:'platform.openai.com → API keys',defaultModel:'',ready:true,model:''}]};
-const conn={enabled:false,running:false,port:0,token:'',permissions:{},folders:[],clients:[],log:[],setup:{entry:{},config:'{}',configFile:'~/Library/Application Support/Claude/claude_desktop_config.json',claudeFound:true},exportFolder:'~/Movies/Video Visor'};
+const conn={enabled:false,running:false,port:0,token:'',permissions:{},folders:[],clients:[],log:[],recent:[],setup:{entry:{},config:'{}',configFile:'~/Library/Application Support/Claude/claude_desktop_config.json',claudeFound:true},exportFolder:'~/Movies/Video Visor'};
 const impl={
  load:async()=>saved,save:async d=>{try{localStorage.setItem('vv-mock',JSON.stringify(d));}catch{}return true;},workspaceRecovery:async()=>null,
  pick:async()=>[mk('video','Product demo.mp4','/__preview/samples/demo.mp4'),mk('image','Screenshot.png','/__preview/samples/still.png')],
