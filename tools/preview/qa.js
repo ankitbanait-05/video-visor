@@ -373,6 +373,62 @@ Object.assign(checks, {
   },
 });
 
+// ---------- Phase 4 ----------
+const total = () => E().get().clips.reduce((n, c) => n + c.end - c.start, 0);
+async function speed(label) { tab('effects').click(); await wait(200); panelButton(/^\s*Speed$/).click(); await wait(250); $$('#ed-panel .v15-speed-tile').find(b => b.textContent.trim() === label).click(); await wait(500); }
+Object.assign(checks, {
+  async 'a solid cover’s colour and opacity can be changed'() {
+    await freshEditor(); tab('effects').click(); await wait(200); panelButton(/Solid cover/).click(); await wait(300);
+    $('#ed-panel .v15-swatch[data-fill="#e5484d"]').click(); await wait(250); await setNum('Opacity', 60);
+    const e = E().get().elements[0], el = $('.ed-layer[data-id="' + e.id + '"]');
+    return { pass: e.fill === '#e5484d' && e.fillOpacity === 60 && getComputedStyle(el).backgroundColor === 'rgba(229, 72, 77, 0.6)', detail: { fill: e.fill, opacity: e.fillOpacity, bg: getComputedStyle(el).backgroundColor } };
+  },
+  async 'blur strength matches the export (1.5% of the canvas width)'() {
+    await freshEditor(); tab('effects').click(); await wait(200); panelButton(/Blur region/).click(); await wait(300);
+    const el = $('.ed-layer[data-kind="blur"]'), px = parseFloat(/blur\(([\d.]+)px\)/.exec(getComputedStyle(el).backdropFilter)?.[1]), w = $('#ed-canvas').getBoundingClientRect().width;
+    return { pass: Math.abs(px - w * .015) < 1.5, detail: { blurPx: px, expected: +(w * .015).toFixed(1) } };
+  },
+  async 'Focus & zoom has one clear action'() {
+    await freshEditor(); tab('effects').click(); await wait(200); panelButton(/Focus & zoom/).click(); await wait(250);
+    const buttons = $$('#ed-panel button').map(b => b.textContent.trim()), disabled = $$('#ed-panel button:disabled').map(b => b.textContent.trim());
+    return { pass: buttons.includes('Add zoom at the playhead') && !buttons.some(t => /cursor/i.test(t)) && !disabled.length && !!$('#ed-panel .v15-hint'), detail: { buttons, disabled } };
+  },
+  async 'Quotes are merged into Titles and Lower thirds'() {
+    await freshEditor(); tab('elements').click(); await wait(200);
+    const cats = $$('#ed-panel button').map(b => b.textContent.trim()).filter(t => /^(Titles|Lower thirds|Chapters|Callouts|Quotes|Numbers|Icons)$/.test(t));
+    panelButton(/^Titles$/).click(); await wait(200); const titles = $('#ed-panel').textContent;
+    panelButton(/^Lower thirds$/).click(); await wait(200); const lower = $('#ed-panel').textContent;
+    return { pass: !cats.includes('Quotes') && /Pull quote/.test(titles) && /Statement/.test(titles) && /Testimonial card/.test(lower), detail: cats };
+  },
+  async 'an old hidden zoom becomes an editable zoom'() {
+    await freshEditor(); const st = E().get(); E().set({ ...st, zoom: true, focus: { mode: 'manual', x: 30, y: 40, start: 1, end: 4 }, strength: 1.5 }); await wait(200);
+    const s = E().get();
+    return { pass: s.zoom === false && s.zooms?.length === 1 && s.zooms[0].x === 30 && s.zooms[0].start === 1, detail: { zoom: s.zoom, zooms: s.zooms } };
+  },
+  async 'speed 2× halves the clip, Normal restores it'() {
+    await freshEditor(); await selectClip(); const before = E().get().clips[0];
+    await speed('2×'); const fast = E().get().clips[0];
+    await speed('Normal'); const back = E().get().clips[0];
+    return { pass: Math.abs(fast.end - fast.start - (before.end - before.start) / 2) < .01 && fast.speed?.preset.value === 2 && back.asset === before.asset && back.end === before.end && !back.speed, detail: { before: before.end - before.start, fast: fast.end - fast.start, back: back.end - back.start } };
+  },
+  async 'a speed curve uses its curve duration'() {
+    await freshEditor(); await selectClip(); const d = E().get().clips[0].end - E().get().clips[0].start;
+    await speed('Bullet'); const c = E().get().clips[0], expected = window.speedModelV15.outputDuration({ kind: 'curve', name: 'bullet' }, d);
+    return { pass: Math.abs(c.end - c.start - expected) < .01 && c.speed?.preset.name === 'bullet', detail: { length: c.end - c.start, expected } };
+  },
+  async 'captions follow a speed change'() {
+    await freshEditor(); tab('captions').click(); await wait(200); panelButton(/Generate captions/).click(); await wait(1400);
+    const line = E().get().transcript.find(l => l.asset === E().get().clips[0].asset && l.start > 3);
+    await selectClip(); await speed('2×');
+    const s = E().get(), moved = s.transcript.find(l => l.asset === s.clips[0].asset && l.text === line.text);
+    return { pass: !!moved && Math.abs(moved.start - line.start / 2) < .01, detail: { original: line?.start, mapped: moved?.start } };
+  },
+  async 'the clip panel shows the clip’s speed'() {
+    await freshEditor(); await selectClip(); await speed('1.5×'); await selectClip();
+    return { pass: $('#ed-panel .v15-speed-row strong')?.textContent === '1.5×', detail: $('#ed-panel .v15-speed-row')?.textContent };
+  },
+});
+
 export async function run(only) {
   const results = [];
   const errors = []; const onError = e => errors.push(e.message || String(e.reason)); window.addEventListener('error', onError); window.addEventListener('unhandledrejection', onError);

@@ -35,7 +35,7 @@ async function run(ctx) {
   // VV_BENCH_SOURCE=path exports from that file instead of the generated screen recording.
   const exportSource = process.env.VV_BENCH_SOURCE || null;
   const assets = {};
-  if (only.some(x => ['import', 'export', 'queue', 'webm', 'fade'].includes(x))) {
+  if (only.some(x => ['import', 'export', 'queue', 'webm', 'fade', 'speed'].includes(x))) {
     for (const [key, file] of [['screen', exportSource || screen], ['phone', phone], ['cover', cover]]) {
       try {
         const [a, ms] = await timed(() => register(file));
@@ -80,6 +80,17 @@ async function run(ctx) {
     const luma = async t => { const b = await exec(ffmpeg, ['-v', 'error', '-ss', String(t), '-i', target, '-frames:v', '1', '-vf', 'scale=1:1,format=gray', '-f', 'rawvideo', '-']); return b[0]; };
     const edge = async () => { const b = await exec(ffmpeg, ['-v', 'error', '-ss', '5', '-i', target, '-frames:v', '1', '-vf', 'crop=iw*0.05:ih:0:0,scale=1:1,format=gray', '-f', 'rawvideo', '-']); return b[0]; };
     out('fade', { lumaAt0_1s: await luma(.1), lumaAt1s: await luma(1), lumaAt5s: await luma(5), leftEdgeAt5s_cropped: await edge() });
+  }
+  if (only.includes('speed') && assets.screen) {
+    // Through the app's own IPC path (the renderer's native.speedClip), as the Speed panel calls it.
+    for (const preset of [{ kind: 'constant', value: 2 }, { kind: 'constant', value: 0.5 }, { kind: 'curve', name: 'bullet' }]) {
+      const t = now();
+      try {
+        const item = await win.webContents.executeJavaScript(`native.speedClip(${JSON.stringify(assets.screen.id)},2,10,${JSON.stringify(preset)})`);
+        const expected = require('./engines/speed-v15.js').outputDuration(preset, 8);
+        out('speed', { preset: preset.value || preset.name, ms: Math.round(now() - t), duration: +item.duration.toFixed(2), expected: +expected.toFixed(2), hasAudio: item.hasAudio });
+      } catch (e) { out('speed', { preset: preset.value || preset.name, failed: e.message.slice(0, 200) }); }
+    }
   }
   if (only.includes('export') && assets.screen) {
     const a = assets.screen;

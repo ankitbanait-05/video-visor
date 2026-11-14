@@ -255,15 +255,31 @@ Still open from Phase 0: P0-02, one selection model in the code. The panel now f
 
 | ID | Change | Pri | Evidence | Was | ☐ |
 |---|---|---|---|---|---|
-| FX-01 | **Solid cover colour**: colour picker, brand swatches and opacity | H | Request | — | ☐ |
-| FX-02 | Focus & zoom: "Add zoom" is the only primary button. "Follow recorded cursor" is shown only when the clip has cursor data, or explained when it doesn't | H | Repro | R3 | ☐ |
-| FX-03 | When tracking loses its subject, hold the last position and flag it for review, instead of blurring the whole frame for the rest of the clip | H | Repro | B10 | ☐ |
-| FX-04 | Transitions no longer blur the entire picture just because a blur or cover exists somewhere in the project (also exported) | H | Code | B9 | ☐ |
-| FX-05 | Blur strength is the same in preview and export | L | Code | E5 | ☐ |
-| FX-06 | Tracking blur works on clips longer than 10 minutes (it tracks only the chosen range) | M | Code | B28 | ☐ |
-| FX-07 | **Speed** under Effects: first per-clip constant speed (0.5×, 1.5×, 2×), then curve presets with graph icons (ramp up, ramp down, bullet, flash in/out). There is no per-clip speed today, and the project-speed control was lost in an earlier rewrite | M | Request | — | ☐ |
-| FX-08 | Remove the **Quotes** category: Pull quote and Statement move to Titles, Testimonial card to Lower thirds; Icons move up | M | Request | — | ☐ |
-| FX-09 | Remove the hidden legacy global zoom, which older projects can still have but no one can see or edit | L | Code | — | ☐ |
+| FX-01 | **Solid cover colour**: colour picker, brand swatches and opacity | H | Request | — | ✅ |
+| FX-02 | Focus & zoom: "Add zoom" is the only primary button. "Follow recorded cursor" is shown only when the clip has cursor data, or explained when it doesn't | H | Repro | R3 | ✅ |
+| FX-03 | When tracking loses its subject, hold the last position and flag it for review, instead of blurring the whole frame for the rest of the clip | H | Repro | B10 | ✅ |
+| FX-04 | Transitions no longer blur the entire picture just because a blur or cover exists somewhere in the project (also exported) | H | Code | B9 | ✅ |
+| FX-05 | Blur strength is the same in preview and export | L | Code | E5 | ✅ |
+| FX-06 | Tracking blur works on clips longer than 10 minutes (it tracks only the chosen range) | M | Code | B28 | ✅ |
+| FX-07 | **Speed** under Effects: first per-clip constant speed (0.5×, 1.5×, 2×), then curve presets with graph icons (ramp up, ramp down, bullet, flash in/out). There is no per-clip speed today, and the project-speed control was lost in an earlier rewrite | M | Request | — | ✅ |
+| FX-08 | Remove the **Quotes** category: Pull quote and Statement move to Titles, Testimonial card to Lower thirds; Icons move up | M | Request | — | ✅ |
+| FX-09 | Remove the hidden legacy global zoom, which older projects can still have but no one can see or edit | L | Code | — | ✅ |
+
+### Phase 4 status (14 Nov)
+
+51 checks in `tools/preview/qa.js` pass (9 new). Speed was also tested through the real app's own IPC path: 2× (8 s → 4.00 s, rendered in 1.0 s), 0.5× (→ 16.00 s, 2.9 s), Bullet curve (→ 6.37 s, expected 6.38 s, sound removed).
+
+| ID | What changed |
+|---|---|
+| FX-01 ✅ | Solid cover: colour swatches (navy, black, white, blue, red, amber, green), a custom colour, and opacity. Drawn inline, so the export matches |
+| FX-02 ✅ | Focus & zoom: one primary "Add zoom at the playhead". The cursor-following zoom appears only for Video Visor screen recordings; otherwise a short note says when it is available |
+| FX-03 ✅ | When tracking loses its subject, the blur holds its last position, 50% larger, instead of blurring the whole frame. The panel explains this |
+| FX-04 ✅ | A transition blurs its frames only when a blur or cover is present at that transition, not whenever one exists anywhere in the project |
+| FX-05 ✅ | Blur strength is 1.5% of the canvas width in both preview and export |
+| FX-06 ✅ | Done in Phase 1: tracking runs up to 2 minutes from the playhead and can be trimmed |
+| FX-07 ✅ | **Speed** (Effects → Speed, also from the Clip panel). Constant: 0.5×, 0.75×, Normal, 1.25×, 1.5×, 2×, 3×, 4× (sound kept, pitch preserved). Curves: Ramp up, Ramp down, Bullet, Flash in, Flash out (sound removed). Each tile shows a graph of the speed. The speed is rendered into a copy of the clip's source range with the hardware encoder; the original is kept and Normal returns to it. Captions follow the new timing; tracking blurs on a sped-up clip must be added again (a message says so) |
+| FX-08 ✅ | Quotes removed: Pull quote and Statement are under Titles, Testimonial card under Lower thirds |
+| FX-09 ✅ | A zoom left over from older projects becomes a normal, editable zoom item when the project opens |
 
 ---
 

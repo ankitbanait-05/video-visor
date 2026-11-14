@@ -14,7 +14,7 @@ const ease={
  back:x=>{x=clamp(x);const c=1.70158;return 1+(c+1)*Math.pow(x-1,3)+c*Math.pow(x-1,2);}
 };
 const fonts=[['DM Sans','Clean sans'],['Space Grotesk','Modern'],['DM Serif Display','Editorial serif'],['Oswald','Condensed bold'],['DM Mono','Mono'],['Caveat','Handwritten']];
-const categories=[['titles','Titles'],['lower','Lower thirds'],['chapters','Chapters'],['callouts','Callouts'],['quotes','Quotes'],['numbers','Numbers']];
+const categories=[['titles','Titles'],['lower','Lower thirds'],['chapters','Chapters'],['callouts','Callouts'],['numbers','Numbers']]; /* 0.15: Quotes merged into Titles and Lower thirds */
 const legibility=[['soft','Soft shadow'],['strong','Strong shadow'],['outline','Outline'],['scrim','Dark glow behind'],['none','None']];
 
 // Motion recipes. Per piece: d = delay (s), t = duration (s), e = easing, from = starting offsets
@@ -57,9 +57,9 @@ const catalog=[
  P('k-step','callouts','Step badge','step','mask-up','Import your clip','Drag a file onto the timeline',{kicker:'1',size:24,align:'left',width:48}),
  P('k-tip','callouts','Tip card','card','mask-up','A little tip','Keep it clear. Keep it simple.',{kicker:'TIP',size:22,align:'left',width:40,background:'#ffffff',colour:'#10233a',legibility:'none'}),
  P('k-pill','callouts','Highlight pill','pill','spring-pop','Good to know','',{size:22,width:34,background:'#2f6fe4',legibility:'none'}),
- P('q-pull','quotes','Pull quote','quote','word-rise','Make it clear. Then make it count.','Ananya Sharma, Product Lead',{font:'DM Serif Display',weight:400,size:36,width:66,accent:'#ffc233'}),
- P('q-statement','quotes','Statement','stack','word-rise','Progress starts with a conversation.','',{font:'Space Grotesk',weight:700,size:40,width:70}),
- P('q-card','quotes','Testimonial card','card','panel-wipe','“A simpler way to get things done.”','Your team',{size:26,width:54,align:'left',background:'#ffffff',colour:'#10233a',legibility:'none',font:'DM Serif Display',weight:400}),
+ P('q-pull','titles','Pull quote','quote','word-rise','Make it clear. Then make it count.','Ananya Sharma, Product Lead',{font:'DM Serif Display',weight:400,size:36,width:66,accent:'#ffc233'}),
+ P('q-statement','titles','Statement','stack','word-rise','Progress starts with a conversation.','',{font:'Space Grotesk',weight:700,size:40,width:70}),
+ P('q-card','lower','Testimonial card','card','panel-wipe','“A simpler way to get things done.”','Your team',{size:26,width:54,align:'left',background:'#ffffff',colour:'#10233a',legibility:'none',font:'DM Serif Display',weight:400}),
  P('n-metric','numbers','Key metric','metric','count-up','24%','Less time, more impact',{font:'Oswald',weight:700,size:64,accent:'#2f8cff'}),
  P('n-stat','numbers','Statistic card','metric-card','count-up','3×','Faster to share',{font:'Space Grotesk',weight:700,size:52,background:'#2f6fe4',accent:'#ffffff',legibility:'none',width:34}),
  P('n-milestone','numbers','Milestone','rule','count-up','1,000','Moments that matter',{font:'DM Serif Display',weight:400,size:60,accent:'#ffc233',numberMain:true})

@@ -97,9 +97,27 @@
 #visor-app #vv-editor #vt-tracks .vt-block:hover .v15-fade,#visor-app #vv-editor #vt-tracks .vt-block.selected .v15-fade,#visor-app #vv-editor #vt-tracks .v15-fade.on{opacity:1}
 #visor-app #vv-editor #vt-tracks .v15-fade.in{left:-5px}#visor-app #vv-editor #vt-tracks .v15-fade.out{right:-5px}
 /* Toast for confirmations */
-#v15-toast{position:fixed;left:50%;top:62px;transform:translate(-50%,-8px);z-index:9998;padding:8px 14px;border-radius:8px;background:#0d1117;color:#fff;font:500 12.5px 'DM Sans',sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;max-width:min(560px,90vw);text-align:center}
+#v15-toast{position:fixed;left:50%;top:104px;transform:translate(-50%,-8px);z-index:9998;padding:8px 14px;border-radius:8px;background:#0d1117;color:#fff;font:500 12.5px 'DM Sans',sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;max-width:min(560px,90vw);text-align:center}
 #v15-toast.show{opacity:1;transform:translate(-50%,0)}
 /* The editor tabs stay on one row (they scroll sideways if the window is very narrow) */
 #visor-app #vv-editor .ed-tabs{flex-wrap:nowrap !important;overflow-x:auto;scrollbar-width:none}
 #visor-app #vv-editor .ed-tabs::-webkit-scrollbar{display:none}
 #visor-app #vv-editor .ed-tabs button{flex:none;white-space:nowrap}
+
+/* ---------- Phase 4 ---------- */
+/* Same blur strength in preview and export (both relative to the canvas width) */
+#visor-app #vv-editor .ed-layer[data-kind=blur]{-webkit-backdrop-filter:blur(1.5cqw);backdrop-filter:blur(1.5cqw)}
+/* Cover colour swatches */
+#visor-app #vv-editor #ed-panel .v15-swatches{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0 10px}
+#visor-app #vv-editor #ed-panel .v15-swatch{width:24px;height:24px;min-width:24px;padding:0;border-radius:6px;border:1px solid rgba(127,140,160,.45)}
+#visor-app #vv-editor #ed-panel .v15-swatch.on{outline:2px solid #4b8cf7;outline-offset:2px}
+#visor-app #vv-editor #ed-panel .v15-colour{display:inline-flex;align-items:center;gap:6px;font-size:11.5px}
+#visor-app #vv-editor #ed-panel .v15-colour input[type=color]{width:30px;height:24px;padding:0;border:0;background:none}
+/* Speed presets */
+#visor-app #vv-editor #ed-panel .v15-speed-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:4px 0 10px}
+#visor-app #vv-editor #ed-panel .v15-speed-tile{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;min-width:0;font-size:11px;border-radius:7px}
+#visor-app #vv-editor #ed-panel .v15-speed-tile svg{width:100%;max-width:60px;height:28px}
+#visor-app #vv-editor #ed-panel .v15-speed-tile path{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+#visor-app #vv-editor #ed-panel .v15-speed-tile.on{outline:2px solid #4b8cf7;outline-offset:-2px;color:#1f7ae0}
+#visor-app #vv-editor #ed-panel .v15-speed-row{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:12px}
+#visor-app #vv-editor #ed-panel .v15-speed-row strong{flex:1}

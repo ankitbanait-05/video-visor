@@ -2,7 +2,7 @@
  const render=new URLSearchParams(location.search).has('render');
  const state=render?null:await native.load();
  window.openai={widgetState:state,setWidgetState:data=>render?Promise.resolve():native.save(data)};
- for(const file of ['engines/edit-model.js','engines/timeline-retime.js','engines/editor-model-v5.js','engines/timeline-model-v7.js','engines/audio-preview-v8.js','engines/tracks-v8.js','engines/titles-v8.js','engines/titles-v11.js','engines/explainer-v12.js','engines/draft-v13.js','engines/media-clock.js','runtime.js','editor.js','shell.js','runtime-v5.js','runtime-v6.js','runtime-v7.js','runtime-v8.js','runtime-v13.js','runtime-v14.js'])await new Promise((resolve,reject)=>{
+ for(const file of ['engines/edit-model.js','engines/timeline-retime.js','engines/editor-model-v5.js','engines/timeline-model-v7.js','engines/audio-preview-v8.js','engines/tracks-v8.js','engines/titles-v8.js','engines/titles-v11.js','engines/explainer-v12.js','engines/draft-v13.js','engines/speed-v15.js','engines/media-clock.js','runtime.js','editor.js','shell.js','runtime-v5.js','runtime-v6.js','runtime-v7.js','runtime-v8.js','runtime-v13.js','runtime-v14.js'])await new Promise((resolve,reject)=>{
   const s=document.createElement('script'),error=e=>{window.removeEventListener('error',error);reject(e.error||Error(e.message));};
   window.addEventListener('error',error);s.src=file+'?v=0.14.0';s.onload=()=>{window.removeEventListener('error',error);resolve();};s.onerror=()=>{window.removeEventListener('error',error);reject(Error('Could not load '+file));};document.body.append(s);
  });

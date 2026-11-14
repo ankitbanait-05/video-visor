@@ -24,6 +24,7 @@ const impl={
  readText:async()=>'1\n00:00:01,000 --> 00:00:03,000\nHello from an SRT file\n\n2\n00:00:04,000 --> 00:00:06,000\nSecond line\n',
  readScript:async()=>'Welcome to this quick walkthrough. Today we will look at the new dashboard.',
  reveal:async()=>true,openFile:async()=>true,revealWorkspace:async()=>true,'recorder-open':async()=>true,
+ speedClip:async(id,start,end,preset)=>{const S=window.speedModelV15;return mk('video','speed.mp4','/__preview/samples/demo.mp4',{duration:S.outputDuration(preset,end-start),hasAudio:preset.kind==='constant'});},
  cancel:async()=>true,previewMute:async m=>!!m,setExportFolder:async f=>f||null,chooseFolder:async()=>null,
  filePath:f=>f.name,onProgress(fn){(window.__progressListeners??=[]).push(fn);},onCapture(){},onAiStep(){}
 };
