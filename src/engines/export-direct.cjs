@@ -13,7 +13,8 @@ const MARGIN_FRAMES = 2;    // kept away from anything drawn on top, so its firs
 const plainClip = c => c.kind === 'video' && !c.gap
   && !['x', 'y', 'rotation'].some(k => c.transform?.[k]) && (c.transform?.scale ?? 100) === 100 && (c.transform?.opacity ?? 100) === 100
   && !['l', 'r', 't', 'b'].some(k => c.crop?.[k]) && (!c.motion || c.motion === 'none') && !c.fadeIn && !c.fadeOut
-  && !Object.values(c.adjustments || {}).some(v => +v); // exposure / contrast / saturation / warmth (Adjustments)
+  && !Object.values(c.adjustments || {}).some(v => +v) // exposure / contrast / saturation / warmth (Adjustments)
+  && !Object.values(c.keyframes || {}).some(k => k?.length); // animated position / scale / rotation / opacity
 
 // Frame ranges [n0, n1) that can be decoded directly, each inside one clip.
 function plan(state, { fps, frames, speed, captions }) {

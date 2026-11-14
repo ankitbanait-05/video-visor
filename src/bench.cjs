@@ -95,7 +95,7 @@ async function run(ctx) {
   // VV_BENCH_SOURCE=path exports from that file instead of the generated screen recording.
   const exportSource = process.env.VV_BENCH_SOURCE || null;
   const assets = {};
-  if (only.some(x => ['import', 'export', 'queue', 'webm', 'fade', 'speed', 'captions'].includes(x))) {
+  if (only.some(x => ['import', 'export', 'queue', 'webm', 'fade', 'speed', 'captions', 'keyframes'].includes(x))) {
     for (const [key, file] of [['screen', exportSource || screen], ['phone', phone], ['cover', cover]]) {
       try {
         const [a, ms] = await timed(() => register(file));
@@ -188,6 +188,18 @@ async function run(ctx) {
         out('speed', { preset: preset.value || preset.name, ms: Math.round(now() - t), duration: +item.duration.toFixed(2), expected: +expected.toFixed(2), hasAudio: item.hasAudio });
       } catch (e) { out('speed', { preset: preset.value || preset.name, failed: e.message.slice(0, 200) }); }
     }
+  }
+  if (only.includes('keyframes') && assets.screen) {
+    // Phase 17: a clip scaled 100% → 150% between 7 s and 12 s (smooth). The export must show the source as is at
+    // 6 s and the middle two-thirds of it enlarged 1.5× at 12 s (the canvas keeps the centre).
+    const a = assets.screen, sp = require('node:child_process').spawn;
+    const state = { clips: [{ id: 'k', asset: a.id, name: a.name, kind: 'video', start: 0, end: a.duration, limit: a.duration, keyframes: { scale: [{ t: 7, v: 100, ease: 'smooth' }, { t: 12, v: 150, ease: 'smooth' }] } }], assets: [a], elements: [], transcript: [], zooms: [], overlays: [], audioClips: [], time: 0, selected: 0, ratio: '16/9', speed: 1, audio: { voice: 100, music: 20 }, captions: false };
+    const target = path.join(dir, 'keyframes-' + Date.now() + '.mp4');
+    const [r, ms] = await timed(() => job(() => runExport(state, { format: 'MP4', resolution: '1080p', fps: 30 }, async () => target)));
+    const psnr = (filterA, filterB) => new Promise(res => { const p = sp(ffmpeg, ['-i', target, '-i', screen, '-lavfi', `[0:v]${filterA}[a];[1:v]${filterB}[b];[a][b]psnr`, '-f', 'null', '-']); let e = ''; p.stderr.on('data', d => e += d); p.on('close', () => res(+(/average:([\d.inf]+)/.exec(e)?.[1] || 0))); });
+    const at = t => `trim=start=${t}:duration=0.04,setpts=PTS-STARTPTS`;
+    const plainAt6 = await psnr(at(6), at(6)), zoomedAt12 = await psnr(at(12.4), at(12.4) + ',crop=1280:720,scale=1920:1080'), unzoomedAt12 = await psnr(at(12.4), at(12.4));
+    out('keyframes', { wallMs: ms, direct: r?.timing?.direct?.frames || 0, plainAt6, zoomedAt12, unzoomedAt12 });
   }
   if (only.includes('export') && assets.screen) {
     const a = assets.screen;

@@ -278,9 +278,9 @@ controlsV6=function(p){baseControlsV6(p);
  p.querySelectorAll('button').forEach(b=>{if(b.textContent.trim()==='Privacy')b.remove();});
 };
 function canvasV6(src){
- const canvas=q('#ed-canvas');let box=q('#v6-transform-box');if(!box){box=document.createElement('div');box.id='v6-transform-box';box.innerHTML='<button type="button" class="v6-corner" aria-label="Scale selected clip" title="Drag to scale"></button><button type="button" class="v6-rotate" aria-label="Rotate selected clip" title="Drag to rotate">↻</button>';canvas.append(box);box.onpointerdown=ev=>{if(ev.button!==0)return;ev.preventDefault();ev.stopPropagation();stop();snapshot();const c=state.clips[state.selected];if(!c)return;const old={x:0,y:0,scale:100,rotation:0,...c.transform},rect=canvas.getBoundingClientRect(),x=ev.clientX,y=ev.clientY,mode=ev.target.className;box.setPointerCapture(ev.pointerId);box.onpointermove=e=>{const dx=(e.clientX-x)/rect.width*100,dy=(e.clientY-y)/rect.height*100;c.transform={...old};if(mode==='v6-corner')c.transform.scale=Math.max(10,Math.min(400,old.scale+dx*2));else if(mode==='v6-rotate')c.transform.rotation=Math.max(-180,Math.min(180,old.rotation+dx*2));else{c.transform.x=old.x+dx;c.transform.y=old.y+dy;}paint();};box.onpointerup=()=>{box.onpointermove=null;panel();commit();};box.onpointercancel=()=>{box.onpointermove=null;c.transform=old;paint();panel();commit();};};}
+ const canvas=q('#ed-canvas');let box=q('#v6-transform-box');if(!box){box=document.createElement('div');box.id='v6-transform-box';box.innerHTML='<button type="button" class="v6-corner" aria-label="Scale selected clip" title="Drag to scale"></button><button type="button" class="v6-rotate" aria-label="Rotate selected clip" title="Drag to rotate">↻</button>';canvas.append(box);box.onpointerdown=ev=>{if(ev.button!==0)return;ev.preventDefault();ev.stopPropagation();stop();snapshot();const c=state.clips[state.selected];if(!c)return;/* 0.15 (Phase 17): an animated property gets a keyframe at the playhead instead of a new fixed value */const old=KF17().transformAt(c,clipTimeV17(c)),saved={transform:c.transform,keyframes:c.keyframes},rect=canvas.getBoundingClientRect(),x=ev.clientX,y=ev.clientY,mode=ev.target.className;box.setPointerCapture(ev.pointerId);box.onpointermove=e=>{const dx=(e.clientX-x)/rect.width*100,dy=(e.clientY-y)/rect.height*100;c.transform=saved.transform;c.keyframes=saved.keyframes;if(mode==='v6-corner')setClipValueV17(c,'scale',Math.max(10,Math.min(400,old.scale+dx*2)));else if(mode==='v6-rotate')setClipValueV17(c,'rotation',Math.max(-180,Math.min(180,old.rotation+dx*2)));else{setClipValueV17(c,'x',old.x+dx);setClipValueV17(c,'y',old.y+dy);}paint();};box.onpointerup=()=>{box.onpointermove=null;panel();commit();};box.onpointercancel=()=>{box.onpointermove=null;c.transform=saved.transform;c.keyframes=saved.keyframes;paint();panel();commit();};};}
  box.hidden=window.exporting||state.panel!=='clip'||src.index!==state.selected||!!src.clip.gap;
- const t=src.clip.transform||{};box.style.transform='translate('+(t.x||0)+'%,'+(t.y||0)+'%) rotate('+(t.rotation||0)+'deg) scale('+((t.scale??100)/100)+')';
+ const t=KF17().transformAt(src.clip,src.t);box.style.transform='translate('+(t.x||0)+'%,'+(t.y||0)+'%) rotate('+(t.rotation||0)+'deg) scale('+((t.scale??100)/100)+')';
  if(src.clip.gap)q('#ed-captions').hidden=true;
 }
 
@@ -1179,8 +1179,54 @@ function numberBoxesV15(p){p.querySelectorAll('input[type=range]').forEach(r=>{i
 function detachedOfV15(c){return (state.audioClips||[]).find(a=>a.detachedFrom===c.id)||(state.audioClips||[]).find(a=>a.asset===c.asset&&!a.linkOverlay&&Math.abs((a.sourceIn||0)-c.start)<.05&&Math.abs((a.end-a.start)-(c.end-c.start))<.05);}
 function detachAudioV15(c){let off=0;for(const x of state.clips){if(x===c)break;off+=x.end-x.start;}state.audioClips??=[];state.audioClips.push({id:uidV15(),asset:c.asset,name:c.name,start:off,end:off+c.end-c.start,sourceIn:c.start,volume:c.volume??100,detachedFrom:c.id});c.muted=true;}
 function reattachAudioV15(c){const a=detachedOfV15(c);if(a)state.audioClips=state.audioClips.filter(x=>x!==a);c.muted=false;}
+// ---------- 0.15 (Phase 17): keyframes for a clip's position, scale, rotation and opacity ----------
+// Each property in the clip panel has a diamond: hollow = not animated (click to animate from here), filled = a
+// keyframe at the playhead (click to remove it; right-click for easing), outlined = animated with no keyframe here
+// (click to add one). ‹ › jump between keyframes. Once a property is animated, changing it (slider, number box or
+// the handles on the preview) adds or updates the keyframe at the playhead. engines/keyframes-v17.js does the maths.
+const KF17=()=>window.keyframesV17;
+const KEY_LABELS_V17={x:'Position X',y:'Position Y',scale:'Scale',rotation:'Rotation',opacity:'Opacity'};
+function clipOffsetV17(i){let o=0;for(let k=0;k<i;k++)o+=state.clips[k].end-state.clips[k].start;return o;}
+// The playhead in the clip's source time (clamped to the clip).
+function clipTimeV17(c){const i=state.clips.indexOf(c);return Math.max(c.start,Math.min(c.end,c.start+(state.time-clipOffsetV17(i))));}
+function setClipValueV17(c,k,v){if(KF17().animated(c,k)){c.keyframes=KF17().setKey(c,k,clipTimeV17(c),v);}else c.transform={...c.transform,[k]:+v};}
+function jumpToKeyV17(c,t){const i=state.clips.indexOf(c);stop();state.time=Math.min(total(),clipOffsetV17(i)+(t-c.start)+1e-4);paint();}
+function animationRowV17(c){const K=KF17();return '<div class="v17-anim"><div class="v15-subhead">Animation</div><div class="v17-presets">'+Object.entries(K.PRESETS).map(([k,p])=>'<button type="button" data-anim="'+k+'" title="'+esc(p.note)+'">'+esc(p.name)+'</button>').join('')+'</div>'+(K.animated(c)?'<button type="button" id="v17-remove-anim" class="ed-wide">Remove animation</button>':'')+'</div>';}
+function keysPanelV17(p,c){
+ const K=KF17();
+ for(const k of K.PROPS){const input=q('#v15-'+k),label=input?.closest('label');if(!label||label.querySelector('.v17-keys'))continue;
+  const box=document.createElement('span');box.className='v17-keys';box.innerHTML='<button type="button" class="v17-prev" aria-label="Previous '+KEY_LABELS_V17[k]+' keyframe">‹</button><button type="button" class="v17-diamond" data-prop="'+k+'"></button><button type="button" class="v17-next" aria-label="Next '+KEY_LABELS_V17[k]+' keyframe">›</button>';
+  label.prepend(box);const d=box.querySelector('.v17-diamond');
+  d.onclick=e=>{e.preventDefault();const t=clipTimeV17(c);transaction(()=>{if(!K.animated(c,k))c.keyframes=K.startAnimating(c,k,t);else if(K.keyAt(c,k,t))c.keyframes=K.removeKey(c,k,t);else c.keyframes=K.setKey(c,k,t,K.transformAt(c,t)[k]);});};
+  d.oncontextmenu=e=>{e.preventDefault();easeMenuV17(d,c,k);};
+  box.querySelector('.v17-prev').onclick=e=>{e.preventDefault();const t=K.previous(c,clipTimeV17(c),k);if(t!=null)jumpToKeyV17(c,t);};
+  box.querySelector('.v17-next').onclick=e=>{e.preventDefault();const t=K.next(c,clipTimeV17(c),k);if(t!=null)jumpToKeyV17(c,t);};}
+ p.querySelectorAll('[data-anim]').forEach(b=>b.onclick=()=>{transaction(()=>{c.keyframes=K.preset(c,b.dataset.anim,clipTimeV17(c));});notice(K.PRESETS[b.dataset.anim].name+' added. Its keyframes are on the clip; change any of them like your own.');});
+ const rm=q('#v17-remove-anim');if(rm)rm.onclick=()=>{const t=clipTimeV17(c);transaction(()=>{c.transform={...c.transform,...K.transformAt(c,t)};delete c.keyframes;});notice('Animation removed. The clip keeps how it looks at the playhead.');};
+ syncKeysV17();
+}
+function easeMenuV17(d,c,k){const K=KF17(),t=clipTimeV17(c),key=K.keyAt(c,k,t);document.querySelector('.v17-ease')?.remove();if(!K.animated(c,k))return;
+ const m=document.createElement('div');m.className='v17-ease';m.setAttribute('role','menu');
+ m.innerHTML=(key?'<div class="v17-ease-title">Easing from this keyframe</div>'+Object.entries(K.EASE_NAMES).map(([e,n])=>'<button type="button" role="menuitemradio" aria-checked="'+(key.ease===e)+'" data-ease="'+e+'">'+n+'</button>').join(''):'')+'<button type="button" data-stop="1">Stop animating '+KEY_LABELS_V17[k]+'</button>';
+ d.closest('.v17-keys').append(m);const close=()=>{m.remove();removeEventListener('pointerdown',out,true);},out=e=>{if(!m.contains(e.target))close();};addEventListener('pointerdown',out,true);
+ m.onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.ease)transaction(()=>{c.keyframes=K.setEase(c,k,t,b.dataset.ease);});else transaction(()=>{const r=K.stopAnimating(c,k,t);c.keyframes=r.keyframes;c.transform={...c.transform,[k]:r.value};if(!c.keyframes)delete c.keyframes;});close();};}
+// Keeps the diamonds and the slider values in step with the playhead.
+function syncKeysV17(){if(state.panel!=='clip')return;const c=state.clips[state.selected];if(!c)return;const K=KF17(),t=clipTimeV17(c),v=K.transformAt(c,t);
+ for(const k of K.PROPS){const input=q('#v15-'+k),label=input?.closest('label');if(!label)continue;const d=label.querySelector('.v17-diamond'),anim=K.animated(c,k),here=anim&&!!K.keyAt(c,k,t);
+  if(d){d.dataset.state=!anim?'off':here?'on':'between';d.setAttribute('aria-label',!anim?'Animate '+KEY_LABELS_V17[k]+' from here':here?'Remove this '+KEY_LABELS_V17[k]+' keyframe':'Add a '+KEY_LABELS_V17[k]+' keyframe here');d.title=d.getAttribute('aria-label')+(anim?' (right-click for easing)':'');}
+  label.classList.toggle('v17-animated',anim);label.querySelector('.v17-prev').disabled=!anim||K.previous(c,t,k)==null;label.querySelector('.v17-next').disabled=!anim||K.next(c,t,k)==null;
+  if(anim&&document.activeElement!==input){const val=Math.round(v[k]*10)/10;input.value=val;const out=label.querySelector('output');if(out)out.textContent=val;const num=label.querySelector('input[type=number]');if(num&&document.activeElement!==num)num.value=val;}}}
+// Keyframes on the selected clip in the timeline: click one to go to it, drag it to move it in time.
+function timelineKeysV17(){root.querySelectorAll('.v17-lane').forEach(n=>n.remove());const c=state.clips[state.selected];if(!c||!KF17().animated(c))return;const b=root.querySelector('#vt-tracks .vt-block[data-clip="'+state.selected+'"]');if(!b)return;
+ const lane=document.createElement('div');lane.className='v17-lane';const len=c.end-c.start||1;
+ for(const t of KF17().times(c)){const k=document.createElement('button');k.type='button';k.className='v17-tlkey';k.style.left=((t-c.start)/len*100)+'%';k.title='Keyframe at '+(window.timelineModelV7?.formatTime?.(clipOffsetV17(state.selected)+t-c.start)||'');k.setAttribute('aria-label',k.title);
+  k.onpointerdown=e=>{e.preventDefault();e.stopPropagation();const r=b.getBoundingClientRect(),x0=e.clientX;let moved=false,to=t;k.setPointerCapture(e.pointerId);snapshot();
+   k.onpointermove=v=>{const dx=v.clientX-x0;if(Math.abs(dx)>3)moved=true;if(!moved)return;to=Math.max(c.start,Math.min(c.end,t+dx/r.width*len));k.style.left=((to-c.start)/len*100)+'%';};
+   k.onpointerup=()=>{k.onpointermove=null;if(moved){c.keyframes=KF17().moveKeys(c,t,to);commit();jumpToKeyV17(c,to);panel();}else jumpToKeyV17(c,t);};};
+  lane.append(k);}
+ b.append(lane);}
 function clipPanelV15(p){
- const c=state.clips[state.selected];if(!c)return;const a=state.assets.find(x=>x.id===c.asset),t=c.transform||{},crop=c.crop||{},len=c.end-c.start,maxFade=Math.max(.1,Math.min(5,len/2));
+ const c=state.clips[state.selected];if(!c)return;const a=state.assets.find(x=>x.id===c.asset),t=KF17().transformAt(c,clipTimeV17(c)),crop=c.crop||{},len=c.end-c.start,maxFade=Math.max(.1,Math.min(5,len/2));
  const f=n=>Math.round(n*100)/100;
  if(c.gap){p.innerHTML='<h3>Gap</h3><p class="v15-hint">An empty space on the main track. Delete it to close the gap.</p><button id="v15-delete-gap" class="ed-wide">Delete gap</button>';q('#v15-delete-gap').onclick=()=>{selectionV7=[{type:'video',id:c.id}];deleteSelected();};return;}
  const hasAudio=!!a?.hasAudio,detached=detachedOfV15(c);
@@ -1190,16 +1236,16 @@ function clipPanelV15(p){
   +range('v15-fadein','Fade in (s)',f(c.fadeIn||0),0,maxFade)+range('v15-fadeout','Fade out (s)',f(c.fadeOut||0),0,maxFade)
   +'<div class="v15-subhead">Crop (%)</div><div class="v15-grid2">'+range('v15-crop-l','Left',crop.l||0,0,45)+range('v15-crop-r','Right',crop.r||0,0,45)+range('v15-crop-t','Top',crop.t||0,0,45)+range('v15-crop-b','Bottom',crop.b||0,0,45)+'</div>'
   +(a?.kind==='video'||c.speed?'<div class="v15-speed-row"><span>Speed</span><strong>'+esc(window.speedModelV15?.label(c.speed?.preset||{kind:'constant',value:1})||'Normal')+'</strong><button id="v15-open-speed" type="button">Change</button></div>':'')+'<div class="v15-speed-row"><span>Colour</span><strong>'+(Object.values(c.adjustments||{}).some(v=>+v)?'Adjusted':'Original')+'</strong><button id="v16-open-colour" type="button">Change</button></div>'
-  +'<button id="v15-reset-video" class="ed-wide">Reset video settings</button></details>'
+  +animationRowV17(c)+'<button id="v15-reset-video" class="ed-wide">Reset video settings</button></details>'
   +(hasAudio?'<details class="v15-section" open><summary>Audio</summary>'
    +(c.muted?'<p class="v15-hint">'+(detached?'The sound is detached: it is an audio clip on its own track.':'The sound of this clip is off.')+'</p>'+(detached?'<button id="v15-reattach" class="ed-wide">Re-attach audio</button>':'<button id="v15-restore" class="ed-wide">Restore audio</button>')
     :range('v15-volume','Volume %',c.volume??100,0,150)+range('v15-afadein','Fade in (s)',f(c.audioFadeIn||0),0,maxFade)+range('v15-afadeout','Fade out (s)',f(c.audioFadeOut||0),0,maxFade)+'<div class="ed-row v15-row2"><button id="v15-mute">Delete audio only</button><button id="v15-detach">Detach audio</button></div>')
    +'</details>':'');
- const T=k=>v=>{c.transform={...c.transform,[k]:+v};};
+ const T=k=>v=>setClipValueV17(c,k,v);
  bind('v15-x',T('x'));bind('v15-y',T('y'));bind('v15-scale',T('scale'));bind('v15-rotation',T('rotation'));bind('v15-opacity',T('opacity'));
  bind('v15-fadein',v=>c.fadeIn=+v);bind('v15-fadeout',v=>c.fadeOut=+v);
  for(const [id,k] of [['v15-crop-l','l'],['v15-crop-r','r'],['v15-crop-t','t'],['v15-crop-b','b']])bind(id,v=>{c.crop={...c.crop,[k]:+v};});
- q('#v15-open-speed')&&(q('#v15-open-speed').onclick=()=>open('speed'));q('#v16-open-colour')&&(q('#v16-open-colour').onclick=()=>open('adjustments'));q('#v15-reset-video').onclick=()=>transaction(()=>{delete c.transform;delete c.crop;delete c.fadeIn;delete c.fadeOut;});
+ q('#v15-open-speed')&&(q('#v15-open-speed').onclick=()=>open('speed'));q('#v16-open-colour')&&(q('#v16-open-colour').onclick=()=>open('adjustments'));q('#v15-reset-video').onclick=()=>transaction(()=>{delete c.transform;delete c.keyframes;delete c.crop;delete c.fadeIn;delete c.fadeOut;});keysPanelV17(p,c);
  if(hasAudio){if(c.muted){q('#v15-reattach')&&(q('#v15-reattach').onclick=()=>transaction(()=>reattachAudioV15(c)));q('#v15-restore')&&(q('#v15-restore').onclick=()=>transaction(()=>{c.muted=false;}));}
   else{bind('v15-volume',v=>c.volume=+v);bind('v15-afadein',v=>c.audioFadeIn=+v);bind('v15-afadeout',v=>c.audioFadeOut=+v);q('#v15-mute').onclick=()=>transaction(()=>{c.muted=true;});q('#v15-detach').onclick=()=>transaction(()=>detachAudioV15(c));}}
  for(const id of ['v15-fadein','v15-fadeout','v15-afadein','v15-afadeout']){const r=q('#'+id);if(r)r.step='.1';}
@@ -1239,7 +1285,7 @@ window.speedProgressV16=(pct)=>{const b=q('#ed-panel .v15-speed-tile.v16-busy sp
 async function applySpeedV15(clipId,preset){
  const S=window.speedModelV15,c=state.clips.find(x=>x.id===clipId);if(!c)return;if(lockedV7({type:'video',id:c.id}))return notice('Unlock the main video track to change speed.');
  const src=c.speed?.source||{asset:c.asset,start:c.start,end:c.end,name:c.name},D=src.end-src.start;
- if(preset.kind==='constant'&&preset.value===1){if(!c.speed)return;transaction(()=>{const x=state.clips.find(x=>x.id===clipId);if(!x)return;const a=state.assets.find(a=>a.id===src.asset);x.asset=src.asset;x.start=src.start;x.end=src.end;x.limit=a?.duration||src.end;x.name=src.name;delete x.speed;});notice('Back to normal speed.');return;}
+ if(preset.kind==='constant'&&preset.value===1){if(!c.speed)return;transaction(()=>{const x=state.clips.find(x=>x.id===clipId);if(!x)return;const a=state.assets.find(a=>a.id===src.asset);x.asset=src.asset;x.start=src.start;x.end=src.end;x.limit=a?.duration||src.end;x.name=src.name;if(x.speed&&'keyframes' in x.speed){if(x.speed.keyframes)x.keyframes=x.speed.keyframes;else delete x.keyframes;}delete x.speed;});notice('Back to normal speed.');return;}
  const tracked=state.elements.filter(e=>e.tracking?.asset===src.asset).length;
  /* 0.15 (Phase 16): the render runs without blocking the editor: the chosen tile shows 'Preparing', you can keep
     editing, and the clip switches when the copy is ready. One speed change at a time. */
@@ -1250,8 +1296,10 @@ async function applySpeedV15(clipId,preset){
  try{item=await window.native.speedClip(src.asset,src.start,src.end,preset);}catch(e){speedBusyV16=null;markSpeedTileV16(null);closeProgress();notice(String(e.message||e).replace(/^Error invoking remote method '[^']+': (Error: )?/,''));return;}
  speedBusyV16=null;markSpeedTileV16(null);closeProgress();if(!item)return;item={...item,speedOf:src.asset};
  transaction(()=>{const x=state.clips.find(x=>x.id===clipId);if(!x)return;if(!state.assets.some(a=>a.id===item.id))state.assets.push(item);
-  x.asset=item.id;x.start=0;x.end=item.duration;x.limit=item.duration;x.name=src.name+' · '+S.label(preset);x.speed={preset,source:src};if(!item.hasAudio)delete x.muted;
+  const baseKf=x.speed?x.speed.keyframes:x.keyframes;
+  x.asset=item.id;x.start=0;x.end=item.duration;x.limit=item.duration;x.name=src.name+' · '+S.label(preset);x.speed={preset,source:src,keyframes:baseKf};if(!item.hasAudio)delete x.muted;
   const map=t=>S.mapTime(preset,D,t-src.start);
+  /* 0.15 (Phase 17): keyframes move to the sped-up copy's clock; Normal brings the originals back */if(baseKf)x.keyframes=KF17().mapTimes(baseKf,map);else delete x.keyframes;
   const lines=state.transcript.filter(l=>l.asset===src.asset&&l.end>src.start&&l.start<src.end).map(l=>({...l,id:uidV15(),asset:item.id,start:map(Math.max(l.start,src.start)),end:map(Math.min(l.end,src.end)),words:(l.words||[]).filter(w=>w.end>src.start&&w.start<src.end).map(w=>({...w,start:map(Math.max(w.start,src.start)),end:map(Math.min(w.end,src.end))}))}));
   state.transcript=[...state.transcript.filter(l=>l.asset!==item.id),...lines];});
  notice('Speed set to '+S.label(preset)+'.'+(preset.kind==='curve'?' Speed curves remove the clip’s sound.':'')+(tracked?' Tracking blurs on this clip must be added again.':''));
@@ -1338,6 +1386,7 @@ function missingMediaV15(p){
  apply();if(key===missingAskedV15&&Date.now()-missingAtV15<5000)return;const isNew=key!==missingAskedV15||Object.values(missingV15).every(v=>v!=='missing');missingAskedV15=key;missingAtV15=Date.now();
  window.native.mediaStatus(ids).then(r=>{missingV15=r||{};const n=Object.values(missingV15).filter(v=>v==='missing').length;if(n){if(state.panel==='media')apply();if(isNew)notice(n===1?'One media file is missing. Relink it in the Media tab.':n+' media files are missing. Relink them in the Media tab.');}}).catch(()=>{});
 }
+const paintBeforeV17=paint;paint=function(){paintBeforeV17();syncKeysV17();};const tracksBeforeV17=tracks;tracks=function(){tracksBeforeV17();timelineKeysV17();};
 const panelBeforeV15=panel;
 panel=function(){panelBeforeV15();const p=q('#ed-panel');if(state.panel==='clip')clipPanelV15(p);if(state.panel==='speed')speedPanelV15(p);/* 0.15 (Phase 16): Speed opens from the clip panel only */if(state.panel==='elements')brandEntryV16(p);if(state.panel==='captions')captionsPanelV15(p);if(state.panel==='media')missingMediaV15(p);if(state.panel==='media')queueMicrotask(()=>mediaMenusV16(p));if(state.panel==='style'){const f=q('#ed-style-font');if(f){f.innerHTML=fontOptionsV15();f.value=captionFontV15(state.style?.font);}}compactHeaderV15(p);coverPanelV15(p);choiceTilesV15(p);numberBoxesV15(p);highlightTabV15();lockPanelV15(p);icons();};
 

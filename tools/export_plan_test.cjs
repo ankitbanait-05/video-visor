@@ -15,6 +15,7 @@ const cases = {
   'fade in: none': [{ ...base, clips: [clip('c1', 0, 10, { fadeIn: 1 })] }, []],
   'clip with an adjustment: none': [{ ...base, clips: [clip('c1', 0, 10, { adjustments: { exposure: 5 } })] }, []],
   'adjustments all zero: still plain': [{ ...base, clips: [clip('c1', 0, 10, { adjustments: { exposure: 0, contrast: 0 } })] }, [[0, 0, 10]]],
+  'animated clip: none': [{ ...base, clips: [clip('c1', 0, 10, { keyframes: { scale: [{ t: 0, v: 100 }, { t: 5, v: 120 }] } })] }, []],
   'colour on: none': [{ ...base, colour: true }, []],
   'image clip then video': [{ ...base, clips: [clip('i', 0, 3, { kind: 'image' }), clip('v', 0, 5)] }, [[1, 3.07, 8]]],
   'dissolve between two clips': [{ ...base, clips: [clip('a1', 0, 5), clip('a2', 0, 5, { transitionIn: { type: 'dissolve', duration: .5 } })] }, [[0, 0, 4.43], [1, 5.57, 10]]],

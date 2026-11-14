@@ -273,6 +273,22 @@ Measured in the real app (`VV_BENCH_ONLY=export`). "Before" is the export window
 | Speed without waiting (from 1.1) | Partly. Changing speed no longer opens a dialog: the chosen tile pulses with its percentage, the status line says you can keep editing, and the clip switches when the copy is ready (about 1 s for a few seconds of footage; reused instantly when you go back to a speed). *Playing the original faster as a stand-in was not built:* the preview engine plays every clip at normal rate, and the timeline length depends on the copy, so a stand-in would show the wrong length. |
 | Found while testing | The Phase 14 fast export didn't look at a clip's colour adjustments. A clip with a small exposure change could have exported without it. It now counts as "something drawn on top" and uses the export window; the planner test covers it. |
 
+## Phase 17 status
+
+| Item | Status |
+|---|---|
+| Diamonds | Done for video clips: Position X, Position Y, Scale, Rotation and Opacity each have a diamond. Hollow means not animated (click to start, with a keyframe at the playhead). Filled means a keyframe at the playhead (click to remove it). Blue outline means animated but no keyframe here (click to add one). |
+| Auto-key | Done. Once a property is animated, changing it (slider, number box, or the handles on the preview) adds or updates the keyframe at the playhead. Changes to properties that aren't animated work as before. |
+| ‹ › | Done. They appear on animated properties and jump to the previous / next keyframe. |
+| Easing | Done. Right-click a diamond: Smooth (default), Linear, Ease in or Ease out, from that keyframe to the next. The same menu has "Stop animating", which keeps the value at the playhead. |
+| Timeline | Done. The selected clip shows its keyframes as small diamonds along its bottom edge. Click one to go there; drag one to move it in time. |
+| Presets | Done: Slow zoom (a gentle push in over the whole clip), Slide in, Pop in, Zoom in here (from the playhead, then holds). They add ordinary keyframes you can change. |
+| Remove animation | Done. Clears all keyframes; the clip keeps how it looks at the playhead. |
+| Trimming, splitting, speed | Keyframes are timed on the footage, so trimming and splitting keep them on the same moment. A speed change moves them to the new timing, and Normal brings the originals back. |
+| Undo | Every keyframe change is one undo step. |
+| Export | Matches the preview: same drawing code. Checked in the real app: an export animated 100% → 150% shows the source unchanged before the animation (33.5 dB) and enlarged exactly 1.5× at the end (34.1 dB, against 12.1 dB for the unenlarged frame). Animated clips use the slower export path (the fast path is only for clips with nothing changing). |
+| Not done | Keyframes on titles, graphics and video layers (the overlay panel); dragging on the preview to draw a motion path; a curve editor. Volume and crop keyframes. |
+
 ## 8. Decisions needed from you
 
 1. **Speed copies:** hide them from Media (recommended), or show them named after the clip?
@@ -292,7 +308,7 @@ Measured in the real app (`VV_BENCH_ONLY=export`). "Before" is the export window
 | 14 | Export speed I: progress (E7), frame-rate default (E5), direct path for plain stretches (E1). *Done.* | L |
 | 15 | File tools redesign (section 5). *Done.* | M |
 | 16 | Preview zoom (section 4) and editor clarity items 1–6. *Done.* | M |
-| 17 | Keyframes and presets (section 3) | L |
+| 17 | Keyframes and presets (section 3). *Done for video clips.* | L |
 | 18 | Export speed II: offscreen capture (E3), graphics layer (E2), parallel chunks (E4), re-use (E6) | L |
 | 19 | Editing power: ripple delete, J/K/L, multi-select, markers | M |
 | 20 | Home, Projects, Settings and recorder polish (section 7) | M |

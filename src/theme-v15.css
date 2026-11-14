@@ -191,3 +191,25 @@
 #visor-app #vv-editor .v15-speed-tile.v16-busy{outline:2px solid var(--v-purple);animation:v16pulse 1.2s ease-in-out infinite}
 #visor-app #vv-editor .v15-speed-tile:disabled{opacity:.45}
 @keyframes v16pulse{50%{opacity:.6}}
+
+/* 0.15 (Phase 17): keyframes. Diamond: hollow = not animated, filled = keyframe at the playhead, outlined in blue = animated. */
+#visor-app #vv-editor .v17-keys{position:relative;display:inline-flex;align-items:center;gap:1px;margin-right:6px;vertical-align:middle}
+#visor-app #vv-editor .v17-keys button{border:0;background:none;padding:0;min-width:0;min-height:0;width:16px;height:18px;line-height:1;color:var(--v-sub);font-size:14px;display:grid;place-items:center;box-shadow:none}
+#visor-app #vv-editor .v17-keys .v17-prev,#visor-app #vv-editor .v17-keys .v17-next{visibility:hidden}
+#visor-app #vv-editor .v17-animated .v17-keys .v17-prev,#visor-app #vv-editor .v17-animated .v17-keys .v17-next{visibility:visible}
+#visor-app #vv-editor .v17-keys button:disabled{opacity:.3}
+#visor-app #vv-editor .v17-diamond::before{content:'';width:8px;height:8px;transform:rotate(45deg);border:1.5px solid var(--v-sub);border-radius:1px;background:transparent}
+#visor-app #vv-editor .v17-diamond[data-state=between]::before{border-color:var(--v-purple)}
+#visor-app #vv-editor .v17-diamond[data-state=on]::before{border-color:var(--v-purple);background:var(--v-purple)}
+#visor-app #vv-editor .v17-diamond:hover::before{box-shadow:0 0 0 3px var(--v-tint)}
+#visor-app #vv-editor .v17-ease{position:absolute;left:0;top:100%;z-index:30;display:flex;flex-direction:column;min-width:190px;padding:4px;border:1px solid var(--v-border);border-radius:10px;background:var(--v-panel);box-shadow:0 8px 24px #0002}
+#visor-app #vv-editor .v17-ease button{width:auto!important;height:auto!important;display:block!important;text-align:left;padding:6px 10px!important;border-radius:6px;color:var(--v-ink)!important;font-size:12.5px!important}
+#visor-app #vv-editor .v17-ease button:hover{background:var(--v-soft)}
+#visor-app #vv-editor .v17-ease button[aria-checked=true]{font-weight:600;color:var(--v-purple)!important}
+#visor-app #vv-editor .v17-ease-title{padding:4px 10px;font-size:11.5px;color:var(--v-sub)}
+#visor-app #vv-editor .v17-presets{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0 8px}
+#visor-app #vv-editor .v17-presets button{font-size:12px}
+#visor-app #vv-editor .v17-lane{position:absolute;left:0;right:0;bottom:2px;height:12px;pointer-events:none;z-index:5}
+#visor-app #vv-editor .v17-tlkey{position:absolute;bottom:0;width:11px;height:11px;margin-left:-5.5px;padding:0;border:0;background:none;pointer-events:auto;cursor:ew-resize;display:grid;place-items:center}
+#visor-app #vv-editor .v17-tlkey::before{content:'';width:7px;height:7px;transform:rotate(45deg);background:#fff;border:1.5px solid var(--v-purple);border-radius:1px}
+#visor-app #vv-editor .v17-tlkey:hover::before{background:var(--v-purple)}

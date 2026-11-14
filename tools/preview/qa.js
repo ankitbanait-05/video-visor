@@ -864,6 +864,75 @@ Object.assign(checks, {
   },
 });
 
+// Phase 17: keyframes (the engine itself is tested by tools/keyframes_test.cjs).
+const diamond = p => $('#ed-panel .v17-diamond[data-prop=' + p + ']');
+const setRange = async (id, v) => { const x = $('#' + id); x.value = v; x.dispatchEvent(new Event('change', { bubbles: true })); await wait(200); };
+async function animatedScale() { // Scale 100 at 2 s → 150 at 6 s on the first clip
+  await freshEditor(); E().open('clip'); await wait(250); E().jump(2); await wait(120); diamond('scale').click(); await wait(200);
+  E().jump(6); await wait(150); await setRange('v15-scale', 150);
+}
+Object.assign(checks, {
+  async 'a diamond animates a property; changing it later adds a keyframe'() {
+    await freshEditor(); E().open('clip'); await wait(250); E().jump(2); await wait(120); const off = diamond('scale').dataset.state;
+    diamond('scale').click(); await wait(200); const on = diamond('scale').dataset.state;
+    E().jump(6); await wait(150); const between = diamond('scale').dataset.state; await setRange('v15-scale', 150);
+    E().jump(4); await wait(150);
+    const keys = (E().get().clips[0].keyframes?.scale || []).map(k => [k.t, k.v]), mid = +$('#v15-scale').value, drawn = $('#native-video').style.transform;
+    return { pass: off === 'off' && on === 'on' && between === 'between' && JSON.stringify(keys) === '[[2,100],[6,150]]' && mid === 125 && /scale\(1\.25\)/.test(drawn), detail: { off, on, between, keys, mid, drawn } };
+  },
+  async '‹ › go to the previous and next keyframe'() {
+    await animatedScale(); E().jump(4); await wait(150);
+    const label = diamond('scale').closest('label'); label.querySelector('.v17-prev').click(); await wait(150); const back = E().get().time;
+    label.querySelector('.v17-next').click(); await wait(150); const fwd = E().get().time;
+    const hidden = getComputedStyle(diamond('x').closest('label').querySelector('.v17-prev')).visibility;
+    return { pass: Math.abs(back - 2) < .01 && Math.abs(fwd - 6) < .01 && hidden === 'hidden', detail: { back, fwd, unanimatedArrows: hidden } };
+  },
+  async 'easing and Stop animating from the diamond’s menu'() {
+    await animatedScale(); E().jump(2); await wait(150);
+    diamond('scale').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); await wait(100);
+    $$('.v17-ease [data-ease]').find(b => b.dataset.ease === 'linear').click(); await wait(200);
+    E().jump(3); await wait(150); const linear = window.keyframesV17.transformAt(E().get().clips[0], 3).scale; // a quarter of the way: 112.5 linear (smooth would be ~107.8)
+    diamond('scale').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); await wait(100);
+    $('.v17-ease [data-stop]').click(); await wait(200);
+    const c = E().get().clips[0];
+    return { pass: Math.abs(linear - 112.5) < .2 && !c.keyframes?.scale && Math.abs(c.transform.scale - 112.5) < .2, detail: { linear, keyframes: c.keyframes, kept: c.transform?.scale } };
+  },
+  async 'clicking a filled diamond removes that keyframe; Undo brings it back'() {
+    await animatedScale(); E().jump(6); await wait(150); diamond('scale').click(); await wait(200);
+    const after = (E().get().clips[0].keyframes?.scale || []).map(k => k.t);
+    $('#ed-undo').click(); await wait(250); const undone = (E().get().clips[0].keyframes?.scale || []).map(k => k.t);
+    return { pass: JSON.stringify(after) === '[2]' && JSON.stringify(undone) === '[2,6]', detail: { after, undone } };
+  },
+  async 'presets add keyframes; Remove animation keeps the look at the playhead'() {
+    await freshEditor(); E().open('clip'); await wait(250); E().jump(0); await wait(100);
+    $('#ed-panel [data-anim="pop-in"]').click(); await wait(250);
+    const c = E().get().clips[0], start = [c.keyframes?.scale?.[0]?.v, c.keyframes?.opacity?.[0]?.v];
+    E().jump(1.5); await wait(150); $('#v17-remove-anim').click(); await wait(250);
+    const d = E().get().clips[0];
+    return { pass: start[0] === 80 && start[1] === 0 && !d.keyframes && d.transform.scale === 100 && d.transform.opacity === 100, detail: { start, after: d.transform, keyframes: d.keyframes } };
+  },
+  async 'timeline diamonds: click goes there, drag moves the keyframe'() {
+    await animatedScale(); await wait(200); const marks = $$('.v17-tlkey'); if (marks.length !== 2) return { pass: false, detail: marks.length };
+    marks[0].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 10, pointerId: 1 })); marks[0].dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 })); await wait(150);
+    const went = E().get().time;
+    const m = $$('.v17-tlkey')[1], r = m.parentElement.getBoundingClientRect(), x = m.getBoundingClientRect().left;
+    m.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: x, pointerId: 1 })); m.onpointermove?.({ clientX: x + r.width / 24 * 2 }); m.onpointerup?.(); await wait(250);
+    const times = (E().get().clips[0].keyframes.scale || []).map(k => +k.t.toFixed(1));
+    return { pass: Math.abs(went - 2) < .01 && times[0] === 2 && Math.abs(times[1] - 8) < .3, detail: { went, times } };
+  },
+  async 'splitting keeps the animation on the same moment of footage'() {
+    await animatedScale(); E().jump(4); await wait(150); const before = +$('#v15-scale').value;
+    $$('#vv-editor button').find(b => /^Split$/.test(b.textContent.trim())).click(); await wait(300);
+    const s = E().get(), second = s.clips.find(c => Math.abs(c.start - 4) < .05), at = window.keyframesV17.transformAt(second, 4).scale;
+    return { pass: before === 125 && !!second && Math.abs(at - 125) < .01, detail: { before, secondStart: second?.start, at } };
+  },
+  async 'a speed change moves keyframes to the new timing; Normal restores them'() {
+    await animatedScale(); await speed('2×'); const sped = (E().get().clips[0].keyframes?.scale || []).map(k => +k.t.toFixed(2));
+    await speed('Normal'); const back = (E().get().clips[0].keyframes?.scale || []).map(k => k.t);
+    return { pass: JSON.stringify(sped) === '[1,3]' && JSON.stringify(back) === '[2,6]', detail: { sped, back } };
+  },
+});
+
 export const count = () => Object.keys(checks).length;
 export async function run(only) {
   const results = [];
