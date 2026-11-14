@@ -80,6 +80,8 @@
     apply();
   }
   // Undo and redo sit left of the project name, as in most editors, with their shortcuts in the tooltip.
+  // Tabs keep their name as a tooltip (in narrow windows only the icon shows).
+  function tabTitles() { document.querySelectorAll('#vv-editor .ed-tabs button').forEach(b => { if (!b.title) { const t = b.textContent.trim(); if (t) { b.title = t; b.setAttribute('aria-label', t); } } }); }
   function placeHistory() {
     const undo = $('#ed-undo'), redo = $('#ed-redo'), title = $('#vv-editor .ed-header .projecttitle')?.parentElement;
     if (!undo || !redo || !title || undo.parentElement?.classList.contains('v16-history')) return;
@@ -88,7 +90,11 @@
     box.append(undo, redo); title.classList.add('v16-titleblock'); title.prepend(box);
   }
   // The editor rebuilds parts of its layout; wire up whenever the preview appears.
-  new MutationObserver(() => { placeHistory(); if ($('.ed-main') && wired !== $('.ed-main')) wire(); else if ($('.v10-transport-left') && !$('#v16-zoom')) { wired = null; wire(); } })
+  new MutationObserver(() => { placeHistory(); tabTitles(); if ($('.ed-main') && wired !== $('.ed-main')) wire(); else if ($('.v10-transport-left') && !$('#v16-zoom')) { wired = null; wire(); } })
     .observe(document.body, { childList: true, subtree: true });
+  // 0.15 (Phase 21): a half-finished "drag a box to blur" on the preview is cancelled when another project starts.
+  const editor = window.visorEditor;
+  const cancelDrawing = () => document.querySelectorAll('.tracking-select').forEach(n => { const cancel = n.querySelector('button'); if (cancel) cancel.click(); else n.remove(); });
+  for (const key of ['reset', 'set']) if (editor?.[key]) { const orig = editor[key]; editor[key] = (...args) => { cancelDrawing(); return orig(...args); }; }
   placeHistory(); wire();
 })();

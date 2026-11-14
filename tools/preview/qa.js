@@ -14,7 +14,8 @@ const rows = () => $$('#vt-tracks .vt-row').filter(r => !r.hidden && r.offsetPar
 const host = () => $('#vt-tracks');
 
 async function freshEditor() {
-  localStorage.removeItem('vv-mock');
+  localStorage.removeItem('vv-mock'); localStorage.removeItem('vv-snap'); // remembered view settings start from default
+
   E().reset();
   $('.v-nav [data-route=home]').click(); await wait(200);
   $$('#v-content button').find(b => /New video|Create a video/.test(b.textContent)).click(); await wait(900);
@@ -843,13 +844,15 @@ Object.assign(checks, {
     const before = box && name && (box.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING);
     return { pass: !!before && /⌘Z/.test($('#ed-undo').title) && /⇧⌘Z/.test($('#ed-redo').title), detail: { undo: $('#ed-undo').title, redo: $('#ed-redo').title } };
   },
-  async 'media cards show Add, with Overlay and Delete in a menu'() {
+  // Phase 21: the ⋯ menu became "Add ▾" (Add to video / Add as a layer / Delete).
+  async 'media cards show Add with an arrow: add to video, as a layer, or delete'() {
     await freshEditor(); tab('elements').click(); await wait(150); tab('media').click(); await wait(300);
-    const card = $('#ed-panel .v5-media'), visible = [...card.querySelectorAll('.ed-row > button')].map(b => b.textContent.trim());
-    const toggle = card.querySelector('.v16-more-toggle'); toggle.click(); await wait(80);
-    const items = [...card.querySelectorAll('.v16-menu button')].filter(b => b.offsetParent).map(b => b.textContent.trim());
-    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); await wait(50); const closed = card.querySelector('.v16-menu').hidden;
-    return { pass: JSON.stringify(visible) === '["Add"]' && items.includes('Overlay') && items.includes('Delete') && closed, detail: { visible, items, closed } };
+    const card = $('#ed-panel .v5-media'), visible = [...card.querySelectorAll('button')].filter(b => b.offsetParent && !b.closest('.v16-menu') && !b.dataset.mediaPreview).map(b => b.textContent.trim() || b.getAttribute('aria-label'));
+    const arrow = card.querySelector('.v21-add-arrow'), drawn = !!arrow.querySelector('svg'); arrow.click(); await wait(80);
+    const items = [...card.querySelectorAll('.v21-add-menu button')].filter(b => b.offsetParent).map(b => b.querySelector('strong')?.textContent);
+    const before = (E().get().overlays || []).length; [...card.querySelectorAll('.v21-add-menu button')].find(b => /layer/.test(b.textContent)).click(); await wait(300);
+    const layers = (E().get().overlays || []).length, closed = card.isConnected ? card.querySelector('.v21-add-menu').hidden : true;
+    return { pass: visible[0] === 'Add' && /More ways to add/.test(visible[1]) && drawn && JSON.stringify(items) === '["Add to video","Add as a layer","Delete from project"]' && layers === before + 1 && closed, detail: { visible, drawn, items, layers: [before, layers], closed } };
   },
   async 'timeline view buttons are icons with names'() {
     await freshEditor(); const v = $('#v8-show-tracks'), f = $('#v5-fit-timeline');
@@ -1006,8 +1009,9 @@ Object.assign(checks, {
     await freshEditor(); await freshEditor();
     for (let i = 0; i < 3; i++) { await openToolV('pdf', 'pcompress'); }
     $('.v-nav [data-route=home]').click(); await wait(400);
-    const recent = $$('#v-content .v20-recent > .v10-project').length, heading = $$('#v-content .v-sectionhead h2').map(h => h.textContent).find(t => /tools|everyday/i.test(t)), first = $$('#v-content [data-tool]')[0]?.dataset.tool, count = $$('#v-content .v-row [data-tool]').length;
-    return { pass: recent === Math.min(4, $$('#v-content .v10-project').length) && recent >= 2 && heading === 'Your tools' && first === 'pcompress' && count === 4, detail: { recent, heading, first, count } };
+    // (other checks also open tools, so the one opened here must be among the four, not necessarily first)
+    const recent = $$('#v-content .v20-recent > .v10-project').length, heading = $$('#v-content .v-sectionhead h2').map(h => h.textContent).find(t => /tools|everyday/i.test(t)), shown = $$('#v-content .v-row [data-tool]').map(b => b.dataset.tool), count = shown.length;
+    return { pass: recent === Math.min(4, $$('#v-content .v10-project').length) && recent >= 2 && heading === 'Your tools' && shown.includes('pcompress') && count === 4, detail: { recent, heading, shown, count } };
   },
   async 'project cards open on click; their actions are in a ⋯ menu'() {
     $('.v-nav [data-route=projects]').click(); await wait(400);
@@ -1036,6 +1040,58 @@ Object.assign(checks, {
     $('.v-nav [data-route=home]').click(); await wait(200); $('.v-nav [data-route=settings]').click(); await wait(500); const again = shown();
     $('[data-settings-tab=general]').click(); await wait(100);
     return { pass: JSON.stringify(tabs) === '["General","Appearance","Storage","AI","About"]' && general.includes('Exports') && !general.includes('Storage') && JSON.stringify(storage) === '["Storage"]' && storageBox && JSON.stringify(again) === '["Storage"]', detail: { tabs, general, storage, again } };
+  },
+});
+
+// Phase 21: fixes from hands-on testing (round 2).
+const withCursor = () => { const s = E().get(), a = s.assets.find(x => x.id === s.clips[0].asset); a.cursor = Array.from({ length: 50 }, (_, i) => ({ t: i * .5, x: 20 + i, y: 30 })); E().set(s); };
+Object.assign(checks, {
+  async 'a sped-up clip keeps its cursor track, so cursor zoom is offered'() {
+    await freshEditor(); withCursor(); await wait(200);
+    await speed('2×'); await wait(200);
+    const s = E().get(), copy = s.assets.find(a => a.id === s.clips[0].asset), times = (copy.cursor || []).map(c => c.t);
+    E().jump(1); await wait(100); E().open('zoom'); await wait(300); const offered = !!$('#v4-cursor');
+    return { pass: copy.speedOf && times.length > 10 && Math.abs(times[2] - .5) < .01 && offered, detail: { points: times.length, third: times[2], offered } };
+  },
+  async 'copies made before the fix get their cursor back when the project opens'() {
+    await freshEditor(); withCursor(); await wait(200); await speed('2×'); await wait(200);
+    const s = E().get(); s.assets.find(a => a.id === s.clips[0].asset).cursor = []; E().set(s); await wait(300);
+    E().open('media'); await wait(300); const back = (E().get().assets.find(a => a.id === E().get().clips[0].asset).cursor || []).length;
+    return { pass: back > 10, detail: { points: back } };
+  },
+  async 'the zoom panel says which clip has a cursor, and a zoom can follow it'() {
+    await freshEditor(); E().jump(26); await wait(100); E().open('zoom'); await wait(300); const none = $('#ed-panel .v15-hint')?.textContent || '';
+    withCursor(); await wait(200); E().jump(26); await wait(100); E().open('zoom'); await wait(300); const elsewhere = $('#ed-panel .v15-hint')?.textContent || '';
+    E().jump(1); await wait(100); E().open('zoom'); await wait(300); $('#v4-add-zoom').click(); await wait(300);
+    const follow = $('#v21-follow'); follow.checked = true; follow.dispatchEvent(new Event('change')); await wait(250);
+    const mode = (E().get().zooms || []).at(-1)?.mode;
+    return { pass: /No clip in this video has a recorded cursor/.test(none) && /Move the playhead onto Product demo/.test(elsewhere) && mode === 'cursor', detail: { none: none.slice(0, 60), elsewhere: elsewhere.slice(0, 80), mode } };
+  },
+  async 'Brand style is one compact row'() {
+    await freshEditor(); tab('elements').click(); await wait(250); const b = $('#v16-brand');
+    return { pass: !!b && b.getBoundingClientRect().height <= 40 && b.textContent.trim() === 'Brand style' && /logo/.test(b.title), detail: { height: Math.round(b?.getBoundingClientRect().height), text: b?.textContent.trim() } };
+  },
+  async 'Home has one button to choose files, and no prototype text anywhere'() {
+    $('.v-nav [data-route=home]').click(); await wait(300);
+    const pickers = $$('#v-content button').filter(b => /Choose files|Import footage/.test(b.textContent)).length;
+    const src = await Promise.all(['/shell.js', '/runtime.js', '/editor.js'].map(u => fetch(u).then(r => r.text())));
+    const leftovers = src.join('').match(/prototype\b|sample walkthrough|Use sample footage|placeholder added/g) || [];
+    return { pass: pickers === 1 && !leftovers.length, detail: { pickers, leftovers } };
+  },
+  async 'messages appear at the bottom of the window'() {
+    await freshEditor(); const t = $('#v15-toast'); if (!t) return { pass: true, detail: 'no toast element in this build' };
+    const r = t.getBoundingClientRect();
+    return { pass: r.top > innerHeight / 2, detail: { top: Math.round(r.top), height: innerHeight } };
+  },
+  async 'starting another project cancels a half-drawn blur box'() {
+    await freshEditor(); const c = $('#ed-canvas'), o = document.createElement('div'); o.className = 'tracking-select'; o.innerHTML = '<div class="tracking-help">Drag a box <button type="button">Cancel</button></div>'; o.querySelector('button').onclick = () => o.remove(); c.append(o);
+    await freshEditor(); return { pass: !$('.tracking-select'), detail: !!$('.tracking-select') };
+  },
+  async 'dropping a file the project no longer has explains why'() {
+    await freshEditor(); $('#vt-tracks [aria-label="Add Video track"]').click(); await wait(300);
+    const row = $$('#vt-tracks .vt-row').find(r => /^video-\d/.test(r.dataset.trackId || '')), lane = row.querySelector('.vt-lane'), dt = new DataTransfer(); dt.setData('application/x-video-visor-media', 'missing-id');
+    const rr = lane.getBoundingClientRect(); lane.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: rr.left + 40, clientY: rr.top + 5 })); await wait(200);
+    return { pass: /no longer in this project/.test($('#ed-status').textContent), detail: $('#ed-status').textContent };
   },
 });
 

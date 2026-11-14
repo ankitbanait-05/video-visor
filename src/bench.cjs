@@ -2,6 +2,8 @@
 // Developer benchmark (Dev builds only). Runs the app's real import, export and recording-save code on
 // generated test media and prints timings as JSON lines, then quits.
 //   VV_BENCH=1 "dist/Video Visor Dev.app/Contents/MacOS/Video Visor"
+// Run it with its own data folder so it never adds to the Dev workspace you use (tools/bench.sh does this):
+//   VIDEO_VISOR_TEST_HOME=/tmp/vv-bench VV_BENCH=1 ...
 // Optional: VV_BENCH_ONLY=export,import,save,env   VV_BENCH_SECONDS=20
 const fs = require('node:fs/promises'), path = require('node:path');
 
@@ -94,6 +96,11 @@ async function run(ctx) {
 
   // VV_BENCH_SOURCE=path exports from that file instead of the generated screen recording.
   const exportSource = process.env.VV_BENCH_SOURCE || null;
+  // Dev only: VV_BENCH_EVAL=file.js runs that script in the main window (after the editor loads) and prints its result.
+  if (only.includes('eval') && process.env.VV_BENCH_EVAL) {
+    for (let i = 0; i < 100 && !(await win.webContents.executeJavaScript('!!window.visorEditor').catch(() => false)); i++) await new Promise(r => setTimeout(r, 100));
+    try { out('eval', { result: await win.webContents.executeJavaScript(await fs.readFile(process.env.VV_BENCH_EVAL, 'utf8')) }); } catch (e) { out('eval', { failed: String(e.message).slice(0, 400) }); }
+  }
   const assets = {};
   if (only.some(x => ['import', 'export', 'queue', 'webm', 'fade', 'speed', 'captions', 'keyframes', 'chapters'].includes(x))) {
     for (const [key, file] of [['screen', exportSource || screen], ['phone', phone], ['cover', cover]]) {

@@ -257,3 +257,33 @@ html.export-graphics #native-video,html.export-graphics #native-image,html.expor
 #visor-app .v20-tabs button.active{background:var(--v-panel);color:var(--v-ink);font-weight:600;box-shadow:0 1px 3px #0001}
 #visor-app .v10-settings>section[hidden]{display:none}
 #visor-app .v20-recent{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+
+/* 0.15 (Phase 21) */
+/* Media cards: "Add" with an arrow for the other choices. */
+#visor-app #vv-editor .v5-media .ed-row{position:relative}
+#visor-app #vv-editor .v21-add{position:relative;display:inline-flex;align-items:stretch}
+#visor-app #vv-editor .v21-add>.v21-add-main{border-top-right-radius:0;border-bottom-right-radius:0;padding:0 14px}
+#visor-app #vv-editor .v21-add>.v21-add-arrow{width:30px;padding:0;display:grid;place-items:center;border-left:0;border-top-left-radius:0;border-bottom-left-radius:0}
+#visor-app #vv-editor .v21-add>.v21-add-arrow svg{width:14px;height:14px}
+#visor-app #vv-editor .v21-add-menu{left:0;right:auto;bottom:auto;top:calc(100% + 4px);min-width:230px}
+#visor-app #vv-editor .v21-add-menu button{display:flex!important;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:7px}
+#visor-app #vv-editor .v21-add-menu button svg{width:16px;height:16px;margin-top:1px;flex:none;color:var(--v-sub)}
+#visor-app #vv-editor .v21-add-menu button span{display:flex;flex-direction:column;gap:1px}
+#visor-app #vv-editor .v21-add-menu button small{color:var(--v-sub);font-weight:400;font-size:12px}
+#visor-app #vv-editor .v21-add-menu .v10-danger,#visor-app #vv-editor .v21-add-menu .v10-danger svg{color:#c0392b}
+/* Brand style: one compact row. */
+#visor-app #vv-editor .v16-brand{display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;margin:2px 0 10px;font-weight:500}
+#visor-app #vv-editor .v16-brand span{flex:1;display:block;text-align:left}
+#visor-app #vv-editor .v16-brand svg{width:15px;height:15px;color:var(--v-sub)}
+/* Messages: a pill at the bottom of the window, never over the picture. */
+#v15-toast{top:auto!important;bottom:44px;transform:translate(-50%,8px)!important;border-radius:999px!important;padding:8px 16px!important}
+#v15-toast.show{transform:translate(-50%,0)!important}
+/* Snap off is a normal toggle, not a disabled-looking button. */
+#visor-app #vv-editor #v15-snap:not(.active){opacity:1;color:var(--v-sub)}
+#visor-app #vv-editor #v15-snap.active{color:#b7791f;background:#fff7e0;border-color:#f2d58a}
+#visor-app[data-theme=dark] #vv-editor #v15-snap.active{color:#ffd34d;background:#3a2f12;border-color:#6b5420}
+/* Narrow windows: tabs keep to one line (labels give way to icons), the canvas label doesn't break. */
+#visor-app #vv-editor .ed-tabs button{white-space:nowrap}
+#visor-app #vv-editor #v5-ratio{white-space:nowrap}
+@media (max-width:1180px){#visor-app #vv-editor .ed-tabs button span:not(.v-sr){display:none}#visor-app #vv-editor .ed-tabs button{padding-left:10px;padding-right:10px;min-height:34px}}
+#visor-app #vv-editor .v21-add-menu{position:fixed;z-index:9000}
