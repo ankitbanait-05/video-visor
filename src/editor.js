@@ -145,7 +145,7 @@ function layoutV5(){
  const layout=q('.ed-layout');if(!q('#v5-library')){const library=document.createElement('aside');library.id='v5-library';library.className='ed-panel';layout.prepend(library);layout.append(q('.ed-timeline'));const bar=document.createElement('div');bar.id='v5-canvasbar';bar.innerHTML='<button id="v5-canvas">Canvas</button><span id="v5-ratio"></span><button id="v5-before">Hold to see original</button>';q('.ed-main').prepend(bar);q('#v5-canvas').onclick=()=>open('canvas');q('#v5-before').onpointerdown=()=>{previewOriginal=true;paint();};for(const event of ['pointerup','pointerleave','pointercancel'])q('#v5-before')[`on${event}`]=()=>{previewOriginal=false;paint();};}
  const controls=q('#ed-panel');q('#v5-library').hidden=true;controls.classList.add('v5-browse');q('#v5-ratio').textContent=ratioLabelV9(state.ratio)+' · '+(state.fit==='cover'?'Fill':'Fit');
 }
-function libraryV5(){const lib=q('#v5-library');lib.innerHTML='<h3>Project media</h3><p>Preview a source or add another clip.</p>'+state.assets.filter(a=>a.kind!=='audio').map(a=>'<article class="v5-media"><button class="v5-poster" data-media-preview="'+a.id+'" aria-label="Preview '+esc(a.name)+'">'+icon('play')+'</button><strong>'+esc(a.name)+'</strong><button data-add="'+a.id+'">Add to timeline</button></article>').join('')+'<button id="v5-library-add" class="ed-wide">Add files</button>';lib.querySelectorAll('[data-media-preview]').forEach(b=>b.onclick=()=>window.previewMediaV5?.(state.assets.find(a=>a.id===b.dataset.mediaPreview)));lib.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>appendAsset(b.dataset.add));q('#v5-library-add').onclick=()=>window.nativeImport(false);hydrateVisualsV5();}
+
 function panelV4(p){
  if(state.panel==='media'){
  p.innerHTML='<h3>Your media</h3><p>Click a thumbnail to preview. Add places another copy on the timeline.</p><button id="ed-import" class="ed-wide primary">'+icon('upload')+' Add files</button><div class="v5-media-grid">'+state.assets.map(a=>'<article class="v5-media"><button class="v5-poster" data-media-preview="'+a.id+'" aria-label="Preview '+esc(a.name)+'">'+icon(a.kind==='audio'?'audio-lines':'play')+'</button><strong>'+esc(a.name)+'</strong><small>'+(a.kind==='image'?'Image':window.timelineModelV7.formatTime(a.duration||0))+' · '+(a.width?(a.width>a.height?'Landscape':a.width<a.height?'Portrait':'Square'):a.kind)+'</small><div class="ed-row"><button data-asset="'+a.id+'">Add</button><button data-delete-asset="'+a.id+'">Delete</button></div></article>').join('')+'</div>';
@@ -283,12 +283,7 @@ function canvasV6(src){
  const t=src.clip.transform||{};box.style.transform='translate('+(t.x||0)+'%,'+(t.y||0)+'%) rotate('+(t.rotation||0)+'deg) scale('+((t.scale??100)/100)+')';
  if(src.clip.gap)q('#ed-captions').hidden=true;
 }
-function wireV6(){
- onKeyV9(ev=>{if(['INPUT','TEXTAREA','SELECT'].includes(ev.target.tagName))return;if(!(ev.metaKey||ev.ctrlKey))return;
- if(ev.key.toLowerCase()==='c'){copyV6=(multiV6.length?multiV6:[timelineSelection]).filter(s=>s&&['video','element','zoom','audioClip','overlay'].includes(s.type)&&itemV6(s.type,s.id)).map(s=>({type:s.type,item:clone(itemV6(s.type,s.id))}));ev.preventDefault();}
- if(ev.key.toLowerCase()==='v'&&copyV6){ev.preventDefault();transaction(()=>{for(const {type,item} of copyV6){item.id=crypto.randomUUID();if(type==='video')state.clips.splice(state.selected+1,0,clone(item));else{const key={element:'elements',zoom:'zooms',audioClip:'audioClips',overlay:'overlays'}[type];if(!key)continue;const d=item.end-item.start;item.start=state.time;item.end=Math.min(total(),item.start+d);state[key]??=[];state[key].push(clone(item));}}});}
- });
-}
+
 
 const fullVisualsV6=applyVisualsV5,rangeVisualsV15=new Map();
 applyVisualsV5=function(id,v){fullVisualsV6(id,v);root.querySelectorAll('[data-visual-asset="'+id+'"],[data-wave-asset="'+id+'"]').forEach(b=>{let c=b.dataset.clip!=null?state.clips[+b.dataset.clip]:null;if(!c&&b.classList.contains('vt-item-source'))c=state.clips.find(x=>x.id===b.dataset.sourceClip);if(!c||!window.native)return;const key=id+':'+c.start+':'+c.end;if(b.dataset.range===key)return;b.dataset.range=key;const draw=r=>{if(!b.isConnected||b.dataset.range!==key)return;const strip=b.querySelector('.v5-filmstrip');if(strip&&r.frames?.length)strip.innerHTML=r.frames.map(src=>'<img src="'+src+'">').join('');const wave=b.querySelector('.v5-wave');if(wave&&r.waveform)wave.innerHTML=r.waveform.map(x=>'<i style="height:'+Math.max(5,x*100)+'%"></i>').join('');};

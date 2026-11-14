@@ -6,7 +6,7 @@ main process (tools/preview/mock-native.js). Files, exports and recordings are s
 Sample media is generated once into tools/preview/samples/ with the bundled ffmpeg.
 """
 import http.server
-import os
+import json, os
 import subprocess
 import sys
 
@@ -44,6 +44,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             with open(os.path.join(SRC, "index.html"), encoding="utf8") as f:
                 html = f.read()
             html = html.replace('<script src="bootstrap.js', '<script src="/__preview/mock-native.js"></script><script src="bootstrap.js')
+            html = html.replace("__VERSION__", json.load(open(os.path.join(ROOT, "package.json")))["version"])
             body = html.encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")

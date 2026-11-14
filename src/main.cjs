@@ -1,6 +1,6 @@
 const {app,BrowserWindow,ipcMain,dialog,protocol,net,session,desktopCapturer,screen,systemPreferences,shell,safeStorage,nativeTheme,Menu}=require('electron');
 const fs=require('node:fs/promises'),path=require('node:path'),{pathToFileURL}=require('node:url'),{randomUUID}=require('node:crypto'),{spawn}=require('node:child_process');
-const ffmpeg=require('ffmpeg-static').replace('app.asar/','app.asar.unpacked/'),ffprobe=require('ffprobe-static').path.replace('app.asar/','app.asar.unpacked/');
+const ffmpeg=require('ffmpeg-static').replace('app.asar/','app.asar.unpacked/');
 if(process.env.VIDEO_VISOR_TEST_HOME&&!app.isPackaged)app.setPath('userData',path.resolve(process.env.VIDEO_VISOR_TEST_HOME));
 protocol.registerSchemesAsPrivileged([{scheme:'visor',privileges:{standard:true,secure:true,supportFetchAPI:true,stream:true,corsEnabled:true}}]);
 let recorderController;let connector=null,connectionFile=null;let libraryCache;let win,root,storage,registry={},currentJob=null;let projectStore,closing=false,recoveryPrompt=false;

@@ -88,8 +88,16 @@ def main():
         stage = os.path.join(tmp, "app")
         shutil.copytree(os.path.join(ROOT, "src"), os.path.join(stage, "src"),
                         ignore=shutil.ignore_patterns(".DS_Store"))
+        # 0.15 (CL-01): ffprobe-static is an Intel-only binary the app no longer uses (engines/probe.cjs reads media with ffmpeg).
         shutil.copytree(os.path.join(vendor, "node_modules"), os.path.join(stage, "node_modules"),
-                        ignore=shutil.ignore_patterns(".DS_Store"))
+                        ignore=shutil.ignore_patterns(".DS_Store", "ffprobe-static"))
+        # 0.15 (CL-02): package.json is the only place the version is written; the page and loader get it at build time.
+        for rel in ("src/index.html", "src/bootstrap.js"):
+            target = os.path.join(stage, rel)
+            with open(target, encoding="utf-8") as f:
+                text = f.read()
+            with open(target, "w", encoding="utf-8") as f:
+                f.write(text.replace("__VERSION__", version))
         build_pkg = dict(pkg)
         if not release:
             build_pkg["name"] = "video-visor-dev"   # Electron derives the data folder from this
@@ -99,7 +107,7 @@ def main():
         # Same files stay outside the archive as in the release (binaries the app runs directly,
         # the connector bridge, music). New connector files and music tracks follow the same rule.
         release_files = set(rules["files"])
-        keep_out = lambda rel: (rel in release_files or rel.startswith("src/connector/")
+        keep_out = lambda rel: (rel in release_files and not rel.startswith("node_modules/ffprobe-static/")) or (rel.startswith("src/connector/")
                                 or (rel.startswith("src/music/") and rel.endswith(".m4a")))
         digest = asar.pack(stage, os.path.join(res, "app.asar"), keep_out)
 

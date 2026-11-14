@@ -60,26 +60,6 @@
 .v7-select-space{font-size:12px}
 #v7-selection-count{font-size:12px}
 .v7-tool-ruler{font-size:12px}
-.vt-label{font-size:12px}
-.vt-tick{font-size:12px}
-.vt-block{font-size:12px}
-.vt-controls{font-size:12px}
-#visor-app #vv-editor .vt-block{font-size:12px}
-#visor-app #vv-editor .vt-transition{font-size:12px}
-#visor-app #vv-editor .ed-tabs button{font-size:12px}
-#visor-app #vv-editor .ed-panel p{font-size:12px}
-#v5-canvasbar{font-size:12px}
-.vt-controls span{font-size:12px}
-.v5-media strong{font-size:12px}
-.v5-media small{font-size:12px}
-.v5-transitions small{font-size:12px}
-@media(max-width:1150px){#visor-app #vv-editor .ed-tabs button{font-size:12px}}
-#v5-library .v5-media button{font-size:12px}
-.vt-label{font-size:12px}
-.v5-poster[aria-busy=true]::after{font-size:12px}
-.v7-select-space{font-size:12px}
-#v7-selection-count{font-size:12px}
-.v7-tool-ruler{font-size:12px}
 #v8-timeline-view label{font-size:12px}
 #vt-tracks .vt-label{font-size:12px}
 .v8-group-collapse{font-size:12px}

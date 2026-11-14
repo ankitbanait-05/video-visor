@@ -554,8 +554,17 @@ The recorder runs in its own window, which the browser preview cannot show, so t
 
 | ID | Change | Pri | Evidence | Was | ☐ |
 |---|---|---|---|---|---|
-| CL-01 | Remove dead code: superseded editor layers, about a third of the shell (prototype screens still saying "simulated"), the old settings screen that says "0.9.0", the unlinked `native.css`, and 11 unbuilt PDF tools hidden in the catalogue | M | Code | B37, O6 | ☐ |
-| CL-02 | One source for the version number (hard-coded in three places today) | L | Code | — | ☐ |
+| CL-01 | Remove dead code: superseded editor layers, about a third of the shell (prototype screens still saying "simulated"), the old settings screen that says "0.9.0", the unlinked `native.css`, and 11 unbuilt PDF tools hidden in the catalogue | M | Code | B37, O6 | ✅ |
+| CL-02 | One source for the version number (hard-coded in three places today) | L | Code | — | ✅ |
+
+### Phase 12 status (14 Nov)
+
+83 checks in `tools/preview/qa.js` pass, and the real-engine checks (export, captions, sound mix, file tools, recovery) give the same results as before the clean-up.
+
+| ID | What changed |
+|---|---|
+| CL-01 ✅ | `tools/dead_code.py` finds functions that nothing calls and removes them, repeating until none are left: 12 removed, including the prototype screens (old home, recorder, export, Magic Edit, project handling) and the old settings screen; the unused "About … 0.9.0" dialog went too. The 11 PDF tools that were never built are out of the catalogue. `native.css`, which no page loaded, is deleted. The Intel-only `ffprobe-static` (73 MB) is no longer packaged. Demo branches left inside the main click handler were not pruned: they are unreachable, but removing them safely needs a closer reading |
+| CL-02 ✅ | The version is written only in `package.json`; the build (and the preview server) fill it into the page and loader |
 
 ---
 

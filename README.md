@@ -37,7 +37,23 @@ Release build (uses the real data folder), with a DMG:
 python3 -I tools/build.py --release --dmg
 ```
 
-A build takes about 10 seconds. Builds are signed ad hoc, which works on this Mac only. Sharing with colleagues needs a Developer ID signature and notarisation (change list item DS-01).
+A build takes about 10 seconds. Builds are signed ad hoc, which works on this Mac only. To share with colleagues, sign and notarise with the company's Developer ID (once: `xcrun notarytool store-credentials PROFILE`):
+
+```bash
+python3 -I tools/build.py --release --dmg --identity "Developer ID Application: Company (TEAMID)" --notarize PROFILE
+```
+
+The version is written only in `package.json`. To tell installed copies about a new version, set `"updateFeed"` there to an https URL of a JSON file such as `{"version":"0.16.0","url":"https://…/Video Visor.dmg","notes":"…"}`.
+
+## Checks and helper tools
+
+| Command | What it does |
+|---|---|
+| `python3 -I tools/preview/serve.py 8766` | The app in a browser with a stand-in backend; then `await (await import('/__preview/qa.js')).run([0, 20])` in its console runs the regression checks in batches |
+| `VV_BENCH=1 VV_BENCH_ONLY=export,audio,tools "dist/Video Visor Dev.app/Contents/MacOS/Video Visor"` | Real-engine checks in the Dev build (export speed, sound mix, file tools, recovery…; see `src/bench.cjs`) |
+| `python3 -I tools/theme_dark.py` | Regenerates the dark theme and minimum text size from the stylesheets; run after changing CSS |
+| `python3 -I tools/dead_code.py` | Lists functions nothing calls (`--remove` deletes them) |
+| `tools/preview/contrast.js` | In the preview console: lists text with too little contrast on the current screen |
 
 ## Not recoverable from the DMG
 

@@ -15,7 +15,7 @@ import colorsys, os, re
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'src')
-FILES = ['style.css', 'native.css', 'editor-v8.css', 'editor-v9.css', 'editor-v10.css', 'explainer-v12.css',
+FILES = ['style.css', 'editor-v8.css', 'editor-v9.css', 'editor-v10.css', 'explainer-v12.css',
          'connector-v13.css', 'ai-v14.css', 'editor-v15.css']
 # Selectors that draw the video picture or its thumbnails of real styles: never themed.
 SKIP = re.compile(r'ed-canvas|ed-captions|\.caption\b|v15-cap(?![-\w])|v15-cap-thumb|v15-cap-art|ed-layer|v8-title|v11-|\.overlay\b|export-view|'
