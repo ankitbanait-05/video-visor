@@ -21,6 +21,8 @@ function parse(text) {
         // "h264 (High) (avc1 / 0x..), yuv420p(progressive), 1920x1080 [SAR 1:1 DAR 16:9], 5702 kb/s, 30 fps, 30 tbr"
         const parts = rest.replace(/\([^()]*\([^()]*\)[^()]*\)|\([^()]*\)/g, m2 => m2.replace(/,/g, ';')).split(',').map(s => s.trim());
         current.pix_fmt = (/^([a-z0-9_]+)/.exec(parts[1] || '') || [])[1] || '';
+        // 0.15 (AU-11): HDR transfer (iPhone footage is HLG): "yuv420p10le(tv, bt2020nc/bt2020/arib-std-b67)".
+        const trc = /(arib-std-b67|smpte2084)/.exec(rest); if (trc) current.color_transfer = trc[1];
         const size = /(\d{2,5})x(\d{2,5})/.exec(rest);
         if (size) { current.width = +size[1]; current.height = +size[2]; }
         const fps = /([\d.]+)\s*fps/.exec(rest) || /([\d.]+)k?\s*tbr/.exec(rest);
@@ -68,4 +70,10 @@ function keyframeRate(ffmpeg, file, spawn = require('node:child_process').spawn)
   });
 }
 
-module.exports = { parse, probe, keyframeRate };
+// HDR → SDR for edit copies: without it, 10-bit HLG / PQ footage was squeezed into 8-bit BT.709 unconverted and looked
+// washed out in the preview and export.
+const isHdr = info => (info?.streams || []).some(s => s.codec_type === 'video' && !s.disposition?.attached_pic && /arib-std-b67|smpte2084/.test(s.color_transfer || ''));
+// A direct conversion at a 100-nit reference matched the original picture best in tests (29.5 dB PSNR against the SDR
+// source of a synthetic HLG clip; 15.7 dB unconverted, 13–18 dB with hable / mobius tone curves, which darkened it).
+const toneMap = 'zscale=p=bt709:t=bt709:m=bt709:r=tv:npl=100,format=yuv420p';
+module.exports = { parse, probe, keyframeRate, isHdr, toneMap };

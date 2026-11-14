@@ -1299,10 +1299,6 @@ function captionsPanelV15(p){
  const bg=q('#ed-cap-bg')?.closest('label');if(bg){bg.firstChild.textContent='Background plate';bg.hidden=!CAPTION_PLATE_V15.includes(style);}
  const note=[...box.querySelectorAll('p')].find(x=>/Style changes apply/.test(x.textContent));if(note)note.textContent='Changes apply to every caption.';
 }
-// 0.15: the company preset. "Save company preset" keeps it on this Mac; "Use company preset" applies it, or Graphik with smallcase blue when none was saved.
-const COMPANY_STYLE_V15={name:'smallcase',font:'Graphik',colour:'#1f7ae0',logo:'VV'};
-window.addEventListener('vv-brand-save',e=>{try{localStorage.setItem('vv-brand',JSON.stringify(e.detail));}catch{}notice('Company preset saved.');});
-window.addEventListener('vv-brand-load',()=>{let saved=null;try{saved=JSON.parse(localStorage.getItem('vv-brand')||'null');}catch{}const style={...COMPANY_STYLE_V15,...(saved||{})};style.font=captionFontV15(style.font);applyStyle(style);panel();notice('Company preset applied to titles and captions.');});
 // 0.15 (UI-03): short choice lists as tiles drawn to what they choose. The <select> stays (hidden) so existing
 // bindings keep working; a tile sets its value and fires change.
 function choiceArtV15(kind,value){

@@ -99,6 +99,32 @@ async function run(ctx) {
       out('captions', { style, frame: path.join(dir, 'captions-' + style + '.png') });
     }
   }
+  if (only.includes('audio')) {
+    // Phase 7 checks through the real export. Levels are RMS dB of one frequency band in a time window.
+    const band = async (file, freq, from, to) => { let text = ''; await exec(ffmpeg, ['-hide_banner', '-nostats', '-ss', String(from), '-t', String(to - from), '-i', file, '-af', `bandpass=f=${freq}:width_type=q:w=8,astats=metadata=0:measure_overall=RMS_level`, '-f', 'null', '-'], null, null, d => { text += d; }); const m = /RMS level dB:\s*(-?[\d.]+|-inf)/.exec(text.slice(text.lastIndexOf('Overall'))); return m ? (m[1] === '-inf' ? -120 : +m[1]) : null; };
+    // A "speaker": 6 s of video whose sound is a 1 kHz tone only from 2 s to 4 s. Music: a constant 220 Hz tone.
+    const talk = await make('talk-6s.mp4', ['-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=30:duration=6', '-f', 'lavfi', '-i', "aevalsrc='if(between(t,2,4),0.5*sin(2*PI*1000*t),0)':s=48000:d=6", '-c:v', 'libx264', '-preset', 'ultrafast', '-g', '30', '-c:a', 'aac', '-shortest']);
+    const song = await make('song-220.m4a', ['-f', 'lavfi', '-i', 'sine=frequency=220:duration=12', '-c:a', 'aac']);
+    // A clip whose sound stops after 2 s of its 4 s, followed by a clip that beeps at 500 Hz from its start.
+    const short = await make('short-audio.mp4', ['-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=30:duration=4', '-f', 'lavfi', '-i', 'sine=frequency=300:duration=2', '-c:v', 'libx264', '-preset', 'ultrafast', '-g', '30', '-c:a', 'aac']);
+    const beep = await make('beep.mp4', ['-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=30:duration=3', '-f', 'lavfi', '-i', 'sine=frequency=500:duration=3', '-c:v', 'libx264', '-preset', 'ultrafast', '-g', '30', '-c:a', 'aac', '-shortest']);
+    const [t, m, s, b] = [await register(talk), await register(song), await register(short), await register(beep)];
+    const base = { elements: [], transcript: [], zooms: [], overlays: [], audioClips: [], time: 0, selected: 0, ratio: '16/9', speed: 1 };
+    const duck = { ...base, clips: [{ id: 'd1', asset: t.id, name: 'talk', kind: 'video', start: 0, end: 6, limit: 6 }], assets: [t, m], music: { asset: m.id, name: 'song', start: 0, duck: true }, audio: { voice: 100, music: 60 } };
+    const f1 = path.join(dir, 'duck.mp4'); await job(() => runExport(duck, { format: 'MP4', resolution: '720p', fps: 30 }, async () => f1));
+    const drift = { ...base, clips: [{ id: 's1', asset: s.id, name: 'short', kind: 'video', start: 0, end: 4, limit: 4 }, { id: 'b1', asset: b.id, name: 'beep', kind: 'video', start: 0, end: 3, limit: 3 }], assets: [s, b], audio: { voice: 100, music: 20 } };
+    const f2 = path.join(dir, 'drift.mp4'); await job(() => runExport(drift, { format: 'MP4', resolution: '720p', fps: 30 }, async () => f2));
+    out('audio', {
+      musicWhileSilent_dB: await band(f1, 220, .5, 1.6), musicWhileSpeaking_dB: await band(f1, 220, 2.6, 3.6), musicAfter_dB: await band(f1, 220, 5, 5.8),
+      beepBefore4s_dB: await band(f2, 500, 3.2, 3.9), beepAfter4s_dB: await band(f2, 500, 4.2, 4.9),
+    });
+    if (process.env.VV_BENCH_HDR) {
+      // An HLG clip (iPhone style): the edit copy must be converted to SDR, not squeezed in unconverted.
+      const h = await register(process.env.VV_BENCH_HDR), copy = ctx.registryEntry?.(h.id)?.previewPath;
+      let text = ''; if (copy) await exec(ffmpeg, ['-v', 'error', '-i', copy, '-vf', 'signalstats,metadata=print:file=-', '-frames:v', '1', '-f', 'null', '-'], d => { text += d; });
+      out('hdr', { copy: !!copy, sat: +(/SATAVG=([\d.]+)/.exec(text)?.[1] || 0), yavg: +(/YAVG=([\d.]+)/.exec(text)?.[1] || 0) });
+    }
+  }
   if (only.includes('speed') && assets.screen) {
     // Through the app's own IPC path (the renderer's native.speedClip), as the Speed panel calls it.
     for (const preset of [{ kind: 'constant', value: 2 }, { kind: 'constant', value: 0.5 }, { kind: 'curve', name: 'bullet' }]) {

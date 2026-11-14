@@ -546,6 +546,46 @@ Object.assign(checks, {
   },
 });
 
+// Phase 7: audio and export correctness (the export itself is measured by `VV_BENCH_ONLY=audio` in the real app).
+async function exportDialog() { $$('#vv-editor button').find(x => /^Export/.test(x.textContent.trim())).click(); await wait(400); }
+const closeDialog = async () => { $('#v-dialog-close')?.click(); await wait(150); };
+const mb = () => parseFloat($('#flow-estimate').textContent.replace(/[^\d.]/g, ''));
+Object.assign(checks, {
+  async 'music ducks only while someone speaks in the preview'() {
+    await captioned(); const s = E().get(), line = s.transcript[1], c = s.clips[0];
+    const at = t => { const st = { ...s, time: t }; let v; for (let i = 0; i < 40; i++) v = window.duckLevelV15(st); return +v.toFixed(2); };
+    const speaking = at(line.start - c.start + (line.end - line.start) / 2), pause = at(s.transcript.at(-1).end + 1.5 - c.start); // brief gaps between lines stay lowered, so the music doesn't pump
+    const noCaptions = (() => { const st = { ...s, transcript: [], time: 1 }; let v; for (let i = 0; i < 40; i++) v = window.duckLevelV15(st); return +v.toFixed(2); })();
+    return { pass: speaking === .45 && pause === 1 && noCaptions === .45, detail: { speaking, pause, noCaptions } };
+  },
+  async 'export size estimate follows resolution, frame rate and format'() {
+    await freshEditor(); await exportDialog(); $('[data-purpose=custom]').click(); await wait(100);
+    const set = async (id, v) => { const x = $('#' + id); x.value = v; x.dispatchEvent(new Event('change', { bubbles: true })); x.onchange?.(); await wait(60); };
+    await set('v-export-resolution', '720p'); const r720 = mb(); await set('v-export-resolution', '1080p'); const r1080 = mb();
+    await set('v-export-fps', '60 fps'); const f60 = mb(); await set('v-export-fps', '30 fps');
+    await set('v-export-format', 'Audio only'); const audio = mb(); await set('v-export-format', 'GIF'); const warn = !$('#v15-export-warn').hidden;
+    await closeDialog();
+    return { pass: r720 < r1080 && f60 > r1080 && audio < r720 && warn, detail: { r720, r1080, f60, audio, gifWarning: warn } };
+  },
+  async 'a very wide canvas at 4K explains its size'() {
+    await freshEditor(); E().patch({ ratio: '32/9' }); await exportDialog(); $('[data-purpose=quality]').click(); await wait(100);
+    const text = $('#v15-export-warn').hidden ? '' : $('#v15-export-warn').textContent; await closeDialog();
+    return { pass: /4096 × 1152|too wide/.test(text), detail: text };
+  },
+  async 'recording narration asks before replacing the old one'() {
+    await freshEditor(); E().patch({ voiceover: { asset: 'x', name: 'Old take', start: 0 } });
+    const ask = window.confirm; let asked = 0; window.confirm = () => { asked++; return false; };
+    try { window.dispatchEvent(new CustomEvent('vv-voiceover')); await wait(300); } finally { window.confirm = ask; }
+    const opened = !$('#v-overlay').hidden; if (opened) await closeDialog();
+    return { pass: asked === 1 && !opened && E().get().voiceover?.name === 'Old take', detail: { asked, opened } };
+  },
+  async 'frame step moves one exported frame at any project speed'() {
+    await freshEditor(); const s = { ...E().get(), speed: 2 }, fps = s.assets.find(a => a.id === s.clips[0].asset)?.fps || 30;
+    const step = window.editModel.frameStep(s, 1, 1);
+    return { pass: Math.abs(step - (1 + 2 / fps)) < 1e-6, detail: { step, expected: 1 + 2 / fps } };
+  },
+});
+
 export const count = () => Object.keys(checks).length;
 export async function run(only) {
   const results = [];

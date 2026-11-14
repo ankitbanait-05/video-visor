@@ -100,3 +100,4 @@
 @media (prefers-reduced-motion: reduce){
 #visor-app *:not(#ed-canvas):not(#ed-canvas *),#visor-app *:not(#ed-canvas *)::before,#visor-app *:not(#ed-canvas *)::after,#v15-toast,#v13-queue-chip{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
 }
+#visor-app .v15-warn{color:#9a6200;margin:4px 0 0}#visor-app[data-theme=dark] .v15-warn{color:#f0b54a}
