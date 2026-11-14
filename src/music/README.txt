@@ -1,0 +1,1 @@
+Video Visor original procedural music loops. Generated for this project from synthesized tones and percussion; no third-party recordings or sampled compositions. May be used in exports from Video Visor.

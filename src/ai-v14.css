@@ -1,0 +1,26 @@
+/* 0.14 — Draft with AI: Settings section and the dialog. */
+#v14-ai h3{margin:18px 0 6px;font-size:14px}
+.v14-services{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0;max-width:600px}
+#v14-ai label.v14-service{display:flex;align-items:flex-start;gap:10px;margin:0;max-width:none;padding:12px 14px;border:1px solid #d5e1ee;border-radius:12px;cursor:pointer}
+#v14-ai label.v14-service:has(input:checked){border-color:#1f7ae0;background:#f0f7ff}
+#v14-ai label.v14-service.off{opacity:.55;cursor:default}
+.v14-service input{margin-top:3px;accent-color:#1f7ae0}
+.v14-service span{display:block}.v14-service small{display:block;color:#607489;font-size:12px}
+#v14-ai label.v14-keyfield,#v14-ai label.v14-model{max-width:600px}
+#v14-ai .v14-key code{padding:2px 6px;border-radius:6px;background:#f1f5fa}
+.v13-message.v14-bad{background:#fff0f0;color:#9d3434}
+.v14-prompt{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:13px}
+.v14-prompt textarea{font:400 14px/1.5 'DM Sans',sans-serif;padding:10px 12px;border:1px solid #cfdbe8;border-radius:10px;resize:vertical;min-height:96px}
+.v14-source{margin:14px 0 8px}.v14-source .v-row{margin-top:6px;align-items:center;gap:8px;flex-wrap:wrap}
+#v-dialog-body label.v13-perm{display:flex;align-items:flex-start;gap:10px;margin:10px 0;cursor:pointer}
+#v-dialog-body .v13-perm small{display:block;color:#607489;font-size:12px;line-height:1.4}
+#v14-error{margin:8px 0;padding:8px 10px;border-radius:8px;background:#fff0f0;color:#9d3434;font-size:13px}
+.v14-outgoing{max-height:260px;font-size:12px}
+.v14-facts{margin:10px 0 14px;padding-left:18px;font-size:13px;line-height:1.5}
+.v14-facts li{margin-bottom:4px}
+.v14-steps{margin:10px 0;padding-left:22px;max-height:220px;overflow:auto;font-size:13px;line-height:1.6}
+.v14-steps li.ok{color:#22543d}.v14-steps li.bad{color:#9d3434}.v14-steps li.pending{color:#607489;list-style:none;margin-left:-22px}
+.v14-steps small{color:inherit;opacity:.85}
+.v14-summary{font-size:15px;line-height:1.55}
+.v14-log{margin:8px 0}.v14-log summary{cursor:pointer;color:#135fb3;font-size:13px}
+@media (max-width:760px){.v14-services{grid-template-columns:1fr}}

@@ -1,0 +1,36 @@
+/* Video Visor 0.9 overrides. Loaded after editor-v8.css. */
+
+/* B3: layers are <button> elements, so the generic editor button border was drawn on the video
+   (and exported) around icons and other elements. */
+#visor-app #vv-editor .ed-layer{border-color:transparent}
+.export-view #visor-app #vv-editor .ed-layer{border-color:transparent!important;box-shadow:none}
+.export-view #visor-app #vv-editor .ed-layer[data-kind=blur]{background:transparent!important}
+
+/* B2: titles drawn straight on the footage get a soft shadow so they read on dark and light video. */
+#visor-app #vv-editor .v8-title[data-panel=none]{text-shadow:0 0 .22cqw rgba(6,16,30,.75),0 .1cqw .55cqw rgba(6,16,30,.6),0 .3cqw 1.8cqw rgba(6,16,30,.45)}
+#visor-app #vv-editor .v8-title[data-panel=none][data-template-motion=underline] .v8-title-main::after{box-shadow:0 .12cqw .5cqw rgba(6,16,30,.45)}
+
+/* Library thumbnails show titles the way they land on video: light text on dark footage.
+   Panel designs (glass, card) show their white card with dark text. */
+.v8-template-demo,.v8-template-demo[data-design=serif]{background:linear-gradient(145deg,#1b2a41,#35608f);color:#fff}
+.v8-template-demo[data-design=glass],.v8-template-demo[data-design=card]{position:relative;isolation:isolate;background:linear-gradient(145deg,#1b2a41,#35608f);color:#173c62}
+.v8-template-demo[data-design=glass]::before,.v8-template-demo[data-design=card]::before{content:'';position:absolute;inset:16px 8px;border-radius:5px;background:#fff;z-index:-1}
+.v8-template-demo[data-design=line]{box-shadow:inset 3px 0 #4ea1ff}
+
+/* B1: the editor takes focus when opened so shortcuts work; it should not show a focus ring. */
+#vv-editor:focus{outline:none}
+
+/* B4: each clip in a transition is a full opaque frame (picture plus its letterbox), so a dissolve
+   between clips of different shapes fades the old picture out everywhere instead of leaving it
+   at full strength beside the new clip until the transition ends. */
+#visor-app #vv-editor .v5-transition-media{background:#172536}
+
+/* E4: export result actions */
+.v9-export-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+
+/* M7: digits keep a fixed width while a number counts up, so the title does not wobble. */
+#visor-app #vv-editor .v8-title[data-template-motion=count] .v8-title-main{font-variant-numeric:tabular-nums}
+
+/* M9: a caption that wraps to two lines is one box. As an inline element each line painted its own
+   padded background, and the second line's box covered the highlighted word on the first. */
+#visor-app #vv-editor #ed-captions>span{display:inline-block;max-width:100%;line-height:1.45}

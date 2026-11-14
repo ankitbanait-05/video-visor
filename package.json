@@ -1,0 +1,17 @@
+{
+  "name": "video-visor",
+  "version": "0.14.0",
+  "private": true,
+  "description": "Local video workspace",
+  "author": "Video Visor",
+  "main": "src/main.cjs",
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.8.0",
+    "openai": "7.56.0",
+    "ffmpeg-static": "5.3.0",
+    "ffprobe-static": "^3.1.0",
+    "lucide": "^1.66.0",
+    "pdf-lib": "^1.17.1",
+    "sharp": "^0.35.5"
+  }
+}

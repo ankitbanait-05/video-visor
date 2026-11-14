@@ -1,0 +1,36 @@
+/* 0.13 — AI draft tag, render queue, render dialog, and the "Connect an AI assistant" settings. */
+.v-pill.v13-ai{background:#efe9ff;color:#5b3fc4;font-weight:600;vertical-align:middle;margin-left:4px}
+.v13-job{align-items:center;gap:10px}
+.v13-job progress{display:block;width:100%;height:6px;margin-top:6px;accent-color:#1f7ae0}
+.v13-job[data-status=failed] .v-small{color:#9d3434}
+#v13-queue-chip{position:fixed;right:18px;bottom:40px;z-index:60;padding:8px 14px;border-radius:999px;border:1px solid #bcd6f5;background:#fff;color:#135fb3;font:600 12px 'DM Sans',sans-serif;box-shadow:0 4px 14px #1c4f8e26;cursor:pointer}
+#v13-queue-chip:hover{background:#eaf3ff}
+.v13-shapes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}
+.v13-shape{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px 10px;border:1px solid #d5e1ee;border-radius:12px;cursor:pointer;font-size:13px;position:relative}
+.v13-shape:has(input:checked){border-color:#1f7ae0;background:#f0f7ff}
+.v13-shape input{position:absolute;top:8px;left:8px;accent-color:#1f7ae0}
+.v13-shape small{color:#607489;font-size:11px}
+.v13-shape-box{height:44px;max-width:78px;border:2px solid #7f93a8;border-radius:4px;background:#e9f0f8;margin-bottom:4px}
+.v13-shape:has(input:checked) .v13-shape-box{border-color:#1f7ae0;background:#d6e8fb}
+#v13-render-error{margin:8px 0;padding:8px 10px;border-radius:8px;background:#fff0f0;color:#9d3434;font-size:13px}
+#v13-connector h3{margin:18px 0 6px;font-size:14px}
+.v13-switch{display:flex;align-items:center;gap:10px;margin:12px 0;padding:12px 14px;border:1px solid #d5e1ee;border-radius:12px;background:#f8fbff;cursor:pointer}
+.v13-switch input{width:18px;height:18px;accent-color:#1f7ae0}
+.v13-perm{display:flex;align-items:flex-start;gap:10px;margin:8px 0;cursor:pointer}
+.v13-perm input{margin-top:3px;accent-color:#1f7ae0}
+.v13-perm small{display:block;color:#607489;font-size:12px;line-height:1.4}
+.v13-message{margin:8px 0;padding:9px 12px;border-radius:9px;background:#eef6ff;color:#17487f;font-size:13px}
+.v13-code{margin:6px 0;padding:10px 12px;border-radius:9px;background:#f1f5fa;border:1px solid #e0e8f1;font:12px/1.5 'DM Mono',ui-monospace,monospace;white-space:pre-wrap;word-break:break-all;max-height:190px;overflow:auto;user-select:text}
+.v13-activity{list-style:none;margin:6px 0 0;padding:0;font-size:12px}
+.v13-activity li{display:flex;gap:10px;align-items:baseline;padding:4px 0;border-bottom:1px solid #eef2f7}
+.v13-activity li span:first-child{color:#607489;min-width:64px}
+.v13-activity .ok{color:#2c7a4b}.v13-activity .bad{color:#9d3434}
+#v13-export-queue{margin-top:10px}
+@media (max-width:760px){.v13-shapes{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* The settings card lays labels out as a column; these two are rows. */
+#v13-connector label.v13-perm,#v13-connector label.v13-switch{display:flex;max-width:600px;gap:10px}
+#v13-connector .v13-perm span,#v13-connector .v13-switch span{display:block}
+#v13-connector .v10-folder{margin:0 0 8px}
+#v13-connector .v-row{margin-bottom:6px}
+.v10-project-actions{flex-wrap:wrap}
+.v10-project-actions .v-button{white-space:nowrap}

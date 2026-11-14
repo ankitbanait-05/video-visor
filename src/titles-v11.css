@@ -1,0 +1,126 @@
+/* Video Visor 0.11 — fonts and layouts for the new title engine (see engines/titles-v11.js). */
+@font-face{font-family:'Space Grotesk';src:url('fonts/SpaceGrotesk.ttf') format('truetype');font-weight:300 700;font-style:normal;font-display:block}
+@font-face{font-family:'DM Serif Display';src:url('fonts/DMSerifDisplay-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:block}
+@font-face{font-family:'DM Serif Display';src:url('fonts/DMSerifDisplay-Italic.ttf') format('truetype');font-weight:400;font-style:italic;font-display:block}
+@font-face{font-family:'Oswald';src:url('fonts/Oswald.ttf') format('truetype');font-weight:200 700;font-style:normal;font-display:block}
+@font-face{font-family:'DM Mono';src:url('fonts/DMMono-Medium.ttf') format('truetype');font-weight:400 500;font-style:normal;font-display:block}
+@font-face{font-family:'Caveat';src:url('fonts/Caveat.ttf') format('truetype');font-weight:400 700;font-style:normal;font-display:block}
+
+/* ---- the layer and its content box --------------------------------------------------------- */
+#visor-app #vv-editor .v11.v11{display:flex;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none;min-height:0;line-height:1.08;white-space:normal;overflow:visible;isolation:isolate}
+.export-view #visor-app #vv-editor .ed-layer.v11{padding:0!important;border-radius:0!important}
+#visor-app #vv-editor .v11[hidden]{display:none!important}
+#visor-app #vv-editor .v11[data-align=left]{justify-content:flex-start;text-align:left}
+#visor-app #vv-editor .v11[data-align=center]{justify-content:center;text-align:center}
+#visor-app #vv-editor .v11[data-align=right]{justify-content:flex-end;text-align:right}
+.v11-box{position:relative;display:inline-flex;flex-direction:column;max-width:100%;gap:.26em;transform-origin:50% 50%}
+.v11[data-align=left] .v11-box{align-items:flex-start;transform-origin:0 50%}
+.v11[data-align=center] .v11-box{align-items:center}
+.v11[data-align=right] .v11-box{align-items:flex-end;transform-origin:100% 50%}
+.v11-piece{display:block;position:relative}
+.v11-main{letter-spacing:-.018em;white-space:pre-wrap;overflow-wrap:break-word;max-width:100%}
+.v11[data-upper="1"] .v11-main{text-transform:uppercase;letter-spacing:.012em}
+.v11-sub{font:500 .4em/1.35 'DM Sans',sans-serif;letter-spacing:.015em;opacity:.94;white-space:pre-wrap}
+.v11-kicker{font:700 .3em/1.2 'DM Sans',sans-serif;letter-spacing:.22em;text-transform:uppercase;color:var(--v11-accent)}
+.v11-u{display:inline-block;vertical-align:top;max-width:100%}
+.v11-mask{overflow:hidden;padding:.1em .06em .16em;margin:-.1em -.06em -.16em}
+/* A whole line inside a mask: the mask's padding is offset by negative margins, so it must be allowed to be
+   wider than its parent. With max-width:100% the padding ate into the text width and the last word wrapped. */
+.v11-u[style*="block"]{max-width:none}
+.v11-i{display:inline-block;white-space:pre-wrap;transform-origin:50% 60%;backface-visibility:hidden}
+.v11-word{display:inline-block;white-space:nowrap}
+.v11-caret{display:inline-block;width:.07em;height:.95em;margin-left:.06em;vertical-align:-.1em;background:var(--v11-accent)}
+
+/* ---- legibility ---------------------------------------------------------------------------- */
+/* Shadows are applied to the whole title, after its masks have clipped the moving words. A text-shadow
+   on the words themselves would be cut off by those masks and show as boxes on light footage. */
+.v11[data-legibility=soft] .v11-box{filter:drop-shadow(0 .02em .05em rgba(6,16,30,.5)) drop-shadow(0 .08em .32em rgba(6,16,30,.42))}
+.v11[data-legibility=strong] .v11-box{filter:drop-shadow(0 0 .025em rgba(0,0,0,.9)) drop-shadow(0 .03em .09em rgba(0,0,0,.7)) drop-shadow(0 .1em .42em rgba(0,0,0,.55))}
+.v11[data-legibility=outline] .v11-main,.v11[data-legibility=outline] .v11-sub,.v11[data-legibility=outline] .v11-kicker{-webkit-text-stroke:.09em rgba(8,14,24,.92);paint-order:stroke fill}
+.v11[data-legibility=scrim] .v11-box::before{content:'';position:absolute;inset:-45% -22%;z-index:-2;pointer-events:none;background:radial-gradient(closest-side,rgba(5,10,18,.62),rgba(5,10,18,.38) 55%,rgba(5,10,18,0))}
+
+/* ---- layouts ------------------------------------------------------------------------------- */
+.v11[data-layout=rule] .v11-bar{width:2.4em;height:max(2px,.045em);background:var(--v11-accent);margin:.1em 0 .06em;transform-origin:50% 50%}
+.v11[data-layout=rule][data-align=left] .v11-bar{transform-origin:0 50%}
+.v11[data-layout=underbar] .v11-box{gap:.2em}
+.v11[data-layout=underbar] .v11-main{line-height:.98}
+.v11[data-layout=underbar] .v11-bar{align-self:stretch;height:max(3px,.1em);background:var(--v11-accent);transform-origin:0 50%}
+.v11[data-layout=underbar] .v11-sub{letter-spacing:.2em;text-transform:uppercase;font-size:.2em;font-weight:600}
+.v11[data-layout=highlight] .v11-main{position:relative;padding:0 .14em}
+.v11-hl{position:absolute!important;left:0;right:0;top:.5em;bottom:.02em;z-index:-1;background:var(--v11-accent);border-radius:.05em;transform-origin:0 50%}
+.v11[data-layout=bar-left] .v11-box{padding-left:.6em}
+.v11[data-layout=bar-left] .v11-bar{position:absolute;left:0;top:.04em;bottom:.04em;width:max(3px,.13em);background:var(--v11-accent);border-radius:.07em;transform-origin:50% 0}
+.v11[data-layout=topline] .v11-bar{width:1.7em;height:max(2px,.07em);background:var(--v11-accent);margin-bottom:.22em;transform-origin:0 50%}
+.v11[data-layout=topline][data-align=center] .v11-bar{transform-origin:50% 50%}
+.v11[data-layout=plates] .v11-box{gap:0}
+.v11-plate{position:relative;display:block;padding:.2em .5em .24em;isolation:isolate}
+.v11-plate .v11-panel,.v11-plate .v11-panel2{position:absolute;inset:0;z-index:-1;transform-origin:0 50%}
+.v11-plate-a .v11-panel{background:var(--v11-accent)}
+.v11-plate-b{padding:.16em .5em .18em}
+.v11-plate-b .v11-panel2{background:var(--v11-panel)}
+.v11[data-layout=plates] .v11-sub{font-size:.4em;font-weight:600;letter-spacing:.06em;text-transform:uppercase;opacity:1}
+.v11[data-layout=card] .v11-box,.v11[data-layout=pointer] .v11-box{padding:.5em .85em .56em 1em}
+.v11[data-layout=card] .v11-panel,.v11[data-layout=pointer] .v11-panel,.v11[data-layout=band] .v11-panel,.v11[data-layout=pill] .v11-panel,.v11[data-layout=metric-card] .v11-panel{position:absolute;inset:0;z-index:-1;background:var(--v11-panel);border-radius:.3em;transform-origin:0 50%;box-shadow:0 .18em .9em rgba(4,10,20,.28);backdrop-filter:blur(.45em);-webkit-backdrop-filter:blur(.45em)}
+.v11[data-layout=card] .v11-bar{position:absolute;left:0;top:0;bottom:0;width:max(3px,.16em);background:var(--v11-accent);border-radius:.3em 0 0 .3em;transform-origin:50% 0}
+.v11[data-layout=pointer] .v11-box{padding:.42em .75em .46em}
+.v11[data-layout=pointer] .v11-panel{border-radius:.34em}
+.v11[data-layout=band] .v11-box{padding:.6em 1.5em .66em}
+.v11[data-layout=band] .v11-panel{border-radius:.1em;transform-origin:50% 50%}
+.v11[data-layout=band] .v11-kicker{color:inherit;opacity:.8}
+.v11[data-layout=pill] .v11-box{padding:.3em 1em .34em}
+.v11[data-layout=pill] .v11-panel{border-radius:99em;transform-origin:50% 50%}
+.v11[data-layout=chapter] .v11-box,.v11[data-layout=step] .v11-box{flex-direction:row;align-items:center;gap:.5em}
+.v11-col{display:flex;flex-direction:column;gap:.2em;min-width:0}
+.v11[data-layout=chapter] .v11-num{font:700 2.3em/.86 'Oswald',sans-serif;color:var(--v11-accent);letter-spacing:-.01em}
+.v11[data-layout=chapter] .v11-bar{align-self:stretch;width:max(2px,.05em);background:currentColor;opacity:.55;transform-origin:50% 50%}
+.v11-badge{display:grid!important;place-items:center;flex:none;width:1.9em;height:1.9em;border-radius:50%;background:var(--v11-accent);color:#fff;font:700 1em/1 'DM Sans',sans-serif;text-shadow:none;box-shadow:0 .12em .6em rgba(4,10,20,.3)}
+.v11[data-layout=quote] .v11-mark{font:400 3em/.62 'DM Serif Display',serif;height:.5em;color:var(--v11-accent);text-shadow:none}
+.v11[data-layout=quote] .v11-bar{width:1.6em;height:max(2px,.04em);background:var(--v11-accent);margin-top:.14em;transform-origin:50% 50%}
+.v11[data-layout=quote] .v11-main{line-height:1.14}
+.v11[data-layout=metric] .v11-main,.v11[data-layout=metric-card] .v11-main{color:var(--v11-accent);line-height:.95;font-variant-numeric:tabular-nums}
+.v11[data-layout=metric] .v11-sub,.v11[data-layout=metric-card] .v11-sub{font-size:.2em;font-weight:700;letter-spacing:.2em;text-transform:uppercase}
+.v11[data-layout=metric-card] .v11-box{padding:.34em .8em .4em}
+.v11[data-layout=metric-card] .v11-panel{border-radius:.16em}
+.v11[data-layout=rule] .v11-main{font-variant-numeric:tabular-nums}
+.v11[data-layout=arrow] .v11-main{line-height:1}
+/* shapes fill the layer; the outline is drawn as it appears */
+.v11[data-layout^=shape] .v11-box{display:block;width:100%;height:100%}
+.v11-frame{position:absolute;inset:0;width:100%;height:100%;overflow:visible;fill:none;stroke:var(--v11-accent);stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;filter:drop-shadow(0 1px 3px rgba(0,0,0,.45))}
+#visor-app #vv-editor .v11[data-layout=shape-spot]{border-radius:2cqw!important;box-shadow:0 0 0 250cqw rgba(0,0,0,var(--v11-dim,.6))}
+.export-view #visor-app #vv-editor .ed-layer.v11[data-layout=shape-spot]{border-radius:2cqw!important}
+/* pointer line, dot and hand-drawn arrow are drawn across the whole frame */
+.v11-geo{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;fill:none;stroke:var(--v11-accent);stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5))}
+.v11-geo .v11-geo-line{stroke-dasharray:1}
+.v11-geo .v11-geo-dot{fill:var(--v11-accent);stroke:#fff}
+.v11-anchor{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:#fff;border:3px solid #1f7ae0;box-shadow:0 1px 6px #0008;cursor:move;z-index:30;touch-action:none}
+.export-view .v11-anchor,.export-view .v11-safe{display:none!important}
+/* icons */
+#visor-app #vv-editor .v11[data-layout=icon]{width:auto!important;justify-content:center}
+.v11-icon{display:grid;place-items:center;width:2.3em;height:2.3em;border-radius:50%;color:inherit}
+.v11-icon[data-style=badge]{background:var(--v11-accent);box-shadow:0 .14em .7em rgba(4,10,20,.32)}
+.v11-icon[data-style=square]{background:var(--v11-accent);border-radius:.5em;box-shadow:0 .14em .7em rgba(4,10,20,.32)}
+.v11-icon[data-style=ring]{box-shadow:inset 0 0 0 max(2px,.1em) var(--v11-accent)}
+.v11-icon[data-style=plain]{filter:drop-shadow(0 .04em .16em rgba(4,10,20,.6))}
+#visor-app #vv-editor .v11-icon svg{width:1.25em;height:1.25em;stroke-width:1.9;overflow:visible}
+.v11-icon[data-style=plain] svg{width:1.9em!important;height:1.9em!important}
+/* safe-area guides */
+.v11-safe{position:absolute;inset:0;z-index:25;pointer-events:none}
+.v11-safe::before,.v11-safe::after{content:'';position:absolute;border:1px dashed #ffffff99}
+.v11-safe::before{inset:5%}
+.v11-safe::after{inset:10%;border-color:#ffc233aa}
+
+/* ---- library tiles ------------------------------------------------------------------------- */
+#visor-app #vv-editor .v11-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#visor-app #vv-editor .v11-tile{display:flex;flex-direction:column;gap:0;padding:0;overflow:hidden;min-width:0;text-align:center;cursor:pointer}
+#visor-app #vv-editor .v11-tile>small{padding:6px 4px;font-size:12px}
+#visor-app #vv-editor .v11-thumb{position:relative;width:100%;aspect-ratio:16/9;container-type:inline-size;overflow:hidden;background:radial-gradient(120% 90% at 85% 10%,#3c6aa0,transparent 60%),linear-gradient(140deg,#16263d,#27456c);pointer-events:none}
+#visor-app #vv-editor .v11-thumb .v11{position:absolute;transform:translate(-50%,-50%);color:#fff}
+#visor-app #vv-editor .v11-icon-tile{display:grid;place-items:center;aspect-ratio:1;padding:0;color:#2a5ea8;min-width:0}
+#visor-app #vv-editor .v11-icon-tile svg{width:22px;height:22px}
+#visor-app #vv-editor .v11-icon-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+#visor-app #vv-editor .v11-search{width:100%;margin:0 0 10px;box-sizing:border-box}
+#visor-app #vv-editor .v11-row{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
+#visor-app #vv-editor .v11-row button{flex:1;min-width:0}
+#visor-app #vv-editor .v11-row button[aria-pressed=true]{background:#e6f1ff;border-color:#9cc6f5;color:#135fb3}
+/* The editor sizes every icon SVG to a fixed width; these drawings must fill their box instead. */
+#visor-app #vv-editor svg.v11-frame,#visor-app #vv-editor svg.v11-geo{width:100%!important;height:100%!important;max-width:none}

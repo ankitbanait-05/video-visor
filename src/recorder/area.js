@@ -1,0 +1,9 @@
+(()=>{const box=document.querySelector('#selection'),use=document.querySelector('#use');let rect=null,drag=null;
+const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+function paint(){box.hidden=!rect;if(!rect)return;box.style.left=rect.x+'px';box.style.top=rect.y+'px';box.style.width=rect.width+'px';box.style.height=rect.height+'px';document.querySelector('#dimensions').textContent=Math.round(rect.width)+' × '+Math.round(rect.height);use.disabled=rect.width<64||rect.height<64;}
+document.onpointerdown=e=>{if(e.target.closest('#actions'))return;const handle=e.target.dataset.handle;drag={x:e.clientX,y:e.clientY,initial:rect?{...rect}:null,kind:e.target.closest('#selection')?'move':'new',handle};if(handle)drag.kind='resize';if(drag.kind==='new')rect={x:e.clientX,y:e.clientY,width:0,height:0};document.body.setPointerCapture(e.pointerId);paint();};
+document.onpointermove=e=>{if(!drag)return;const x=clamp(e.clientX,0,innerWidth),y=clamp(e.clientY,0,innerHeight),dx=x-drag.x,dy=y-drag.y,a=drag.initial;
+if(drag.kind==='new')rect={x:Math.min(x,drag.x),y:Math.min(y,drag.y),width:Math.abs(x-drag.x),height:Math.abs(y-drag.y)};
+else if(drag.kind==='move')rect={...a,x:clamp(a.x+dx,0,innerWidth-a.width),y:clamp(a.y+dy,0,innerHeight-a.height)};
+else{const left=drag.handle.includes('w')?clamp(a.x+dx,0,a.x+a.width-16):a.x,top=drag.handle.includes('n')?clamp(a.y+dy,0,a.y+a.height-16):a.y,right=drag.handle.includes('e')?clamp(a.x+a.width+dx,a.x+16,innerWidth):a.x+a.width,bottom=drag.handle.includes('s')?clamp(a.y+a.height+dy,a.y+16,innerHeight):a.y+a.height;rect={x:left,y:top,width:right-left,height:bottom-top};}paint();};
+document.onpointerup=()=>{drag=null;};document.onkeydown=e=>{if(e.key==='Escape')capture['cancel-area']();if(e.key==='Enter'&&!use.disabled)capture['select-area'](rect);};use.onclick=()=>capture['select-area'](rect);document.querySelector('#cancel').onclick=()=>capture['cancel-area']();})();

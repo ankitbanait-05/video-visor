@@ -1,0 +1,41 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self' visor://media blob:; img-src 'self' visor://media data: blob:; connect-src 'self'; frame-src 'self' visor://media; font-src 'self'"><link rel="stylesheet" href="style.css?v=0.14.0"><title>Video Visor</title><link rel="stylesheet" href="editor-v8.css"><link rel="stylesheet" href="editor-v9.css"><link rel="stylesheet" href="editor-v10.css"><link rel="stylesheet" href="titles-v11.css"><link rel="stylesheet" href="explainer-v12.css"><link rel="stylesheet" href="connector-v13.css"><link rel="stylesheet" href="ai-v14.css"></head><body>
+<div id="visor-app" aria-label="Video Visor desktop workspace">
+<header class="v-top"><div class="v-brand"><span class="v-logo"><i data-lucide="layers-2" aria-hidden="true"></i></span>Video Visor <span class="v-pill">Desktop · 0.14.0</span></div><button class="v-button quiet flow-collapse" data-flow="collapse-nav" aria-label="Collapse navigation"><i data-lucide="panel-left-close" aria-hidden="true"></i></button><label class="v-search"><i data-lucide="search" aria-hidden="true"></i><input id="v-search" type="search" placeholder="Find a tool…" aria-label="Find a tool"></label></header>
+<div class="v-layout"><nav class="v-nav" aria-label="Main navigation">
+<button class="v-button active" data-route="home" aria-label="Home"><i data-lucide="house" aria-hidden="true"></i><span class="navword">Home</span></button>
+<button class="v-button" data-route="projects" aria-label="Projects"><i data-lucide="folder-open" aria-hidden="true"></i><span class="navword">Projects</span></button>
+<small>CREATE</small>
+<button class="v-button" data-route="editor" aria-label="Video editor"><i data-lucide="clapperboard" aria-hidden="true"></i><span class="navword">Video editor</span></button>
+<button class="v-button" data-route="record" aria-label="Screen recorder"><i data-lucide="screen-share" aria-hidden="true"></i><span class="navword">Screen recorder</span></button>
+<small>EVERYDAY TOOLS</small>
+<button class="v-button" data-route="video" aria-label="Video tools"><i data-lucide="film" aria-hidden="true"></i><span class="navword">Video tools</span></button>
+<button class="v-button" data-route="image" aria-label="Image tools"><i data-lucide="image" aria-hidden="true"></i><span class="navword">Image tools</span></button>
+<button class="v-button" data-route="audio" aria-label="Audio tools"><i data-lucide="audio-lines" aria-hidden="true"></i><span class="navword">Audio tools</span></button>
+<button class="v-button" data-route="pdf" aria-label="PDF tools"><i data-lucide="files" aria-hidden="true"></i><span class="navword">PDF tools</span></button>
+<button class="v-button" data-route="settings" aria-label="Settings"><i data-lucide="settings-2" aria-hidden="true"></i><span class="navword">Settings</span></button>
+<div class="v-nav-end"><div class="v-notes"><strong>One place.<br>A little less effort.</strong><p class="v-small v-muted" style="margin:8px 0 0">Everyday tools, on your device.</p></div></div>
+</nav><div style="min-width:0"><main id="v-content" class="v-page"></main><section id="v-editor-screen" hidden>
+<div class="v-editor-extras" hidden></div><div id="flow-reviewbar" class="flow-reviewbar" hidden></div>
+
+<div id="vv-editor" aria-label="Video Visor editor">
+<div class="ed-header"><div><div class="projecttitle">Product walkthrough</div><span class="ed-small" id="ed-save-state">Import footage to get started</span></div><div class="ed-row"><button id="ed-undo" aria-label="Undo" disabled><i data-lucide="undo-2"></i></button><button id="ed-redo" aria-label="Redo" disabled><i data-lucide="redo-2"></i></button><button data-action="magic"><i data-lucide="wand-sparkles"></i>Magic Edit</button><button id="ed-export" class="primary">Export<i data-lucide="arrow-up-right"></i></button></div></div>
+<nav class="ed-tabs" aria-label="Editing tools"><button data-panel="media">Media</button><button data-panel="clip">Edit</button><button data-panel="captions">Captions</button><button data-panel="elements">Elements</button><button data-panel="zoom">Focus</button><button data-panel="audio">Audio</button><button data-panel="style">Style</button></nav>
+<div class="ed-layout"><div class="ed-main"><div id="ed-canvas" class="ed-canvas"><div id="ed-screen" class="ed-screen"><div class="ed-screenbar">● ● ●　 / launch-plan</div><div class="ed-board"><h3 id="ed-scene-title">Spring launch</h3><div class="ed-columns"><div class="ed-column">To do<div class="ed-task">Launch notes</div><div class="ed-task">Help centre</div></div><div class="ed-column">In progress<div class="ed-task">Product walkthrough</div><div class="ed-task">Review landing page</div></div><div class="ed-column">Ready<div class="ed-task">Brand assets</div></div></div></div><span class="ed-cursor" id="ed-cursor"><i data-lucide="mouse-pointer-2"></i></span></div><span id="ed-frame-label" class="ed-frame-label">Sample media</span><div id="ed-layers"></div><div id="ed-captions" class="ed-captions" hidden><span></span></div><div id="ed-camera" class="ed-camera" hidden>Camera demo</div><div class="ed-transition" id="ed-fade"></div><div class="ed-guide-x" hidden></div><div class="ed-guide-y" hidden></div></div><div class="ed-transport"><button id="ed-play" aria-label="Play sample"><i data-lucide="play"></i></button><input type="range" id="ed-scrub" min="0" max="32" step=".1" value="5" aria-label="Video playhead"><span id="ed-time" class="ed-small">00:05 / 00:32</span><button id="ed-frame" aria-label="Save frame as image"><i data-lucide="image"></i></button></div>
+<section class="ed-timeline" aria-label="Timeline"><div class="ed-row ed-timeline-top"><strong>Timeline <span id="ed-duration" class="ed-small"></span></strong><div class="ed-row"><button id="ed-split">Split here</button><button id="ed-delete">Remove clip</button><button id="ed-transcript">Transcript</button></div></div><div class="ed-ruler" id="ed-ruler"></div><div id="ed-clips" class="ed-clips"></div><div id="ed-element-track" class="ed-track"></div><div id="ed-audio-track" class="ed-track"></div></section><div class="ed-note" id="ed-status" role="status" aria-live="polite">Drag clip edges to trim. Drag clips to reorder. Originals stay unchanged.</div></div><aside id="ed-panel" class="ed-panel" aria-label="Editing controls"></aside></div>
+</div>
+
+
+</section></div></div><footer class="v-footer" id="v-status" role="status" aria-live="polite">Local workspace · originals stay unchanged</footer>
+<div class="v-overlay" id="v-overlay" hidden><section class="v-dialog" role="dialog" aria-modal="true" aria-labelledby="v-dialog-title"><div class="v-row v-between"><h2 id="v-dialog-title"></h2><button class="v-button quiet" id="v-dialog-close" aria-label="Close dialog">×</button></div><div id="v-dialog-body"></div></section></div>
+</div>
+
+
+
+
+
+
+
+
+
+
+<script src="vendor/lucide.js"></script><script src="bootstrap.js?v=0.14.0"></script></body></html>
