@@ -1,0 +1,174 @@
+/* 0.15 (Phase 22): one design layer, loaded last.
+   Tokens (spacing, radii, heights, type, depth, motion) and the components built from them: buttons, fields,
+   sliders, panels, menus and messages. Colours come from the theme tokens (--v-*), so light and dark both follow.
+   Refines the current look; it does not change layouts or behaviour. */
+
+#visor-app {
+  --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px;
+  --h-sm: 28px; --h-md: 32px; --h-lg: 38px; --h-xl: 42px;
+  --fs-xs: 12px; --fs-sm: 13px; --fs-md: 14px; --fs-lg: 16px; --fs-xl: 18px; --fs-2xl: 26px;
+  --accent: var(--v-purple, #1f7ae0);
+  /* primary buttons keep the brand blue in both themes (white text stays readable on it) */
+  --primary: #1f7ae0; --primary-hover: #1868c2;
+  --accent-hover: color-mix(in srgb, var(--accent) 88%, #000);
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  --hover: color-mix(in srgb, var(--v-ink) 6%, transparent);
+  --press: color-mix(in srgb, var(--v-ink) 10%, transparent);
+  --line: var(--v-border);
+  --shadow-1: 0 1px 2px rgb(16 24 40 / 6%), 0 1px 1px rgb(16 24 40 / 4%);
+  --shadow-2: 0 10px 28px rgb(16 24 40 / 14%), 0 2px 6px rgb(16 24 40 / 8%);
+  --focus: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+  --ease: cubic-bezier(.2, .7, .2, 1); --t-fast: 120ms; --t: 160ms;
+}
+#visor-app[data-theme=dark] {
+  --hover: rgb(255 255 255 / 6%); --press: rgb(255 255 255 / 10%);
+  --shadow-1: 0 0 0 1px rgb(255 255 255 / 4%); --shadow-2: 0 12px 32px rgb(0 0 0 / 45%), 0 0 0 1px rgb(255 255 255 / 6%);
+}
+
+/* ---------- Type ---------- */
+#visor-app { font-size: var(--fs-sm); -webkit-font-smoothing: antialiased; }
+#visor-app .v-headline h1, #visor-app .v15-tool-head h1, #visor-app .v-pagehead h2 { font-size: var(--fs-2xl); font-weight: 600; letter-spacing: -.015em; line-height: 1.2; }
+#visor-app .v-headline p.v-muted { font-size: var(--fs-md); }
+#visor-app .v-sectionhead h2, #visor-app .v10-setting h2 { font-size: var(--fs-xl); font-weight: 600; letter-spacing: -.01em; }
+#visor-app #vv-editor #ed-panel h3, #visor-app #vv-editor #ed-panel .v15-head h3 { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -.01em; }
+#visor-app .v-small, #visor-app small, #visor-app #vv-editor .v15-hint { font-size: var(--fs-xs); }
+#visor-app .v-muted, #visor-app #vv-editor .v15-hint { color: var(--v-sub); }
+#visor-app input, #visor-app select, #visor-app textarea, #visor-app button { font-family: inherit; }
+
+/* ---------- Buttons ---------- */
+/* Every button: same type, radius and motion; a visible focus ring; a slight press. */
+#visor-app button, #visor-app .v-button {
+  font-size: var(--fs-sm); font-weight: 500; letter-spacing: 0;
+  transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease), transform var(--t-fast) var(--ease), opacity var(--t-fast) var(--ease);
+}
+#visor-app button:focus-visible, #visor-app .v-button:focus-visible, #visor-app select:focus-visible, #visor-app input:focus-visible, #visor-app textarea:focus-visible { outline: none; box-shadow: var(--focus); }
+#visor-app button:not(:disabled):active { transform: translateY(.5px) scale(.985); }
+#visor-app button:disabled { cursor: default; }
+
+/* Secondary (the default button): panel surface, hairline border. */
+#visor-app .v-button,
+#visor-app #vv-editor .ed-header button:not(#ed-export),
+#visor-app #vv-editor .ed-timeline-top button,
+#visor-app #vv-editor #ed-panel button.ed-wide,
+#visor-app #vv-editor #ed-panel .ed-row > button,
+#visor-app #vv-editor #ed-panel .v15-speed-row button,
+#visor-app #vv-editor .v10-transport button:not(#ed-play) {
+  border-radius: var(--r-md); border: 1px solid var(--line); background-color: var(--v-panel); color: var(--v-ink); box-shadow: var(--shadow-1);
+}
+#visor-app .v-button:not(:disabled):hover,
+#visor-app #vv-editor .ed-header button:not(#ed-export):not(:disabled):hover,
+#visor-app #vv-editor .ed-timeline-top button:not(:disabled):hover,
+#visor-app #vv-editor #ed-panel button.ed-wide:not(.primary):not(:disabled):hover,
+#visor-app #vv-editor #ed-panel .ed-row > button:not(:disabled):hover,
+#visor-app #vv-editor #ed-panel .v15-speed-row button:not(:disabled):hover,
+#visor-app #vv-editor .v10-transport button:not(#ed-play):not(:disabled):hover { background-color: color-mix(in srgb, var(--v-panel) 92%, var(--v-ink)); border-color: color-mix(in srgb, var(--line) 70%, var(--v-ink)); }
+#visor-app .v-button:disabled, #visor-app #vv-editor .ed-header button:disabled, #visor-app #vv-editor .ed-timeline-top button:disabled { opacity: .45; box-shadow: none; }
+
+/* Quiet: no border until hovered (navigation, view controls, menus). */
+#visor-app .v-button.quiet,
+#visor-app #vv-editor .v10-transport .v10-transport-right button:not(#ed-play) {
+  border-color: transparent; background-color: transparent; box-shadow: none;
+}
+#visor-app .v-button.quiet:not(:disabled):hover,
+#visor-app #vv-editor .v10-transport .v10-transport-right button:not(#ed-play):not(:disabled):hover { background-color: var(--hover); border-color: transparent; }
+
+/* Primary: one per screen (Export, New video, the tool's action, Add files). */
+#visor-app .v-button.primary,
+#visor-app #vv-editor #ed-export,
+#visor-app #vv-editor #ed-panel button.ed-wide.primary,
+#visor-app #vv-editor #ed-panel .v5-media + * .primary {
+  border: 1px solid var(--primary); background: var(--primary); color: #fff; font-weight: 600;
+  box-shadow: 0 1px 2px rgb(16 24 40 / 12%), inset 0 1px 0 rgb(255 255 255 / 14%);
+}
+#visor-app .v-button.primary:not(:disabled):hover,
+#visor-app #vv-editor #ed-export:not(:disabled):hover,
+#visor-app #vv-editor #ed-panel button.ed-wide.primary:not(:disabled):hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+
+/* Heights: toolbars 32, panel actions 34, page actions 38, the tool's main action 42. */
+#visor-app #vv-editor .ed-header button, #visor-app #vv-editor .ed-timeline-top button, #visor-app #vv-editor .v10-transport button:not(#ed-play) { min-height: var(--h-md); }
+#visor-app #vv-editor #ed-panel button.ed-wide { min-height: 34px; }
+#visor-app .v-button { min-height: var(--h-lg); }
+#visor-app .v15-tool-go .v-button { min-height: var(--h-xl); border-radius: var(--r-lg); }
+
+/* Play: the one round control. */
+#visor-app #vv-editor #ed-play { width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--primary); color: #fff; box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 40%, transparent); }
+#visor-app #vv-editor #ed-play:hover { background: var(--primary-hover); }
+
+/* Editor tabs: a quiet row; the open tab is a soft pill. */
+#visor-app #vv-editor .ed-tabs button { border-radius: var(--r-md); font-weight: 500; color: var(--v-sub); border: 0; background: transparent; box-shadow: none; }
+#visor-app #vv-editor .ed-tabs button:hover { color: var(--v-ink); background: var(--hover); }
+#visor-app #vv-editor .ed-tabs button.active { color: var(--accent); background: var(--accent-soft); box-shadow: none; outline: none; }
+
+/* ---------- Fields ---------- */
+#visor-app .v-input, #visor-app .v-select, #visor-app #vv-editor #ed-panel select, #visor-app #vv-editor #ed-panel input[type=number], #visor-app #vv-editor #ed-panel input[type=text], #visor-app #vv-editor #ed-panel textarea {
+  border: 1px solid var(--line); border-radius: var(--r-md); background-color: var(--v-panel); color: var(--v-ink);
+  transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+}
+#visor-app .v-input:hover, #visor-app .v-select:hover, #visor-app #vv-editor #ed-panel select:hover, #visor-app #vv-editor #ed-panel input[type=number]:hover { border-color: color-mix(in srgb, var(--line) 60%, var(--v-ink)); }
+#visor-app .v-input:focus, #visor-app .v-select:focus, #visor-app #vv-editor #ed-panel select:focus, #visor-app #vv-editor #ed-panel input[type=number]:focus, #visor-app #vv-editor #ed-panel input[type=text]:focus, #visor-app #vv-editor #ed-panel textarea:focus { border-color: var(--accent); box-shadow: var(--focus); outline: none; }
+#visor-app #vv-editor #ed-panel input[type=number] { font-variant-numeric: tabular-nums; text-align: right; height: 28px; padding: 0 8px; }
+
+/* ---------- Sliders ---------- */
+/* A thin track filled up to the value (--p, set by editor-v16.js) and a round thumb. */
+#visor-app input[type=range] { -webkit-appearance: none; appearance: none; height: 20px; background: transparent; cursor: pointer; --p: 50%; }
+#visor-app input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 999px; background: linear-gradient(to right, var(--accent) 0 var(--p), color-mix(in srgb, var(--v-ink) 14%, transparent) var(--p) 100%); }
+#visor-app input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; margin-top: -6px; border-radius: 50%; background: #fff; border: 0; box-shadow: 0 0 0 1px rgb(16 24 40 / 18%), 0 1px 3px rgb(16 24 40 / 25%); transition: transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease); }
+#visor-app input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.08); }
+#visor-app input[type=range]:active::-webkit-slider-thumb { transform: scale(1.15); box-shadow: 0 0 0 1px rgb(16 24 40 / 18%), 0 0 0 5px var(--accent-soft); }
+#visor-app input[type=range]:focus-visible { box-shadow: none; }
+#visor-app input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: var(--focus); }
+#visor-app input[type=range]:disabled { opacity: .45; cursor: default; }
+
+/* ---------- Panels ---------- */
+#visor-app #vv-editor #ed-panel { --pad: 16px; }
+#visor-app #vv-editor #ed-panel > h3 { margin: 2px 0 12px; }
+#visor-app #vv-editor #ed-panel label { font-size: var(--fs-sm); color: var(--v-ink); }
+#visor-app #vv-editor #ed-panel label output { color: var(--v-sub); font-variant-numeric: tabular-nums; }
+/* Sections: a header row with a chevron that turns; content keeps a steady rhythm. */
+#visor-app #vv-editor #ed-panel details.v15-section, #visor-app #vv-editor #ed-panel details.v22-section { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--v-panel); padding: 0 12px; margin: 0 0 10px; box-shadow: var(--shadow-1); }
+#visor-app #vv-editor #ed-panel details.v15-section > summary, #visor-app #vv-editor #ed-panel details.v22-section > summary { list-style: none; display: flex; align-items: center; gap: 8px; height: 40px; margin: 0 -12px; padding: 0 12px; font-size: var(--fs-sm); font-weight: 600; cursor: pointer; border-radius: var(--r-lg); }
+#visor-app #vv-editor #ed-panel details > summary::-webkit-details-marker { display: none; }
+#visor-app #vv-editor #ed-panel details.v15-section > summary::after, #visor-app #vv-editor #ed-panel details.v22-section > summary::after { content: ''; margin-left: auto; width: 7px; height: 7px; border-right: 1.5px solid var(--v-sub); border-bottom: 1.5px solid var(--v-sub); transform: rotate(45deg) translate(-2px, -2px); transition: transform var(--t) var(--ease); }
+#visor-app #vv-editor #ed-panel details[open].v15-section > summary::after, #visor-app #vv-editor #ed-panel details[open].v22-section > summary::after { transform: rotate(225deg) translate(-2px, -2px); }
+#visor-app #vv-editor #ed-panel details.v15-section > summary:hover, #visor-app #vv-editor #ed-panel details.v22-section > summary:hover { background: var(--hover); }
+#visor-app #vv-editor #ed-panel details[open].v15-section, #visor-app #vv-editor #ed-panel details[open].v22-section { padding-bottom: 12px; }
+#visor-app #vv-editor #ed-panel details .v22-section-icon { width: 15px; height: 15px; color: var(--v-sub); }
+#visor-app #vv-editor #ed-panel .v15-subhead { font-size: var(--fs-xs); font-weight: 600; color: var(--v-sub); text-transform: none; letter-spacing: 0; margin: 12px 0 6px; }
+#visor-app #vv-editor #ed-panel .v15-speed-row { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 0; border-top: 1px solid var(--line); }
+#visor-app #vv-editor #ed-panel .v15-speed-row:first-child { border-top: 0; }
+#visor-app #vv-editor #ed-panel .v15-speed-row span { flex: 1; color: var(--v-sub); }
+#visor-app #vv-editor #ed-panel .v15-speed-row strong { font-weight: 500; }
+/* Cards and tiles in panels: same radius, hairline, gentle hover. */
+#visor-app #vv-editor #ed-panel .v5-media, #visor-app .v15-file, #visor-app .v-card { border-radius: var(--r-lg); }
+#visor-app .v-card, #visor-app .v10-project .v-card, #visor-app .v15-file { transition: box-shadow var(--t) var(--ease), transform var(--t) var(--ease), border-color var(--t) var(--ease); }
+#visor-app button.v-card:not(:disabled):hover, #visor-app .v10-project .v-card:hover { box-shadow: var(--shadow-2); transform: translateY(-1px); }
+
+/* ---------- Menus ---------- */
+#visor-app .v16-menu, #visor-app .v20-menu, #visor-app .v17-ease, #visor-app #vv-editor .v21-add-menu { border-radius: var(--r-lg); box-shadow: var(--shadow-2); animation: v22-pop var(--t) var(--ease); }
+@keyframes v22-pop { from { opacity: 0; transform: translateY(-3px) scale(.98); } }
+
+/* ---------- Loading placeholders ---------- */
+#visor-app .v15-thumb:not(.has-thumb), #visor-app #vv-editor .v5-media .v5-poster:empty { background: linear-gradient(100deg, var(--v-soft) 30%, color-mix(in srgb, var(--v-soft) 60%, var(--v-panel)) 50%, var(--v-soft) 70%) 0 0 / 300% 100%; animation: v22-shimmer 1.4s linear infinite; }
+@keyframes v22-shimmer { to { background-position: -150% 0; } }
+
+/* ---------- Messages ---------- */
+#v15-toast { display: flex; align-items: center; gap: 12px; font: 500 13px/1.3 Graphik, -apple-system, system-ui, sans-serif !important; box-shadow: 0 10px 28px rgb(0 0 0 / 25%) !important; }
+#v15-toast .v22-undo { pointer-events: auto; border: 0; background: rgb(255 255 255 / 14%); color: #fff; font: 600 12.5px Graphik, -apple-system, system-ui, sans-serif; padding: 4px 10px; border-radius: 999px; cursor: pointer; }
+#v15-toast .v22-undo:hover { background: rgb(255 255 255 / 24%); }
+#v15-toast.show { pointer-events: auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  #visor-app *, #visor-app *::after, #v15-toast { transition-duration: 1ms !important; animation-duration: 1ms !important; }
+}
+
+/* Keyframe arrows take no room until a property is animated (the diamond sits right beside its label). */
+#visor-app #vv-editor label:not(.v17-animated) .v17-keys .v17-prev, #visor-app #vv-editor label:not(.v17-animated) .v17-keys .v17-next { display: none; }
+/* Navigation links stay quiet; the current page is a soft pill. */
+#visor-app .v-nav .v-button, #visor-app .v-nav button { border-color: transparent; background-color: transparent; box-shadow: none; min-height: 0; color: var(--v-sub); }
+#visor-app .v-nav .v-button:not(:disabled):hover, #visor-app .v-nav button:not(:disabled):hover { background-color: var(--hover); border-color: transparent; color: var(--v-ink); }
+#visor-app .v-nav .v-button.active, #visor-app .v-nav button.active, #visor-app .v-nav [aria-current=page] { background-color: var(--accent-soft); color: var(--accent); border-color: transparent; }
+/* The system's radius and type size win over older per-button rules (several targeted buttons by id). */
+#visor-app .v-button, #visor-app #vv-editor .ed-header button, #visor-app #vv-editor .ed-timeline-top button, #visor-app #vv-editor #ed-panel button.ed-wide,
+#visor-app #vv-editor .v10-transport button:not(#ed-play), #visor-app .v20-more-toggle, #visor-app #vv-editor .v21-add > button { border-radius: var(--r-md) !important; font-size: var(--fs-sm) !important; }
+#visor-app #vv-editor .ed-tabs button { font-size: var(--fs-sm) !important; }
+#visor-app #vv-editor #v8-timeline-view #v8-show-tracks, #visor-app #vv-editor #v8-timeline-view .v16-icon { font-size: var(--fs-sm) !important; border-radius: var(--r-md) !important; }

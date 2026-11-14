@@ -323,10 +323,10 @@ Object.assign(checks, {
     back.click(); await wait(250); info.afterBack = E().get().panel;
     return { pass: info.panel === 'element' && info.tab === 'effects' && info.back === 'Back to Effects' && info.heading === 'Solid cover' && info.afterBack === 'effects', detail: info };
   },
-  async 'the clip panel has Video and Audio sections with number boxes'() {
+  async 'the clip panel has its sections (Phase 22) with number boxes'() {
     await freshEditor(); await selectClip();
     const sections = $$('#ed-panel .v15-section > summary').map(s => s.textContent), ranges = $$('#ed-panel input[type=range]').length, boxes = $$('#ed-panel input.v15-num').length;
-    return { pass: JSON.stringify(sections) === '["Video","Audio"]' && ranges > 8 && ranges === boxes, detail: { sections, ranges, boxes } };
+    return { pass: JSON.stringify(sections) === '["Transform","Crop","Fades","Speed & colour","Animation","Audio"]' && ranges > 8 && ranges === boxes, detail: { sections, ranges, boxes } };
   },
   async 'a fade in darkens the start of the clip'() {
     await freshEditor(); await selectClip(); await setNum('Fade in', 2);
@@ -499,7 +499,7 @@ Object.assign(checks, {
     return { pass: dark.app === 'dark' && dark.timeline < .3 && dark.panel < .3 && light.app === 'light' && light.timeline > .8 && light.panel > .8, detail: { dark, light } };
   },
   async 'the primary button keeps its colour in dark'() {
-    await setTheme('dark'); await freshEditor(); const b = $$('#vv-editor button').find(x => /^Export/.test(x.textContent.trim())), bg = getComputedStyle(b).backgroundImage;
+    await setTheme('dark'); await freshEditor(); const b = $$('#vv-editor button').find(x => /^Export/.test(x.textContent.trim())), c = getComputedStyle(b), bg = c.backgroundImage === 'none' ? c.backgroundColor : c.backgroundImage; // Phase 22: a solid primary
     await setTheme('system');
     return { pass: /rgb\(31, 122, 224\)/.test(bg), detail: bg.slice(0, 60) };
   },
@@ -1092,6 +1092,46 @@ Object.assign(checks, {
     const row = $$('#vt-tracks .vt-row').find(r => /^video-\d/.test(r.dataset.trackId || '')), lane = row.querySelector('.vt-lane'), dt = new DataTransfer(); dt.setData('application/x-video-visor-media', 'missing-id');
     const rr = lane.getBoundingClientRect(); lane.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: rr.left + 40, clientY: rr.top + 5 })); await wait(200);
     return { pass: /no longer in this project/.test($('#ed-status').textContent), detail: $('#ed-status').textContent };
+  },
+});
+
+// Phase 22: the design layer (src/design-v22.css).
+const look = b => { const c = getComputedStyle(b); return [Math.round(b.getBoundingClientRect().height), c.borderRadius, c.fontSize, c.fontWeight].join(' '); };
+Object.assign(checks, {
+  async 'buttons follow one system: radius, type and a few heights'() {
+    await freshEditor(); const seen = new Set(), radii = new Set(), sizes = new Set();
+    for (const sel of ['.ed-header button', '.ed-timeline-top button', '#ed-panel .ed-wide', '.v10-transport button:not(#ed-play)']) for (const b of $$('#vv-editor ' + sel)) { if (!b.offsetParent) continue; seen.add(look(b)); radii.add(getComputedStyle(b).borderRadius); sizes.add(getComputedStyle(b).fontSize); }
+    $('.v-nav [data-route=settings]').click(); await wait(300); for (const b of $$('#v-content .v-button')) if (b.offsetParent) { radii.add(getComputedStyle(b).borderRadius); sizes.add(getComputedStyle(b).fontSize); }
+    return { pass: radii.size === 1 && radii.has('8px') && sizes.size === 1 && sizes.has('13px'), detail: { radii: [...radii], sizes: [...sizes], kinds: seen.size } };
+  },
+  async 'one primary button per screen: Export in the editor'() {
+    await freshEditor(); const accent = getComputedStyle($('#ed-export')).backgroundColor;
+    const primaries = $$('#vv-editor button').filter(b => b.offsetParent && getComputedStyle(b).backgroundColor === accent && b.id !== 'ed-play' && !b.closest('#ed-panel'));
+    return { pass: primaries.length === 1, detail: primaries.map(b => b.textContent.trim() || b.id) };
+  },
+  async 'sliders show how far they are filled'() {
+    await freshEditor(); E().open('clip'); await wait(300); const r = $('#v15-opacity');
+    const p = r.style.getPropertyValue('--p'); r.value = 50; r.dispatchEvent(new Event('input', { bubbles: true })); const half = r.style.getPropertyValue('--p');
+    return { pass: p === '100%' && half === '50%', detail: { full: p, half } };
+  },
+  async 'clip sections remember whether they are open'() {
+    await freshEditor(); E().open('clip'); await wait(300);
+    const crop = $('#ed-panel details[data-sec=crop]'); crop.open = true; crop.dispatchEvent(new Event('toggle')); await wait(50);
+    const tr = $('#ed-panel details[data-sec=transform]'); tr.open = false; tr.dispatchEvent(new Event('toggle')); await wait(50);
+    E().open('media'); await wait(150); E().open('clip'); await wait(300); // the panel is drawn again from scratch
+    const after = { crop: $('#ed-panel details[data-sec=crop]').open, transform: $('#ed-panel details[data-sec=transform]').open };
+    $('#ed-panel details[data-sec=transform]').open = true; $('#ed-panel details[data-sec=transform]').dispatchEvent(new Event('toggle'));
+    return { pass: after.crop === true && after.transform === false, detail: after };
+  },
+  async 'a message about an edit that can be undone has an Undo button'() {
+    await freshEditor(); E().jump(5); await wait(80); document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'm', bubbles: true })); await wait(250);
+    const marker = $('.v19-marker'); marker.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })); await wait(350);
+    const t = $('#v15-toast'), button = t?.querySelector('.v22-undo'); button?.click(); await wait(300);
+    return { pass: !!button && (E().get().markers || []).length === 1, detail: { text: t?.textContent, button: !!button, markers: (E().get().markers || []).length } };
+  },
+  async 'navigation links stay quiet'() {
+    $('.v-nav [data-route=home]').click(); await wait(300); const b = $('.v-nav [data-route=projects]'), c = getComputedStyle(b);
+    return { pass: c.backgroundColor === 'rgba(0, 0, 0, 0)' && c.borderTopColor === 'rgba(0, 0, 0, 0)' && c.boxShadow === 'none', detail: [c.backgroundColor, c.borderTopColor, c.boxShadow] };
   },
 });
 

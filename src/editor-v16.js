@@ -80,6 +80,14 @@
     apply();
   }
   // Undo and redo sit left of the project name, as in most editors, with their shortcuts in the tooltip.
+  // 0.15 (Phase 22): sliders show how far they are filled (--p), and a message about an edit that can be undone
+  // gets an Undo button.
+  const fill = r => { const min = +r.min || 0, max = r.max === '' ? 100 : +r.max, v = +r.value; r.style.setProperty('--p', (max > min ? (v - min) / (max - min) * 100 : 0) + '%'); };
+  document.addEventListener('input', e => { if (e.target.matches?.('input[type=range]')) fill(e.target); }, true);
+  const fillAll = () => document.querySelectorAll('#visor-app input[type=range]').forEach(fill);
+  const toastUndo = () => { const t = document.getElementById('v15-toast'); if (!t || t.querySelector('.v22-undo') || !/Undo (brings|restores)/.test(t.textContent)) return;
+    const text = t.textContent.replace(/\s*Undo (brings it back|restores it)\.?/, ''); t.textContent = text;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'v22-undo'; b.textContent = 'Undo'; b.onclick = () => { window.visorEditor?.undo?.(); t.classList.remove('show'); }; t.append(b); };
   // Tabs keep their name as a tooltip (in narrow windows only the icon shows).
   function tabTitles() { document.querySelectorAll('#vv-editor .ed-tabs button').forEach(b => { if (!b.title) { const t = b.textContent.trim(); if (t) { b.title = t; b.setAttribute('aria-label', t); } } }); }
   function placeHistory() {
@@ -90,7 +98,7 @@
     box.append(undo, redo); title.classList.add('v16-titleblock'); title.prepend(box);
   }
   // The editor rebuilds parts of its layout; wire up whenever the preview appears.
-  new MutationObserver(() => { placeHistory(); tabTitles(); if ($('.ed-main') && wired !== $('.ed-main')) wire(); else if ($('.v10-transport-left') && !$('#v16-zoom')) { wired = null; wire(); } })
+  new MutationObserver(() => { placeHistory(); tabTitles(); fillAll(); toastUndo(); if ($('.ed-main') && wired !== $('.ed-main')) wire(); else if ($('.v10-transport-left') && !$('#v16-zoom')) { wired = null; wire(); } })
     .observe(document.body, { childList: true, subtree: true });
   // 0.15 (Phase 21): a half-finished "drag a box to blur" on the preview is cancelled when another project starts.
   const editor = window.visorEditor;

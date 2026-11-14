@@ -1291,19 +1291,27 @@ function timelineKeysV17(){root.querySelectorAll('.v17-lane').forEach(n=>n.remov
    k.onpointerup=()=>{k.onpointermove=null;if(moved){c.keyframes=KF17().moveKeys(c,t,to);commit();jumpToKeyV17(c,to);panel();}else jumpToKeyV17(c,t);};};
   lane.append(k);}
  b.append(lane);}
+// 0.15 (Phase 22): a collapsible panel section whose open / closed state survives the panel being redrawn.
+const sectionOpenV22={};
+function sectionV22(key,title,ic,open){const o=sectionOpenV22[key]??open;return '<details class="v15-section v22-section" data-sec="'+key+'"'+(o?' open':'')+'><summary>'+icon(ic).replace('<i ','<i class="v22-section-icon" ')+'<span>'+esc(title)+'</span></summary>';}
+function rememberSectionsV22(p){p.querySelectorAll('details[data-sec]').forEach(d=>d.addEventListener('toggle',()=>{sectionOpenV22[d.dataset.sec]=d.open;}));}
 function clipPanelV15(p){
  const c=state.clips[state.selected];if(!c)return;const a=state.assets.find(x=>x.id===c.asset),t=KF17().transformAt(c,clipTimeV17(c)),crop=c.crop||{},len=c.end-c.start,maxFade=Math.max(.1,Math.min(5,len/2));
  const f=n=>Math.round(n*100)/100;
  if(c.gap){p.innerHTML='<h3>Gap</h3><p class="v15-hint">An empty space on the main track. Delete it to close the gap.</p><button id="v15-delete-gap" class="ed-wide">Delete gap</button>';q('#v15-delete-gap').onclick=()=>{selectionV7=[{type:'video',id:c.id}];deleteSelected();};return;}
  const hasAudio=!!a?.hasAudio,detached=detachedOfV15(c);
  p.innerHTML='<h3>Clip</h3><p class="v15-clip-name">'+esc(c.name||'Clip')+' · '+f(len/state.speed)+' s</p>'
-  +'<details class="v15-section" open><summary>Video</summary>'
+  /* 0.15 (Phase 22): the clip's video settings in five sections instead of one long column; each remembers whether it is open */
+  +sectionV22('transform','Transform','move',true)
   +range('v15-x','Position X',t.x??0,-100,100)+range('v15-y','Position Y',t.y??0,-100,100)+range('v15-scale','Scale %',t.scale??100,10,400)+range('v15-rotation','Rotation °',t.rotation??0,-180,180)+range('v15-opacity','Opacity %',t.opacity??100,0,100)
+  +'</details>'+sectionV22('crop','Crop','crop',false)
+  +'<div class="v15-grid2">'+range('v15-crop-l','Left %',crop.l||0,0,45)+range('v15-crop-r','Right %',crop.r||0,0,45)+range('v15-crop-t','Top %',crop.t||0,0,45)+range('v15-crop-b','Bottom %',crop.b||0,0,45)+'</div>'
+  +'</details>'+sectionV22('fades','Fades','sunrise',false)
   +range('v15-fadein','Fade in (s)',f(c.fadeIn||0),0,maxFade)+range('v15-fadeout','Fade out (s)',f(c.fadeOut||0),0,maxFade)
-  +'<div class="v15-subhead">Crop (%)</div><div class="v15-grid2">'+range('v15-crop-l','Left',crop.l||0,0,45)+range('v15-crop-r','Right',crop.r||0,0,45)+range('v15-crop-t','Top',crop.t||0,0,45)+range('v15-crop-b','Bottom',crop.b||0,0,45)+'</div>'
+  +'</details>'+sectionV22('look','Speed & colour','gauge',true)
   +(a?.kind==='video'||c.speed?'<div class="v15-speed-row"><span>Speed</span><strong>'+esc(window.speedModelV15?.label(c.speed?.preset||{kind:'constant',value:1})||'Normal')+'</strong><button id="v15-open-speed" type="button">Change</button></div>':'')+'<div class="v15-speed-row"><span>Colour</span><strong>'+(Object.values(c.adjustments||{}).some(v=>+v)?'Adjusted':'Original')+'</strong><button id="v16-open-colour" type="button">Change</button></div>'
-  +animationRowV17(c)+'<button id="v15-reset-video" class="ed-wide">Reset video settings</button></details>'
-  +(hasAudio?'<details class="v15-section" open><summary>Audio</summary>'
+  +'</details>'+sectionV22('anim','Animation','sparkles',false)+animationRowV17(c)+'</details>'+'<button id="v15-reset-video" class="ed-wide v22-reset">Reset video settings</button>'
+  +(hasAudio?sectionV22('audio','Audio','audio-lines',true)
    +(c.muted?'<p class="v15-hint">'+(detached?'The sound is detached: it is an audio clip on its own track.':'The sound of this clip is off.')+'</p>'+(detached?'<button id="v15-reattach" class="ed-wide">Re-attach audio</button>':'<button id="v15-restore" class="ed-wide">Restore audio</button>')
     :range('v15-volume','Volume %',c.volume??100,0,150)+range('v15-afadein','Fade in (s)',f(c.audioFadeIn||0),0,maxFade)+range('v15-afadeout','Fade out (s)',f(c.audioFadeOut||0),0,maxFade)+'<div class="ed-row v15-row2"><button id="v15-mute">Delete audio only</button><button id="v15-detach">Detach audio</button></div>')
    +'</details>':'');
@@ -1311,7 +1319,7 @@ function clipPanelV15(p){
  bind('v15-x',T('x'));bind('v15-y',T('y'));bind('v15-scale',T('scale'));bind('v15-rotation',T('rotation'));bind('v15-opacity',T('opacity'));
  bind('v15-fadein',v=>c.fadeIn=+v);bind('v15-fadeout',v=>c.fadeOut=+v);
  for(const [id,k] of [['v15-crop-l','l'],['v15-crop-r','r'],['v15-crop-t','t'],['v15-crop-b','b']])bind(id,v=>{c.crop={...c.crop,[k]:+v};});
- q('#v15-open-speed')&&(q('#v15-open-speed').onclick=()=>open('speed'));q('#v16-open-colour')&&(q('#v16-open-colour').onclick=()=>open('adjustments'));q('#v15-reset-video').onclick=()=>transaction(()=>{delete c.transform;delete c.keyframes;delete c.crop;delete c.fadeIn;delete c.fadeOut;});keysPanelV17(p,c);
+ q('#v15-open-speed')&&(q('#v15-open-speed').onclick=()=>open('speed'));q('#v16-open-colour')&&(q('#v16-open-colour').onclick=()=>open('adjustments'));q('#v15-reset-video').onclick=()=>transaction(()=>{delete c.transform;delete c.keyframes;delete c.crop;delete c.fadeIn;delete c.fadeOut;});keysPanelV17(p,c);rememberSectionsV22(p);icons();
  if(hasAudio){if(c.muted){q('#v15-reattach')&&(q('#v15-reattach').onclick=()=>transaction(()=>reattachAudioV15(c)));q('#v15-restore')&&(q('#v15-restore').onclick=()=>transaction(()=>{c.muted=false;}));}
   else{bind('v15-volume',v=>c.volume=+v);bind('v15-afadein',v=>c.audioFadeIn=+v);bind('v15-afadeout',v=>c.audioFadeOut=+v);q('#v15-mute').onclick=()=>transaction(()=>{c.muted=true;});q('#v15-detach').onclick=()=>transaction(()=>detachAudioV15(c));}}
  for(const id of ['v15-fadein','v15-fadeout','v15-afadein','v15-afadeout']){const r=q('#'+id);if(r)r.step='.1';}

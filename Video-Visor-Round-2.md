@@ -110,7 +110,7 @@ How: build the tokens and components first, then go screen by screen, with befor
 | Phase | Content | Size |
 |---|---|---|
 | 21 | *Done.* Fixes from your testing: cursor zoom (A1), Brand style button (A2), drop onto V3 (A3.1), Add to video / Add as layer (A3.2), the ⋯ icon (A3.3), the Home duplicate, prototype leftovers, benchmark data folder and clean-up, message position, Snap state, narrow windows, the drawing-mode check | M |
-| 22 | Visual pass I: tokens, buttons, sliders, panels, type, motion (C1–C4, C8–C10) | L |
+| 22 | *Done.* Visual pass I: tokens, buttons, sliders, panels, type, motion (C1–C4, C8–C10) | L |
 | 23 | Visual pass II: media grid, timeline, playback bar, Home, dark mode (C5–C7, C11–C12) | L |
 | 24 | Copy / paste clip settings, then layer keyframes, then the clip volume line (D) | M |
 
@@ -141,6 +141,23 @@ How: build the tokens and components first, then go screen by screen, with befor
 | B6 Narrow windows | Below 1,180 px the tabs show icons (name in the tooltip), and "16:9 · Fit" no longer breaks. |
 | B7 Blur box | A half-drawn "drag a box to blur" is cancelled when another project opens or a new one starts. |
 | New tools | `tools/preview/crawl.js` (clicks every button and reports errors or dead buttons), `tools/clean_bench.py`, `tools/bench.sh`, and a developer-only `eval` step in the benchmark for testing inside the real app. |
+
+## Phase 22 status
+
+**Before:** 66 different button styles: heights from 18 to 40 px, corners of 4 / 5 / 7 / 8 / 9 / 12 / 18 px, and about 30 size-and-weight combinations of text.
+
+**Now:** one design layer (`src/design-v22.css`, loaded last), built on shared tokens that both themes follow.
+
+| Item | Status |
+|---|---|
+| C1 Tokens | Done. Radii 6 / 8 / 12 / 16, heights 28 / 32 / 38 / 42, type 12 / 13 / 14 / 16 / 18 / 26, two depth levels, one focus ring, and motion at 120 / 160 ms. |
+| C2 Buttons | Done. Every button now has 8 px corners and 13 px / 500 text, a visible focus ring and a slight press. Three kinds: **primary** (one per screen, e.g. Export, the tool's action), **secondary** (panel surface with a hairline border) and **quiet** (navigation, view controls). Play is the only round control. Primary buttons use the same deeper blue (#1f7ae0) in both themes, so white text stays readable in dark mode. The editor tabs are a quiet row, with the open tab as a soft pill. |
+| C3 Sliders | Done. A thin track filled up to the value, and a round handle that grows slightly while dragged. Number boxes use aligned figures. |
+| C4 Panels | Done. Panel sections are cards whose header chevron turns. The Clip panel is grouped as **Transform · Crop · Fades · Speed & colour · Animation · Audio**, and each section remembers whether it's open while you work. Keyframe diamonds sit right beside their labels. |
+| C8 Messages | Done. The pill at the bottom gets an **Undo** button when the message is about an edit that can be undone (a removed marker, a cut range…). |
+| C9 Type | Done. Page titles 26 / 600, section titles 18, panel titles 16, body 13, small text 12. |
+| C10 Motion | Done. Short transitions on buttons, cards and fields; menus pop in; thumbnails show a soft loading shimmer until they appear. Reduced-motion settings are respected. |
+| Next (Phase 23) | Media grid, timeline, playback bar, Home, and dark-mode depth (C5–C7, C11–C12). |
 
 ## (Original questions)
 
