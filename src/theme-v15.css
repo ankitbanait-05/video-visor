@@ -34,6 +34,10 @@
 #visor-app[data-theme=light] #vv-editor .vt-block.selected{outline:2px solid #1f7ae0!important;box-shadow:0 0 0 4px #1f7ae033!important}
 #visor-app[data-theme=light] #vv-editor .vt-transition{background:#fff;border-color:#1f7ae0;color:#1f7ae0}
 #visor-app[data-theme=light] #vv-editor .v8-drop-denied{background:#fde8e4!important;box-shadow:inset 0 0 0 2px #e0745a}
+/* 0.15 (Phase 13): collapsed track rows and transition previews were left with their dark base colours. */
+#visor-app[data-theme=light] #vv-editor #vt-tracks .v10-strip{background:#f6f8fb;border-bottom-color:#e1e7ee}
+#visor-app[data-theme=light] #vv-editor .v10-strip[data-group=graphics] .v10-strip-lane i{background:#8d7fd6}
+#visor-app[data-theme=light] .v5-transition-demo{background:#eef4fb}
 #visor-app[data-theme=light] #vv-editor #vt-tracks .v10-strip:hover{background:#eef3f8}
 #visor-app[data-theme=light] #vv-editor .v10-strip-label small{background:#e3e9f0}
 #visor-app[data-theme=light] #vv-editor .ed-timeline #ed-delete:not(:disabled):hover{color:#b3372c;border-color:#efcdc8}

@@ -201,6 +201,9 @@ event('storageClean',async(used,opts={})=>{
   const S=require('./engines/speed-v15.js'),a=asset(assetId);if(a.kind!=='video')throw Error('Speed can be changed for video clips.');
   start=Math.max(0,+start||0);end=Math.min(a.duration,+end||a.duration);const D=end-start;if(!(D>.1))throw Error('This clip is too short to change its speed.');
   if(!preset||(preset.kind==='constant'&&!(preset.value>=.25&&preset.value<=4))||(preset.kind==='curve'&&!S.CURVES[preset.name]))throw Error('Choose a speed.');
+  // 0.15 (Phase 13): the same source range at the same speed reuses the copy made before (2× → 4× → 2× renders twice, not three times).
+  const speedKey=[assetId,start.toFixed(3),end.toFixed(3),JSON.stringify(preset)].join('|'),made=Object.values(registry).find(r=>r.speedKey===speedKey);
+  if(made&&await fs.access(made.path).then(()=>true,()=>false)){const {path:_,previewPath:__,...item}=made;return {...item,url:url(made.id),type:made.kind+'/local'};}
   const {video,audio}=S.filters(preset,D,a.fps),total=S.outputDuration(preset,D),out=path.join(root,'speed-'+randomUUID()+'.mp4'),label='Changing speed · '+S.label(preset);
   const fps=Math.max(1,Math.round(a.fps||30)),rate=Math.round(Math.min(80e6,Math.max(6e6,(a.width||1920)*(a.height||1080)*fps*.12)));
   const onErr=d=>{const m=/time=(\d+):(\d+):([\d.]+)/.exec(String(d));if(m){const pct=Math.max(0,Math.min(99,Math.round((+m[1]*3600+ +m[2]*60+ +m[3])/total*100)));progress(pct,label+' · '+pct+'%');}};
@@ -208,7 +211,7 @@ event('storageClean',async(used,opts={})=>{
   const base=['-y','-nostdin','-ss',String(start),'-t',String(D),'-i',a.path,'-map','0:v:0',...sound,'-vf',video];
   try{await run(ffmpeg,[...base,'-c:v','h264_videotoolbox','-b:v',String(rate),'-g',String(fps),'-pix_fmt','yuv420p','-movflags','+faststart',out],null,null,onErr);}
   catch(e){if(/cancel/i.test(e.message))throw e;await run(ffmpeg,[...base,'-c:v','libx264','-preset','veryfast','-crf','18','-g',String(fps),'-pix_fmt','yuv420p','-movflags','+faststart',out],null,null,onErr);}
-  return register(out);
+  const item=await register(out);registry[item.id].speedKey=speedKey;registry[item.id].speedOf=assetId;item.speedOf=assetId;await saveRegistryV15();return item;
  }));
  event('silences',async id=>job(async()=>{const a=asset(id);let err='';await new Promise((resolve,reject)=>{const p=spawn(ffmpeg,['-i',a.path,'-af','silencedetect=noise=-35dB:d=0.7','-f','null','-']);currentJob.child=p;p.stderr.on('data',d=>err+=d);p.on('error',reject);p.on('close',c=>c===0?resolve():reject(Error('Silence analysis failed')));});const starts=[...err.matchAll(/silence_start: ([\d.]+)/g)].map(x=>+x[1]),ends=[...err.matchAll(/silence_end: ([\d.]+)/g)].map(x=>+x[1]);return starts.map((start,i)=>({start:start+.15,end:(ends[i]||a.duration)-.15})).filter(x=>x.end>x.start);}));
  recorderController=new(require('./recorder/controller.cjs').RecorderController)({win,root,register,run,ffmpeg,job,saveDialog,cancel:()=>{if(currentJob){currentJob.cancelled=true;currentJob.child?.kill('SIGTERM');}},isWorking:()=>!!currentJob});

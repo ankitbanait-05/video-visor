@@ -507,7 +507,7 @@ Object.assign(checks, {
     for (const t of ['media', 'elements', 'captions', 'effects']) {
       tab(t).click(); await wait(250);
       for (const el of $$('#visor-app *')) {
-        if (el.closest('#ed-canvas, svg, .v15-cap-art, .v10-cap-thumb, .cap-art, .template-art, .v11-card, .v5-transition-demo')) continue;
+        if (el.closest('#ed-canvas, svg, .v15-cap-art, .v10-cap-thumb, .cap-art, .template-art, .v11-card, .v11-thumb, .v5-transition-demo')) continue;
         const r = el.getBoundingClientRect(); if (!r.width || r.bottom < 0 || r.top > innerHeight) continue;
         if (![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) continue;
         const fs = parseFloat(getComputedStyle(el).fontSize); if (fs < 12) small.push(t + ': ' + el.tagName + '.' + el.className + ' ' + fs);
@@ -672,6 +672,68 @@ Object.assign(checks, {
     $('.v-nav [data-route=settings]').click(); await wait(300); $('#v15-show-ai').checked = true; $('#v15-show-ai').dispatchEvent(new Event('change')); await wait(200);
     $('.v-nav [data-route=home]').click(); await wait(400); const shown = !!$('#v-content [data-flow="start-ai"]')?.offsetParent;
     return { pass: hidden && shown, detail: { hiddenWithoutKey: hidden, shownWhenOn: shown } };
+  },
+});
+
+// Phase 13: quick fixes from hands-on testing.
+// Surfaces whose colour belongs to the other theme (dark panels in light mode, light panels in dark mode).
+// The video canvas and anything coloured by the user (swatches, inline styles) is skipped.
+function themeMismatches(mode) {
+  const lumOf = c => { const m = /rgba?\(([\d.]+), ([\d.]+), ([\d.]+)(?:, ([\d.]+))?/.exec(c); if (!m || (m[4] !== undefined && +m[4] < .6)) return null; return (.2126 * m[1] + .7152 * m[2] + .0722 * m[3]) / 255; };
+  const bad = new Set();
+  for (const el of document.querySelectorAll('#visor-app *')) {
+    if (!el.offsetParent || el.offsetWidth < 24 || el.offsetHeight < 10) continue;
+    if (el.closest('#ed-stage,#ed-canvas,#ed-screen,#ed-captions,.v15-cap,.vt-block,canvas,video,img,.v15-theme-art,.v15-swatch,[style*=background]')) continue;
+    const l = lumOf(getComputedStyle(el).backgroundColor); if (l == null) continue;
+    if ((mode === 'light' && l < .35) || (mode === 'dark' && l > .75)) bad.add((el.id ? '#' + el.id : '') + '.' + String(el.className).split(' ').filter(Boolean).slice(0, 2).join('.'));
+  }
+  return [...bad];
+}
+Object.assign(checks, {
+  async 'changing speed closes its progress dialog and keeps the copy out of Media'() {
+    await freshEditor(); $('#vt-tracks .vt-block.vt-item-video').click(); await wait(200);
+    await speed('2×'); await wait(300);
+    const dialogOpen = !$('#v-overlay').hidden && !!$('#native-job-label');
+    tab('elements').click(); await wait(150); tab('media').click(); await wait(300);
+    const names = $$('#ed-panel .v5-media strong').map(x => x.textContent), copy = E().get().assets.filter(a => a.speedOf).length;
+    window.__speedFail = true; try { await speed('3×'); await wait(300); } finally { window.__speedFail = false; }
+    const openAfterFail = !$('#v-overlay').hidden && !!$('#native-job-label');
+    return { pass: !dialogOpen && !openAfterFail && copy === 1 && !names.some(n => /speed/i.test(n)), detail: { dialogOpen, openAfterFail, speedCopies: copy, media: names } };
+  },
+  async 'no surface keeps the other theme’s colour'() {
+    await freshEditor(); tab('captions').click(); await wait(200); panelButton(/Generate captions/).click(); await wait(1400); $('#v-dialog-close')?.click();
+    const out = {};
+    for (const mode of ['light', 'dark']) {
+      document.documentElement.dataset.theme = mode; $('#visor-app').dataset.theme = mode; await wait(100);
+      const found = new Set();
+      $$('#vt-tracks [aria-expanded=true]').filter(b => !/Video|Audio/.test(b.textContent)).forEach(b => b.click()); await wait(200);
+      for (const p of ['media', 'elements', 'captions', 'audio', 'effects', 'transitions', 'adjustments', 'style']) { tab(p).click(); await wait(250); themeMismatches(mode).forEach(x => found.add('editor/' + p + ' ' + x)); }
+      for (const r of ['home', 'projects', 'video', 'image', 'audio', 'pdf', 'settings']) { $('.v-nav [data-route=' + r + ']').click(); await wait(300); themeMismatches(mode).forEach(x => found.add(r + ' ' + x)); }
+      $('.v-nav [data-route=editor]').click(); await wait(300);
+      out[mode] = [...found];
+    }
+    window.applyThemeV15?.();
+    return { pass: !out.light.length && !out.dark.length, detail: out };
+  },
+  async 'the status line is cleared when changing page'() {
+    await freshEditor(); window.nativeShell.notify('Editor message (test)');
+    $('.v-nav [data-route=image]').click(); await wait(300);
+    const text = $('#v-status').textContent;
+    return { pass: !/Editor message/.test(text), detail: text };
+  },
+  async 'transitions stay usable after a project with more clips'() {
+    await freshEditor(); const c = E().get().clips[0];
+    E().patch({ clips: [c, { ...c, id: 'x2' }, { ...c, id: 'x3' }, { ...c, id: 'x4' }] }); await wait(100);
+    tab('transitions').click(); await wait(200); $('#v5-boundary').value = '3'; $('#v5-boundary').dispatchEvent(new Event('change')); await wait(150);
+    E().patch({ clips: [c, { ...c, id: 'y2' }] }); tab('media').click(); await wait(100); tab('transitions').click(); await wait(200);
+    const disabled = $$('#ed-panel [data-v5-transition]').filter(b => b.disabled).length;
+    return { pass: disabled === 0, detail: { disabled } };
+  },
+  async 'a tool refuses files it cannot use when they are added'() {
+    $('.v-nav [data-route=image]').click(); await wait(300); $('#v-content [data-tool="bgremove"]').click(); await wait(300);
+    $$('#v-content button').find(b => /Choose files/.test(b.textContent)).click(); await wait(900);
+    const listed = $$('#v-filelist strong').map(x => x.textContent), status = $('#v-status').textContent;
+    return { pass: listed.length && !listed.some(n => /\.mp4$/.test(n)) && /not added/.test(status), detail: { listed, status } };
   },
 });
 

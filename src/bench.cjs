@@ -180,7 +180,7 @@ async function run(ctx) {
   }
   if (only.includes('speed') && assets.screen) {
     // Through the app's own IPC path (the renderer's native.speedClip), as the Speed panel calls it.
-    for (const preset of [{ kind: 'constant', value: 2 }, { kind: 'constant', value: 0.5 }, { kind: 'curve', name: 'bullet' }]) {
+    for (const preset of [{ kind: 'constant', value: 2 }, { kind: 'constant', value: 0.5 }, { kind: 'curve', name: 'bullet' }, { kind: 'constant', value: 2 }]) {  // the last one repeats the first: it should reuse its copy
       const t = now();
       try {
         const item = await win.webContents.executeJavaScript(`native.speedClip(${JSON.stringify(assets.screen.id)},2,10,${JSON.stringify(preset)})`);
