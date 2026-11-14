@@ -5,6 +5,8 @@ function dimensions(ratio,height){const [a,b]=String(ratio||'16/9').split('/').m
 // 0.15: checked once per run: whether Apple's hardware H.264 encoder works on this Mac.
 let hardwareV15=null;
 function hardwareEncoderV15(ffmpeg){if(!hardwareV15)hardwareV15=new Promise(resolve=>{const p=spawn(ffmpeg,['-v','error','-f','lavfi','-i','color=c=black:s=256x256:d=0.2','-c:v','h264_videotoolbox','-f','null','-'],{stdio:'ignore'});p.on('error',()=>resolve(false));p.on('close',code=>resolve(code===0));});return hardwareV15;}
+// Keeps render-cache/ under `limit` bytes, removing the least recently used pieces first.
+async function pruneRenderCacheV18(dir,limit){const files=[];for(const f of await fs.readdir(dir).catch(()=>[])){if(!f.endsWith('.ts'))continue;const st=await fs.stat(path.join(dir,f)).catch(()=>null);if(st)files.push({f,size:st.size,t:st.mtimeMs});}files.sort((a,b)=>b.t-a.t);let total=0;for(const x of files){total+=x.size;if(total>limit)await fs.unlink(path.join(dir,x.f)).catch(()=>{});}}
 async function exportProject(ctx){
  const {state,cfg,asset,run,ffmpeg,root,saveDialog,progress,cancelled,BrowserWindow}=ctx;
  if(!state.clips?.length||state.clips.length>200)throw Error('Add footage before exporting.');const speed=+state.speed||1;if(speed<.25||speed>4)throw Error('Invalid playback speed.');
@@ -12,16 +14,19 @@ async function exportProject(ctx){
  const duration=state.clips.reduce((n,c)=>n+c.end-c.start,0)/speed;if(!Number.isFinite(duration)||duration>14400)throw Error('Export supports projects up to four hours.');
  const audioOnly=cfg.format==='Audio only',frame=cfg.format==='Frame',gif=cfg.format==='GIF',ext=frame?'png':audioOnly?(cfg.audio||'MP3').toLowerCase():(cfg.format||'MP4').toLowerCase();if(!['mp4','mov','webm','gif','mp3','wav','m4a','png'].includes(ext))throw Error('Unsupported export format');
  // 0.13: a caller that already knows where the file goes (the render queue, a frame for the connector) passes `destination`; otherwise the save dialog asks.
- const dest=ctx.destination?await ctx.destination(ext):await saveDialog('Video Visor export.'+ext);if(!dest)return null;const dir=await fs.mkdtemp(path.join(root,'render-'));let renderer,encoding,encodeError,videoFile;let stopDirect=()=>{};
+ const dest=ctx.destination?await ctx.destination(ext):await saveDialog('Video Visor export.'+ext);if(!dest)return null;const dir=await fs.mkdtemp(path.join(root,'render-'));let renderer,encoding,encodeError,videoFile;const extraRenderers=[];let stopDirect=()=>{};
  const check=()=>{if(cancelled())throw Error('Export cancelled.');};
  try{
  const height=cfg.resolution?.startsWith('4K')?2160:cfg.resolution?.startsWith('720')?720:1080;let [width,h]=dimensions(state.ratio,height);if(gif){const ratio=width/h;width=Math.max(160,Math.min(1280,+cfg.width||640));h=Math.round(width/ratio/2)*2;}/* 0.15 (AU-08): a very wide or tall canvas at 4K is scaled to fit 4096 px instead of failing */if(width>4096||h>4096){const k=4096/Math.max(width,h);width=Math.round(width*k/2)*2;h=Math.round(h*k/2)*2;}
  const fps=Math.min(gif?15:60,Math.max(gif?8:12,parseFloat(cfg.fps)||30));/* 0.15 (AU-07): GIFs at up to 15 fps */
  if(!audioOnly){
-  renderer=new BrowserWindow({width,height:h,useContentSize:true,enableLargerThanScreen:true,show:false,backgroundColor:'#000000',webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,backgroundThrottling:false,offscreen:true}});renderer.webContents.setAudioMuted(true);await renderer.loadURL('visor://app/?render');renderer.webContents.enableDeviceEmulation({screenPosition:'desktop',screenSize:{width,height:h},viewSize:{width,height:h},deviceScaleFactor:1,scale:1});
-  for(let i=0;i<200;i++){if(await renderer.webContents.executeJavaScript('!!window.nativeReady'))break;await new Promise(r=>setTimeout(r,50));if(i===199)throw Error('Export renderer did not start.');}
   const exportState=JSON.parse(JSON.stringify(state));exportState.captions=state.captions&&cfg.captions==='Burn into video';exportState.active=null;
-  await renderer.webContents.executeJavaScript(`window.exportTuningV15=${JSON.stringify(cfg.tuning||{})};window.exportTimingV15={seek:0,wait:0};document.documentElement.classList.add('export-view');window.exporting=true;visorEditor.set(${JSON.stringify(exportState)});document.fonts.ready.then(()=>true);`);
+  // 0.15 (Phase 18): export windows are made by one function, so a second one can draw in parallel (E4).
+  const openRenderer=async(graphics=false)=>{const r=new BrowserWindow({width,height:h,useContentSize:true,enableLargerThanScreen:true,show:false,backgroundColor:graphics?'#00000000':'#000000',transparent:graphics,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,backgroundThrottling:false,offscreen:true}});extraRenderers.push(r);r.webContents.setAudioMuted(true);await r.loadURL('visor://app/?render');r.webContents.enableDeviceEmulation({screenPosition:'desktop',screenSize:{width,height:h},viewSize:{width,height:h},deviceScaleFactor:1,scale:1});
+   for(let i=0;i<200;i++){if(await r.webContents.executeJavaScript('!!window.nativeReady'))break;await new Promise(x=>setTimeout(x,50));if(i===199)throw Error('Export renderer did not start.');}
+   await r.webContents.executeJavaScript(`window.exportTuningV15=${JSON.stringify(cfg.tuning||{})};window.exportTimingV15={seek:0,wait:0};document.documentElement.classList.add('export-view');window.exporting=true;visorEditor.set(${JSON.stringify(exportState)});document.fonts.ready.then(()=>true);`);
+   if(graphics)await r.webContents.executeJavaScript('window.exportGraphicsModeV18(true)');r.webContents.setFrameRate(120);return r;};
+  renderer=await openRenderer();
   if(frame){const draw=`renderNativeFrame(${Math.max(0,+cfg.time||0)})`;await renderer.webContents.executeJavaScript(draw);
    // 0.13: a single frame is the first picture this window draws; on a busy Mac it could be captured before the video had painted. Wait a moment and draw the same instant again.
    await renderer.webContents.executeJavaScript('new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(r,80))))');await renderer.webContents.executeJavaScript(draw);const img=await renderer.webContents.capturePage({x:0,y:0,width,height:h});await fs.writeFile(dest,img.resize({width,height:h}).toPNG());return {path:dest};}
@@ -36,10 +41,14 @@ async function exportProject(ctx){
   renderer.webContents.setFrameRate(120);
   const frames=Math.ceil(duration*fps),T={draw:0,capture:0,convert:0,pipe:0},now=()=>Number(process.hrtime.bigint())/1e6,started=now();
   const clock=sec=>{sec=Math.max(0,Math.round(sec));return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');};
-  const drawFrame=async n=>{let t0=now();await renderer.webContents.executeJavaScript(`renderNativeFrame(${Math.min(n/fps*speed,duration*speed-.002)})`);
-   let t1=now();T.draw+=t1-t0;let img=await renderer.webContents.capturePage({x:0,y:0,width,height:h});
+  // 0.15 (Phase 18): a frame that takes over 20 s means an export window stopped answering; stop with a clear error instead of waiting forever.
+  const within=(p,what)=>{let t;return Promise.race([p,new Promise((_,rej)=>{t=setTimeout(()=>rej(Error('The export stopped responding while '+what+'. Try exporting again.')),20000);})]).finally(()=>clearTimeout(t));};
+  const drawOn=async(r,n)=>{let t0=now();await within(r.webContents.executeJavaScript(`renderNativeFrame(${Math.min(n/fps*speed,duration*speed-.002)})`),'drawing frame '+n);
+   /* 0.15 (Phase 18, E3): optionally take the frame the window paints next (offscreen 'paint') instead of capturePage */const paintNext=()=>new Promise(res=>{r.webContents.once('paint',(_e,_d,image)=>res(image));r.webContents.invalidate();});
+   /* An offscreen window repaints only when something changed; a frame identical to the last one (a still caption) never arrives, so ask for a repaint first */if(cfg.tuning?.capture!=='paint')r.webContents.invalidate();
+   let t1=now();T.draw+=t1-t0;let img=await within(cfg.tuning?.capture==='paint'?paintNext():r.webContents.capturePage({x:0,y:0,width,height:h}),'capturing frame '+n);
    t0=now();T.capture+=t0-t1;const size=img.getSize();if(size.width!==width||size.height!==h)img=img.resize({width,height:h});
-   const pixels=img.toBitmap();if(pixels.length!==width*h*4)throw Error('Export frame has an unexpected size.');T.convert+=now()-t0;return pixels;};
+   const pixels=img.toBitmap();if(pixels.length!==width*h*4)throw Error('Export frame has an unexpected size.');T.convert+=now()-t0;return pixels;};const drawFrame=n=>drawOn(renderer,n);
   // An encoder fed raw frames from this process (export-window frames, or decoded frames for WebM).
   const procs=new Set();stopDirect=()=>{for(const p of procs)try{p.kill('SIGKILL');}catch{}};
   const encoder=(file,format)=>{let err='';const p=spawn(ffmpeg,['-y','-f','rawvideo','-pix_fmt','bgra','-s',width+'x'+h,'-framerate',String(fps),'-i','pipe:0','-an',...colourArgs,...videoArgs,...(format?['-f',format]:[]),file],{stdio:['pipe','ignore','pipe']});procs.add(p);encoding=p;
@@ -49,35 +58,72 @@ async function exportProject(ctx){
   // 0.15 (Phase 14, E1): plain stretches are decoded by FFmpeg. One frame of each clip is made both ways first; a clip
   // whose frames don't match (something drawn this code doesn't know about) stays on the export window.
   const D=require('./export-direct.cjs'),fit=exportState.fit||'contain',directInfo={stretches:0,frames:0,checks:[]},directMin=cfg.tuning?.directMin||30;/* geometry errors score under 28; a match scores 31–40 (Chrome and FFmpeg scale slightly differently) */
-  let stretches=gif||cfg.tuning?.direct===false?[]:D.plan(exportState,{fps,frames,speed,captions:!!exportState.captions});
+  const overlays=ext!=='webm'&&cfg.tuning?.overlay!==false;let stretches=gif||cfg.tuning?.direct===false?[]:D.plan(exportState,{fps,frames,speed,captions:!!exportState.captions,overlay:overlays});
   const verdict=new Map();
-  for(const st of stretches){if(verdict.has(st.clip))continue;check();const m=Math.floor((st.n0+st.n1)/2),browser=await drawFrame(m),c=exportState.clips[st.clip],a=asset(c.asset),pad=D.padColour(browser,width,h,a,fit);
+  for(const st of stretches.filter(x=>x.kind==='plain')){if(verdict.has(st.clip))continue;check();const m=Math.floor((st.n0+st.n1)/2),browser=await drawFrame(m),c=exportState.clips[st.clip],a=asset(c.asset),pad=D.padColour(browser,width,h,a,fit);
    let best={q:0};for(const matrix of ['bt709','auto']){const f=D.feed({ffmpeg,asset:a,clip:c,stretch:{...st,n0:m,n1:m+1},fps,speed,width,height:h,fit,pad,matrix});const px=await f.next();f.stop();const q=px?D.psnr(browser,px,width,h):0;
     if(cfg.tuning?.dumpDirect){const k=cfg.tuning.dumpDirect+'-'+speed+'-'+matrix;await fs.writeFile(k+'-browser.bgra',browser);if(px)await fs.writeFile(k+'-direct.bgra',px);}if(q>best.q)best={q,matrix};if(q>=directMin)break;}
    verdict.set(st.clip,{ok:best.q>=directMin,pad,matrix:best.matrix});directInfo.checks.push({clip:st.clip,psnr:+best.q.toFixed(1),matrix:best.matrix});}
-  stretches=stretches.filter(st=>verdict.get(st.clip)?.ok);directInfo.stretches=stretches.length;
+  // 0.15 (Phase 18, E2): an overlay stretch is checked on its own: its middle frame drawn whole by the export window
+  // against the footage decoded by FFmpeg with the graphics (drawn alone) laid on top.
+  let gfxRenderer=null;const gfxWindow=async()=>gfxRenderer||(gfxRenderer=await openRenderer(true));
+  const overlayArgs=(st,v,out)=>{const d=D.decodeArgs({ffmpeg,asset:asset(exportState.clips[st.clip].asset),clip:exportState.clips[st.clip],stretch:st,fps,speed,width,height:h,fit,pad:v.pad,matrix:v.matrix}),input=d.input.slice(0,d.input.indexOf('-map'));
+   const tail=out?[colourArgs[1]]:[];return {count:d.count,args:['-y','-v','error',...(out?['-stats']:[]),...input,'-f','rawvideo','-pix_fmt','bgra','-s',width+'x'+h,'-framerate',String(fps),'-i','pipe:0','-filter_complex',`[0:v]${d.filter}[v];[1:v]setpts=PTS-STARTPTS[g];[v][g]overlay=0:0:alpha=premultiplied:format=auto:eof_action=pass${tail.length?','+tail[0]:''}[o]`,'-map','[o]','-an',...(out?[...colourArgs.slice(2),...videoArgs,'-frames:v',String(d.count),'-f','mpegts',out]:['-frames:v','1','-f','rawvideo','-pix_fmt','bgra','pipe:1'])]};};
+  const overlayFrame=(st,v,gfx)=>new Promise(resolve=>{const {args}=overlayArgs(st,v,null),p=spawn(ffmpeg,args,{stdio:['pipe','pipe','ignore']});procs.add(p);const chunks=[];p.stdout.on('data',c=>chunks.push(c));p.stdin.on('error',()=>{});p.on('error',()=>resolve(null));p.on('close',()=>{procs.delete(p);const b=Buffer.concat(chunks);resolve(b.length>=width*h*4?b.subarray(0,width*h*4):null);});p.stdin.end(gfx);});
+  for(const st of stretches.filter(x=>x.kind==='overlay')){check();const m=Math.floor((st.n0+st.n1)/2),whole=await drawFrame(m),g=await gfxWindow().then(r=>drawOn(r,m)).catch(()=>null),a=asset(exportState.clips[st.clip].asset);let best={q:0};
+   if(g)for(const matrix of ['bt709','auto']){const v={pad:D.padColour(whole,width,h,a,fit),matrix},px=await overlayFrame({...st,n0:m,n1:m+1},v,g);const q=px?D.psnr(whole,px,width,h):0;
+    if(cfg.tuning?.dumpDirect){const info=await gfxRenderer.webContents.executeJavaScript("JSON.stringify({cls:document.documentElement.className,flag:window.exportGraphicsV18,vis:getComputedStyle(document.querySelector('#native-video')).visibility,hidden:document.querySelector('#native-video').hidden,body:getComputedStyle(document.body).backgroundColor,canvas:getComputedStyle(document.querySelector('#ed-canvas')).backgroundColor})").catch(e=>e.message);await fs.writeFile(cfg.tuning.dumpDirect+'-gfxinfo.json',info+' alpha0='+g[3]+' alphaMid='+g[(540*width+960)*4+3]);}
+    if(cfg.tuning?.dumpDirect){const k=cfg.tuning.dumpDirect+'-overlay-'+st.n0+'-'+matrix;await fs.writeFile(k+'-whole.bgra',whole);await fs.writeFile(k+'-gfx.bgra',g);if(px)await fs.writeFile(k+'-composite.bgra',px);}if(q>best.q)best={q,...v};if(q>=directMin)break;}
+   st.verdict={ok:best.q>=directMin,pad:best.pad,matrix:best.matrix};directInfo.checks.push({overlay:[st.n0,st.n1],psnr:+best.q.toFixed(1)});}
+  stretches=stretches.filter(st=>st.kind==='overlay'?st.verdict?.ok:verdict.get(st.clip)?.ok);directInfo.stretches=stretches.length;directInfo.overlayFrames=0;
   const optsOf=st=>{const c=exportState.clips[st.clip],v=verdict.get(st.clip);return {ffmpeg,asset:asset(c.asset),clip:c,stretch:st,fps,speed,width,height:h,fit,pad:v.pad,matrix:v.matrix};};
-  let windowDone=0,directDone=0;const report=()=>{const n=windowDone+directDone,elapsed=(now()-started)/1000,left=n>fps?elapsed/n*(frames-n)*1.08:null;progress(n/frames*85,'Step 1 of 2 · Picture · '+Math.round(n/frames*100)+'%'+(left==null?'':' · about '+clock(left)+' left'));};
+  let windowDone=0,directDone=0,overlayDone=0;const report=()=>{const n=windowDone+directDone+overlayDone,elapsed=(now()-started)/1000,left=n>fps?elapsed/n*(frames-n)*1.08:null;progress(n/frames*85,'Step 1 of 2 · Picture · '+Math.round(n/frames*100)+'%'+(left==null?'':' · about '+clock(left)+' left'));};
   // MP4 / MOV: the timeline is cut into pieces. Plain pieces are decoded and encoded by FFmpeg on their own, two at a
   // time, while the export window draws the others; the pieces are joined without re-encoding. (WebM and exports
   // without plain stretches use one encoder for the whole video.)
-  const split=stretches.length>0&&ext!=='webm';
+  const split=ext!=='webm'&&!gif&&cfg.tuning?.pieces!==false;
   if(split){
    const pieces=[];{let n=0;for(const st of stretches){if(st.n0>n)pieces.push({n0:n,n1:st.n0});pieces.push({n0:st.n0,n1:st.n1,st});n=st.n1;}if(n<frames)pieces.push({n0:n,n1:frames});}
+   // 0.15 (Phase 18, E4): with more than a few seconds for the export window, a second window draws in parallel; window
+   // stretches are cut into chunks so both stay busy. Each chunk is encoded on its own and joined like the others.
+   const windowFrames=pieces.filter(pc=>!pc.st).reduce((n,pc)=>n+pc.n1-pc.n0,0),windows=Math.max(1,Math.min(+(cfg.tuning?.windows??2)||1,windowFrames>fps*6?2:1));
+   const chunk=Math.max(fps*2,Math.ceil(windowFrames/(windows*3)));
+   const overlayFrames=pieces.filter(pc=>pc.st?.kind==='overlay').reduce((n,pc)=>n+pc.n1-pc.n0,0),gfxWindows=Math.max(1,Math.min(+(cfg.tuning?.windows??2)||1,overlayFrames>fps*6?2:1)),gfxChunk=Math.max(fps*2,Math.ceil(overlayFrames/(gfxWindows*3)));
+   for(let i=pieces.length-1;i>=0;i--){const pc=pieces[i],ov=pc.st?.kind==='overlay',size=ov?gfxChunk:chunk;if((pc.st&&!ov)||pc.n1-pc.n0<=size*1.5)continue;const parts=[];for(let n=pc.n0;n<pc.n1;n+=size)parts.push({n0:n,n1:Math.min(pc.n1,n+size)});if(parts.length>1&&parts.at(-1).n1-parts.at(-1).n0<fps)parts.at(-2).n1=parts.pop().n1;pieces.splice(i,1,...parts.map(x=>ov?{...x,st:{...pc.st,n0:x.n0,n1:x.n1}}:x));}
+   directInfo.gfxWindows=gfxWindows;
+   directInfo.windows=windows;
    pieces.forEach((pc,i)=>pc.file=path.join(dir,'piece-'+String(i).padStart(4,'0')+'.ts'));
-   const runDirect=pc=>new Promise((resolve,reject)=>{const d=D.decodeArgs(optsOf(pc.st));let err='',counted=0;
-    const p=spawn(ffmpeg,['-y','-v','error','-stats',...d.input,'-vf',d.filter+','+colourArgs[1],...colourArgs.slice(2),...videoArgs,'-frames:v',String(d.count),'-f','mpegts',pc.file],{stdio:['ignore','ignore','pipe']});procs.add(p);
+   const runOverlay=async(pc,r)=>{const {args,count}=overlayArgs(pc.st,pc.st.verdict,pc.file);let err='';const p=spawn(ffmpeg,args,{stdio:['pipe','ignore','pipe']});procs.add(p);
+    const done=new Promise((resolve,reject)=>{p.on('error',reject);p.on('close',code=>{procs.delete(p);code===0?resolve():reject(Error(/cancel/i.test(err)?'Export cancelled.':'Video encoding failed: '+err.slice(-300)));});});p.stderr.on('data',x=>{err=(err+x).slice(-3000);});p.stdin.on('error',()=>{});
+    for(let n=pc.n0;n<pc.n1;n++){check();if(encodeError)throw encodeError;const px=await drawOn(r,n);if(!p.stdin.write(px))await Promise.race([once(p.stdin,'drain'),done]);overlayDone++;directInfo.overlayFrames++;if(n%Math.max(1,Math.round(fps/2))===0)report();}
+    p.stdin.end();await done;};
+   // 0.15 (Phase 18, E6): a plain piece depends only on its source file and the FFmpeg command, so it is kept in
+   // render-cache/ under a key made of both (file path, size and modification time included) and reused by later
+   // exports: exporting again after changing a title re-renders the title, not the footage around it.
+   const cacheDir=path.join(root,'render-cache'),cached=async(d,args)=>{const a=d.input[d.input.indexOf('-i')+1];const st=await fs.stat(a).catch(()=>null);if(!st||cfg.tuning?.cache===false)return null;
+    return path.join(cacheDir,require('node:crypto').createHash('sha256').update(JSON.stringify({v:1,a,size:st.size,mtime:st.mtimeMs,args})).digest('hex')+'.ts');};
+   const runDirect=async pc=>{const d=D.decodeArgs(optsOf(pc.st)),args=[...d.input,'-vf',d.filter+','+colourArgs[1],...colourArgs.slice(2),...videoArgs,'-frames:v',String(d.count),'-f','mpegts'],key=await cached(d,args);
+    if(key&&await fs.access(key).then(()=>true,()=>false)){await fs.link(key,pc.file).catch(()=>fs.copyFile(key,pc.file));const t=new Date();await fs.utimes(key,t,t).catch(()=>{});directDone+=d.count;directInfo.frames+=d.count;directInfo.reused=(directInfo.reused||0)+d.count;return;}
+    await new Promise((resolve,reject)=>{let err='',counted=0;
+    const p=spawn(ffmpeg,['-y','-v','error','-stats',...args,pc.file],{stdio:['ignore','ignore','pipe']});procs.add(p);
     p.stderr.on('data',x=>{const t=String(x);err=(err+t).slice(-3000);const m=/frame=\s*(\d+)/g;let k,last=null;while((k=m.exec(t)))last=+k[1];if(last!=null){directDone+=last-counted;counted=last;}});
     p.on('error',reject);p.on('close',code=>{procs.delete(p);directDone+=d.count-counted;directInfo.frames+=d.count;code===0?resolve():reject(Error(/cancel/i.test(err)?'Export cancelled.':'Video encoding failed: '+err.slice(-300)));});});
-   const queue=pieces.filter(pc=>pc.st);let at=0;const worker=async()=>{while(at<queue.length){check();await runDirect(queue[at++]);}};
+    if(key){await fs.mkdir(cacheDir,{recursive:true}).catch(()=>{});await fs.link(pc.file,key).catch(()=>fs.copyFile(pc.file,key).catch(()=>{}));}};
+   const queue=pieces.filter(pc=>pc.st&&pc.st.kind!=='overlay');let at=0;const worker=async()=>{while(at<queue.length){check();await runDirect(queue[at++]);}};
    const directAll=Promise.all([worker(),worker()]);directAll.catch(e=>{encodeError=encodeError||e;});
-   for(const pc of pieces.filter(pc=>!pc.st)){const enc=encoder(pc.file,'mpegts');
-    for(let n=pc.n0;n<pc.n1;n++){check();if(encodeError)throw encodeError;await enc.write(await drawFrame(n));windowDone++;if(n%Math.max(1,Math.round(fps/2))===0)report();}
-    await enc.end();}
+   const windowQueue=pieces.filter(pc=>!pc.st);let wat=0;
+   const windowWorker=async r=>{while(wat<windowQueue.length){const pc=windowQueue[wat++];const enc=encoder(pc.file,'mpegts');
+    for(let n=pc.n0;n<pc.n1;n++){check();if(encodeError)throw encodeError;await enc.write(await drawOn(r,n));windowDone++;if(n%Math.max(1,Math.round(fps/2))===0)report();}
+    await enc.end();}};
+   const second=windows>1&&windowQueue.length>1?openRenderer().catch(()=>null):null;
+   const overlayQueue=pieces.filter(pc=>pc.st?.kind==='overlay');let oat=0;const overlayWorker=async r=>{while(oat<overlayQueue.length)await runOverlay(overlayQueue[oat++],r);};
+   const overlayAll=overlayQueue.length?Promise.all([gfxWindow().then(overlayWorker),gfxWindows>1&&overlayQueue.length>1?openRenderer(true).then(overlayWorker,()=>null):null]):Promise.resolve();overlayAll.catch(e=>{encodeError=encodeError||e;});
+   await Promise.all([windowWorker(renderer),second?second.then(r=>r&&windowWorker(r)):null,overlayAll]);
    while(true){const r=await Promise.race([directAll.then(()=>true),new Promise(r=>setTimeout(r,500,false))]);check();report();if(r)break;}
    if(encodeError)throw encodeError;
    const list=path.join(dir,'pieces.txt');await fs.writeFile(list,pieces.map(pc=>`file '${pc.file.replace(/'/g,"'\\''")}'\nduration ${((pc.n1-pc.n0)/fps).toFixed(6)}`).join('\n'));
    await run(ffmpeg,['-y','-v','error','-f','concat','-safe','0','-i',list,'-c','copy',videoFile]);
+   pruneRenderCacheV18(path.join(root,'render-cache'),+(cfg.tuning?.cacheLimit||3e9)).catch(()=>{});
   }else{
    const enc=encoder(videoFile);let si=0,direct=null;
    for(let n=0;n<frames;n++){
@@ -92,7 +138,7 @@ async function exportProject(ctx){
    }
    await enc.end();
   }
-  const R=await renderer.webContents.executeJavaScript('window.exportTimingV15||{}').catch(()=>({}));renderer.destroy();renderer=null;ctx.timing={frames,...T,seek:R.seek||0,wait:R.wait||0,renderMs:Math.round(now()-started),direct:directInfo};
+  const R=await renderer.webContents.executeJavaScript('window.exportTimingV15||{}').catch(()=>({}));for(const r of extraRenderers)try{if(!r.isDestroyed())r.destroy();}catch{}renderer=null;ctx.timing={frames,...T,seek:R.seek||0,wait:R.wait||0,renderMs:Math.round(now()-started),direct:directInfo};
  }
  check();
  const audio=path.join(dir,'audio.wav');
@@ -127,6 +173,6 @@ async function exportProject(ctx){
  else if(gif)await run(ffmpeg,['-y','-i',videoFile,'-filter_complex','split[a][b];[a]palettegen[p];[b][p]paletteuse','-loop','0',output]);
  else{const codec=ext==='webm'?['-c:v','copy','-c:a','libopus']:['-c:v','copy','-c:a','aac','-b:a','192k','-movflags','+faststart'];await run(ffmpeg,['-y','-i',videoFile,'-i',audio,'-map','0:v:0','-map','1:a:0',...codec,'-t',String(duration),output]);}
  check();await fs.copyFile(output,dest);let srt;if(cfg.captions?.startsWith('Separate')){srt=dest.replace(/\.[^.]+$/,'.srt');await ctx.validateOutput?.(srt);/* 0.15: ask before replacing a caption file that is already there */const there=await fs.access(srt).then(()=>true,()=>false);if(there&&ctx.confirmReplace&&!(await ctx.confirmReplace(srt)))srt=undefined;else await fs.writeFile(srt,subtitles(state));}progress(100,'Export complete');return {path:dest,srt,timing:ctx.timing};
- }finally{stopDirect();renderer?.destroy();if(encoding&&!encoding.killed)encoding.kill();await fs.rm(dir,{recursive:true,force:true});}
+ }finally{stopDirect();for(const r of extraRenderers)try{if(!r.isDestroyed())r.destroy();}catch{}renderer=null;if(encoding&&!encoding.killed)encoding.kill();await fs.rm(dir,{recursive:true,force:true});}
 }
 module.exports={exportProject,subtitles,dimensions};

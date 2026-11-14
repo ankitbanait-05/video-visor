@@ -213,3 +213,7 @@
 #visor-app #vv-editor .v17-tlkey{position:absolute;bottom:0;width:11px;height:11px;margin-left:-5.5px;padding:0;border:0;background:none;pointer-events:auto;cursor:ew-resize;display:grid;place-items:center}
 #visor-app #vv-editor .v17-tlkey::before{content:'';width:7px;height:7px;transform:rotate(45deg);background:#fff;border:1.5px solid var(--v-purple);border-radius:1px}
 #visor-app #vv-editor .v17-tlkey:hover::before{background:var(--v-purple)}
+
+/* 0.15 (Phase 18, E2): the export window's graphics-only mode (titles and captions alone, on transparent). */
+html.export-graphics,html.export-graphics body,html.export-graphics #visor-app,html.export-graphics #vv-editor,html.export-graphics .ed-layout,html.export-graphics .ed-main,html.export-graphics #ed-canvas,html.export-graphics #ed-screen{background:transparent!important;box-shadow:none!important;border-color:transparent!important}
+html.export-graphics #native-video,html.export-graphics #native-image,html.export-graphics #ed-screen video,html.export-graphics #ed-screen img,html.export-graphics #native-empty{visibility:hidden!important}

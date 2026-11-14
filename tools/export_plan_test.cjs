@@ -23,6 +23,20 @@ const cases = {
   'speed 2×: title at timeline 4–6 s is 2–3 s of output': [{ ...base, speed: 2, elements: [{ start: 4, end: 6 }] }, [[0, 0, 1.93], [0, 3.07, 5]]],
   'short gap under 1 s is skipped': [{ ...base, elements: [{ start: 0, end: 9.5 }] }, []],
 };
+// Phase 18: with { overlay: true }, stretches where only graphics or captions sit on top are 'overlay'.
+const showK = p => p.map(x => [x.kind, x.clip, +(x.n0 / fps).toFixed(2), +(x.n1 / fps).toFixed(2)]);
+const overlayCases = {
+  'title 2–4 s: plain, overlay, plain': [{ ...base, elements: [{ start: 2, end: 4, kind: 'title' }] }, [['plain', 0, 0, 1.93], ['overlay', 0, 1.93, 4.07], ['plain', 0, 4.07, 10]]],
+  'captions on: overlay': [{ ...base, transcript: [{ asset: 'a', start: 3, end: 5 }] }, [['plain', 0, 0, 2.93], ['overlay', 0, 2.93, 5.07], ['plain', 0, 5.07, 10]], { captions: true }],
+  'blur region needs the whole frame': [{ ...base, elements: [{ start: 2, end: 4, kind: 'blur' }] }, [['plain', 0, 0, 1.93], ['plain', 0, 4.07, 10]]],
+  'tracking blur needs the whole frame': [{ ...base, elements: [{ start: 2, end: 4, kind: 'cover', tracking: {} }] }, [['plain', 0, 0, 1.93], ['plain', 0, 4.07, 10]]],
+  'title over a moved clip: nothing direct': [{ ...base, clips: [clip('c1', 0, 10, { transform: { x: 5 } })], elements: [{ start: 2, end: 4, kind: 'title' }] }, []],
+  'short plain gap between titles joins the overlay': [{ ...base, elements: [{ start: 2, end: 4, kind: 'title' }, { start: 4.5, end: 6, kind: 'title' }] }, [['plain', 0, 0, 1.93], ['overlay', 0, 1.93, 6.07], ['plain', 0, 6.07, 10]]],
+};
+for (const [name, [state, want, extra]] of Object.entries(overlayCases)) {
+  const got = showK(D.plan(state, { ...opts(state, extra), overlay: true })), ok = JSON.stringify(got) === JSON.stringify(want);
+  if (!ok) process.exitCode = 1; console.log(ok ? 'ok  ' : 'FAIL', name, ok ? '' : JSON.stringify({ got, want }));
+}
 let bad = 0;
 for (const [name, [state, want, extra]] of Object.entries(cases)) {
   const got = show(D.plan(state, opts(state, extra))), ok = JSON.stringify(got) === JSON.stringify(want);

@@ -289,6 +289,28 @@ Measured in the real app (`VV_BENCH_ONLY=export`). "Before" is the export window
 | Export | Matches the preview: same drawing code. Checked in the real app: an export animated 100% → 150% shows the source unchanged before the animation (33.5 dB) and enlarged exactly 1.5× at the end (34.1 dB, against 12.1 dB for the unenlarged frame). Animated clips use the slower export path (the fast path is only for clips with nothing changing). |
 | Not done | Keyframes on titles, graphics and video layers (the overlay panel); dragging on the preview to draw a motion path; a curve editor. Volume and crop keyframes. |
 
+## Phase 18 status
+
+Measured in the real app on a 40-second 1080p project (`VV_BENCH_ONLY=export VV_BENCH_SECONDS=40`).
+
+| Export | Before Phase 18 | Now | Picture vs. before |
+|---|---|---|---|
+| A title, export window only (no fast path) | 31.6 s | 17.0 s | 52 dB (the same) |
+| A title, with the fast path | ≈ 8 s | 8.0 s | 38.5 dB |
+| **Same project, title text changed, exported again** | 8.0 s | **4.8 s** | n/a (1,018 of 1,200 frames reused) |
+| **Captions burned in across the whole video** | 19.0 s | **14.4 s** | 36.3 dB |
+| Two clips with a cut | 15.2 s | 7.5 s | 38.5 dB |
+| An animated clip (keyframes) | 16.4 s | 9.5 s | matches the animation exactly |
+
+| Item | Status |
+|---|---|
+| E4 Parallel windows | Done. When more than 6 s needs the export window, a second window draws in parallel; long stretches are cut into chunks so both stay busy. |
+| E2 Graphics layer | Done. Where the footage is plain and only titles, graphics, solid covers or captions sit on top, the export window draws just those, on a transparent page, without loading or seeking the video. FFmpeg lays them over the decoded footage. Each such stretch is checked against a whole frame first, and falls back if it doesn't match. Blur, tracking blur, zooms, transitions, video layers and changed or animated clips still use the whole window. |
+| E6 Re-use | Done for the plain stretches. They are kept in `render-cache/` under a key made of the source file (path, size, modification time) and the exact FFmpeg command, so a reused piece is always identical to a fresh one. Kept under 3 GB (least recently used removed first). Settings → Storage → clear caches empties it. |
+| E3 Faster capture | Tried and not used. Taking the frame from the window's own paint was faster (20.4 s against 26.7 s with one window), but some frames came out stale (28 dB against the normal capture). It stays as a test option only. |
+| Found while testing | (1) An offscreen export window doesn't repaint when a frame is identical to the last one (a still caption), and the capture then waited forever. It now asks for a repaint first; this also sped up the plain window path (31.6 s → 26.7 s with one window). (2) A frame that takes over 20 s now stops the export with "The export stopped responding… Try exporting again." instead of hanging. |
+| Not done | Re-use of graphics and window stretches (their content depends on more of the project, so a safe key needs more care). |
+
 ## 8. Decisions needed from you
 
 1. **Speed copies:** hide them from Media (recommended), or show them named after the clip?
@@ -309,7 +331,7 @@ Measured in the real app (`VV_BENCH_ONLY=export`). "Before" is the export window
 | 15 | File tools redesign (section 5). *Done.* | M |
 | 16 | Preview zoom (section 4) and editor clarity items 1–6. *Done.* | M |
 | 17 | Keyframes and presets (section 3). *Done for video clips.* | L |
-| 18 | Export speed II: offscreen capture (E3), graphics layer (E2), parallel chunks (E4), re-use (E6) | L |
+| 18 | Export speed II: offscreen capture (E3), graphics layer (E2), parallel chunks (E4), re-use (E6). *Done (E3 tried, not used).* | L |
 | 19 | Editing power: ripple delete, J/K/L, multi-select, markers | M |
 | 20 | Home, Projects, Settings and recorder polish (section 7) | M |
 

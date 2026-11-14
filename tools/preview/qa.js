@@ -933,6 +933,19 @@ Object.assign(checks, {
   },
 });
 
+// Phase 18: the export window's graphics-only mode (the export itself is measured by `VV_BENCH_ONLY=export`).
+Object.assign(checks, {
+  async 'graphics-only mode hides the footage and keeps titles and captions'() {
+    await freshEditor(); await addTitle(); await wait(200);
+    const el = E().get().elements[0]; E().jump((el.start + el.end) / 2); await wait(200);
+    window.exportGraphicsModeV18(true); await wait(150);
+    const video = getComputedStyle($('#native-video')).visibility, canvasBg = getComputedStyle($('#ed-canvas')).backgroundColor, layer = $$('#ed-canvas .ed-layer').some(n => !n.hidden && n.offsetWidth > 0);
+    window.exportGraphicsModeV18(false); await wait(100);
+    const back = getComputedStyle($('#native-video')).visibility;
+    return { pass: video === 'hidden' && /rgba\(0, 0, 0, 0\)|transparent/.test(canvasBg) && layer && back !== 'hidden' && !document.documentElement.classList.contains('export-graphics'), detail: { video, canvasBg, layer, back } };
+  },
+});
+
 export const count = () => Object.keys(checks).length;
 export async function run(only) {
   const results = [];

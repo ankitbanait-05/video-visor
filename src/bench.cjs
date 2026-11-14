@@ -209,8 +209,11 @@ async function run(ctx) {
     // project at 1.5× speed both ways (its two exports are compared with each other).
     const tuning = process.env.VV_BENCH_TUNING ? JSON.parse(process.env.VV_BENCH_TUNING) : {}, cfgOf = extra => ({ format: 'MP4', resolution: '1080p', fps: 30, tuning: { wait: 'raf1', ...tuning, ...extra } });
     const fast = { ...withTitle, speed: 1.5 };
+    // Captions burned in across the whole video (a line every 2.5 s), the common case for shared screen recordings.
+    const lines = []; for (let t = .5; t < a.duration - 1; t += 2.5) lines.push({ id: 'l' + t, asset: a.id, start: t, end: t + 2.2, text: 'Here is how the new export works in practice', words: [] });
+    const captioned = { ...base, transcript: lines, captions: true, captionStyle: 'boxed', captionFont: 'DM Sans', captionSize: 34, captionPosition: 'bottom', captionBackground: true };
     const cuts = { ...withTitle, clips: [{ ...base.clips[0], id: 'k1', end: Math.min(8, a.duration / 2) }, { ...base.clips[0], id: 'k2', start: Math.min(12, a.duration * .6) }] };
-    const variants = [['1080p MP4 + title · window only', withTitle, cfgOf({ direct: false })], ['1080p MP4 + title · direct', withTitle, cfgOf({})], ['1.5× · window only', fast, cfgOf({ direct: false })], ['1.5× · direct', fast, cfgOf({})], ['two cuts · window only', cuts, cfgOf({ direct: false })], ['two cuts · direct', cuts, cfgOf({})]];
+    const variants = [['1080p MP4 + title · one window', withTitle, cfgOf({ direct: false, windows: 1, pieces: false })], ['1080p MP4 + title · window only', withTitle, cfgOf({ direct: false })], ['1080p MP4 + title · direct', withTitle, cfgOf({})], ['title text changed · direct (re-use)', { ...withTitle, elements: [{ ...withTitle.elements[0], text: 'Benchmark title, edited' }] }, cfgOf({})], ['1.5× · window only', fast, cfgOf({ direct: false })], ['1.5× · direct', fast, cfgOf({})], ['two cuts · window only', cuts, cfgOf({ direct: false })], ['two cuts · direct', cuts, cfgOf({})], ['captions · window only', captioned, { ...cfgOf({ direct: false }), captions: 'Burn into video' }], ['captions · no graphics layer', captioned, { ...cfgOf({ overlay: false }), captions: 'Burn into video' }], ['captions · direct', captioned, { ...cfgOf({}), captions: 'Burn into video' }], ['1080p MP4 + title · one window, paint capture', withTitle, cfgOf({ direct: false, windows: 1, pieces: false, capture: 'paint' })]];
     const made = {};
     for (const [name, state, cfg] of variants) {
       let n = 0;
@@ -222,9 +225,11 @@ async function run(ctx) {
       try { const log = await new Promise(res => { const p = require('node:child_process').spawn(ffmpeg, ['-i', target, '-i', screen, '-lavfi', '[0:v]trim=start=7,setpts=PTS-STARTPTS[a];[1:v]trim=start=7,setpts=PTS-STARTPTS[b];[a][b]psnr', '-f', 'null', '-'].map(x => x === screen ? (exportSource || screen) : x)); let e = ''; p.stderr.on('data', d => e += d); p.on('close', () => res(e)); }); psnr = +(/average:([\d.inf]+)/.exec(log)?.[1] || 0); } catch {}
       made[name] = target;
       // The two 1.5× exports should be the same picture: compare them frame by frame.
-      let vsWindow = null; const twin = made[name.replace(' · direct', ' · window only')];
+      // Each faster way is compared with the way before it (the picture should be the same).
+      const twinName = { '1080p MP4 + title · window only': '1080p MP4 + title · one window', '1080p MP4 + title · direct': '1080p MP4 + title · window only', 'title text changed · direct (re-use)': null, '1.5× · direct': '1.5× · window only', 'two cuts · direct': 'two cuts · window only', 'captions · no graphics layer': 'captions · window only', 'captions · direct': 'captions · window only', '1080p MP4 + title · one window, paint capture': '1080p MP4 + title · one window' }[name];
+      let vsWindow = null; const twin = twinName ? made[twinName] : null;
       if (twin && twin !== target) { const log = await new Promise(res => { const p = require('node:child_process').spawn(ffmpeg, ['-i', target, '-i', twin, '-lavfi', 'psnr', '-f', 'null', '-']); let e = ''; p.stderr.on('data', d => e += d); p.on('close', () => res(e)); }); vsWindow = +(/average:([\d.inf]+)/.exec(log)?.[1] || 0); }
-      out('export', { name, seconds: Math.round(a.duration), wallMs: ms, realtime: +(a.duration * 1000 / ms).toFixed(2), frames: t.frames, psnrVsSource: /^(1\.5|two)/.test(name) ? undefined : psnr, psnrVsWindowOnly: vsWindow, direct: t.direct, perFrameMs: { seek: +(t.seek / f).toFixed(1), paintWait: +(t.wait / f).toFixed(1), drawTotal: +(t.draw / f).toFixed(1), capture: +(t.capture / f).toFixed(1), convert: +(t.convert / f).toFixed(1), pipe: +(t.pipe / f).toFixed(1), decode: +((t.decode || 0) / f).toFixed(1) } });
+      out('export', { name, seconds: Math.round(a.duration), wallMs: ms, realtime: +(a.duration * 1000 / ms).toFixed(2), frames: t.frames, psnrVsSource: /^(1\.5|two)/.test(name) ? undefined : psnr, psnrVsWindowOnly: vsWindow, direct: t.direct, renderMs: t.renderMs, perFrameMs: { seek: +(t.seek / f).toFixed(1), paintWait: +(t.wait / f).toFixed(1), drawTotal: +(t.draw / f).toFixed(1), capture: +(t.capture / f).toFixed(1), convert: +(t.convert / f).toFixed(1), pipe: +(t.pipe / f).toFixed(1), decode: +((t.decode || 0) / f).toFixed(1) } });
     }
   }
 }

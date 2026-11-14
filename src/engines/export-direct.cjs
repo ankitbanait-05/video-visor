@@ -17,40 +17,48 @@ const plainClip = c => c.kind === 'video' && !c.gap
   && !Object.values(c.keyframes || {}).some(k => k?.length); // animated position / scale / rotation / opacity
 
 // Frame ranges [n0, n1) that can be decoded directly, each inside one clip.
-function plan(state, { fps, frames, speed, captions }) {
+//  kind 'plain': nothing on top of the footage. kind 'overlay' (with { overlay: true }): only titles, graphics, solid
+//  covers or captions on top, which the export window can draw on their own (transparent) for FFmpeg to lay over the
+//  decoded footage (Phase 18, E2). Blur and tracking blur read the video, so they need the whole frame drawn.
+function plan(state, { fps, frames, speed, captions, overlay = false }) {
   if (state.camera || state.colour || state.hiddenTracks?.video) return [];
   if (Object.values(state.adjustments || {}).some(v => v && v !== 100)) return [];
   const clips = state.clips || [], offsets = []; let o = 0;
   for (const c of clips) { offsets.push(o); o += c.end - c.start; }
-  const busy = []; const add = (a, b) => { if (b > a) busy.push([a, b]); };
-  for (const e of state.elements || []) add(e.start ?? 0, e.end ?? Infinity);
-  for (const z of state.zooms || []) add(z.start, z.end);
-  if (state.zoom) add(state.focus?.start ?? 0, state.focus?.end ?? Infinity);
-  for (const v of state.overlays || []) add(v.start ?? 0, v.end ?? Infinity);
+  const hard = [], gfx = []; const add = (list, a, b) => { if (b > a) list.push([a, b]); };
+  const graphicsOnly = e => overlay && !e.tracking && e.kind !== 'blur' && !state.hiddenTracks?.graphics;
+  for (const e of state.elements || []) add(graphicsOnly(e) ? gfx : hard, e.start ?? 0, e.end ?? Infinity);
+  for (const z of state.zooms || []) add(hard, z.start, z.end);
+  if (state.zoom) add(hard, state.focus?.start ?? 0, state.focus?.end ?? Infinity);
+  for (const v of state.overlays || []) add(hard, v.start ?? 0, v.end ?? Infinity);
   clips.forEach((c, i) => {
-    if (!plainClip(c)) add(offsets[i], offsets[i] + c.end - c.start);
+    if (!plainClip(c)) add(hard, offsets[i], offsets[i] + c.end - c.start);
     if (captions) for (const l of state.transcript || []) {
       if (l.asset && l.asset !== c.asset) continue;
       const a = Math.max(c.start, l.start), b = Math.min(c.end, l.end);
-      if (b > a) add(offsets[i] + a - c.start, offsets[i] + b - c.start);
+      if (b > a) add(overlay ? gfx : hard, offsets[i] + a - c.start, offsets[i] + b - c.start);
     }
     const t = c.transitionIn;
-    if (i > 0 && t && t.type && t.type !== 'cut') add(offsets[i] - (t.duration || .5), offsets[i] + (t.duration || .5));
-    if (state.transition === 'fade') { add(offsets[i] - .6, offsets[i] + .6); add(offsets[i] + c.end - c.start - .6, offsets[i] + c.end - c.start); }
-    if (state.transition === 'dissolve' && i > 0) add(offsets[i] - .1, offsets[i] + .6);
+    if (i > 0 && t && t.type && t.type !== 'cut') add(hard, offsets[i] - (t.duration || .5), offsets[i] + (t.duration || .5));
+    if (state.transition === 'fade') { add(hard, offsets[i] - .6, offsets[i] + .6); add(hard, offsets[i] + c.end - c.start - .6, offsets[i] + c.end - c.start); }
+    if (state.transition === 'dissolve' && i > 0) add(hard, offsets[i] - .1, offsets[i] + .6);
   });
-  const margin = MARGIN_FRAMES / fps * speed, isBusy = t => busy.some(([a, b]) => t >= a - margin && t < b + margin);
+  const margin = MARGIN_FRAMES / fps * speed, inside = (list, t) => list.some(([a, b]) => t >= a - margin && t < b + margin);
   const out = []; let cur = null;
   for (let n = 0; n < frames; n++) {
     const t = n / fps * speed; let i = clips.length - 1;
     while (i > 0 && t < offsets[i]) i--;
-    const inside = t >= offsets[i] && t < offsets[i] + clips[i].end - clips[i].start;
-    if (inside && !isBusy(t)) {
-      if (cur && cur.clip === i && cur.n1 === n) cur.n1 = n + 1;
-      else { cur = { clip: i, n0: n, n1: n + 1, offset: offsets[i] }; out.push(cur); }
+    const within = t >= offsets[i] && t < offsets[i] + clips[i].end - clips[i].start;
+    const kind = !within || inside(hard, t) ? null : inside(gfx, t) ? 'overlay' : 'plain';
+    if (kind) {
+      if (cur && cur.clip === i && cur.kind === kind && cur.n1 === n) cur.n1 = n + 1;
+      else { cur = { clip: i, n0: n, n1: n + 1, offset: offsets[i], kind }; out.push(cur); }
     } else cur = null;
   }
-  return out.filter(s => s.n1 - s.n0 >= MIN_SECONDS * fps);
+  // Short plain stretches between overlays become overlay (no decoder start for a few frames); then drop what is too short.
+  for (let k = 1; k < out.length - 1; k++) { const p = out[k]; if (p.kind === 'plain' && p.n1 - p.n0 < MIN_SECONDS * fps && out[k - 1].kind === 'overlay' && out[k - 1].n1 === p.n0 && out[k - 1].clip === p.clip) p.kind = 'overlay'; }
+  const merged = []; for (const p of out) { const last = merged.at(-1); if (last && last.kind === p.kind && last.clip === p.clip && last.n1 === p.n0) last.n1 = p.n1; else merged.push({ ...p }); }
+  return merged.filter(s => s.n1 - s.n0 >= (s.kind === 'overlay' ? Math.ceil(fps / 2) : MIN_SECONDS * fps));
 }
 
 // FFmpeg filter that places the footage on the canvas as the editor does (object-fit contain or cover).
