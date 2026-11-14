@@ -154,6 +154,148 @@ const checks = {
   },
 };
 
+// ---------- Phase 1 helpers ----------
+const lane = () => $('#vt-tracks .vt-video');
+const secondsPerPx = () => E().get().clips.reduce((n, c) => n + c.end - c.start, 0) / lane().getBoundingClientRect().width;
+const pxOf = t => lane().getBoundingClientRect().left + t / secondsPerPx();
+const block = (type, id) => $$('#vt-tracks .vt-block').find(b => b.dataset.v7Type === type && b.dataset.v7Id === id && b.offsetParent);
+function pointer(el, x, y, x2, y2, opts = {}) {
+  const base = { bubbles: true, cancelable: true, pointerId: 7, button: 0, isPrimary: true, ...opts };
+  el.dispatchEvent(new PointerEvent('pointerdown', { ...base, clientX: x, clientY: y, buttons: 1 }));
+  const steps = 6;
+  for (let i = 1; i <= steps; i++) window.dispatchEvent(new PointerEvent('pointermove', { ...base, clientX: x + (x2 - x) * i / steps, clientY: y + (y2 - y) * i / steps, buttons: 1 }));
+  window.dispatchEvent(new PointerEvent('pointerup', { ...base, clientX: x2, clientY: y2, buttons: 0 }));
+}
+const centre = el => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+const setTime = async t => { const sc = $('#ed-scrub'); sc.value = t; sc.dispatchEvent(new Event('input', { bubbles: true })); await wait(80); };
+async function twoTitles(a, b) {
+  await addTitle('Callouts', 0); await addTitle('Callouts', 1);
+  const st = E().get(), track = st.elements[0].trackId;
+  st.elements[0] = { ...st.elements[0], start: a[0], end: a[1], trackId: track };
+  st.elements[1] = { ...st.elements[1], start: b[0], end: b[1], trackId: track };
+  E().patch({ elements: st.elements }); await wait(250);
+  return E().get().elements;
+}
+
+Object.assign(checks, {
+  async 'N toggles snapping'() {
+    await freshEditor();
+    const on = () => $('#v15-snap')?.getAttribute('aria-pressed');
+    const first = on(); key('n'); await wait(100); const second = on(); key('n'); await wait(100);
+    return { pass: first === 'true' && second === 'false' && on() === 'true', detail: { first, second, third: on() } };
+  },
+  async 'a dragged title snaps to the playhead'() {
+    await freshEditor(); await setTime(10); await addTitle('Callouts', 0);
+    tab('elements').click(); await wait(200); await setTime(3);
+    const e = E().get().elements[0], b = block('element', e.id), [x, y] = centre(b);
+    const dx = (3 - e.start) / secondsPerPx() + 4; // 4 px past the playhead: should snap onto it
+    pointer(b, x, y, x + dx, y); await wait(300);
+    const after = E().get().elements[0];
+    return { pass: Math.abs(after.start - 3) < 1e-6 || Math.abs(after.end - 3) < 1e-6, detail: { before: e.start, after: after.start } };
+  },
+  async 'trimming cannot run over the next item'() {
+    await freshEditor(); tab('elements').click();
+    const els = await twoTitles([1, 4], [6, 9]); tab('elements').click(); await wait(200);
+    const b = block('element', els[0].id); b.click(); await wait(150);
+    const edge = block('element', els[0].id).querySelector('.v6-edge.end'), [x, y] = centre(edge);
+    pointer(edge, x, y, x + 5 / secondsPerPx(), y); await wait(300);
+    const a = E().get().elements.find(e => e.id === els[0].id);
+    return { pass: a.end <= 6 + 1e-6 && a.end > 4, detail: { end: a.end } };
+  },
+  async 'a tracking blur can be trimmed'() {
+    await freshEditor();
+    const data = await (await fetch('/__preview/track.json')).json(), st = E().get();
+    st.elements.push({ id: 'tb1', kind: 'tracking-blur', text: '', x: 50, y: 50, width: 40, start: 2, end: 24, animation: 'none', tracking: { ...data, asset: st.clips[0].asset, start: 2, end: 20, limitStart: 2, limitEnd: 20 } });
+    E().patch({ elements: st.elements }); tab('effects').click(); await wait(300);
+    const edge = block('element', 'tb1')?.querySelector('.v6-edge.end'); if (!edge) return { pass: false, detail: 'no end handle on the tracking blur' };
+    const [x, y] = centre(edge); pointer(edge, x, y, x - 4 / secondsPerPx(), y); await wait(300);
+    const t = E().get().elements.find(e => e.id === 'tb1').tracking;
+    return { pass: t.end < 19 && t.end > 14, detail: { end: t.end } };
+  },
+  async 'a main clip moves up to V2 and back'() {
+    await freshEditor();
+    $('#vt-tracks [aria-label="Add Video track"]').click(); await wait(300);
+    const c = E().get().clips[0], b = block('video', c.id), [x, y] = centre(b);
+    const v2 = $('#vt-tracks .vt-lane[data-track-id="video-1"]'), [, y2] = centre(v2);
+    pointer(b, x, y, x, y2); await wait(400);
+    const up = E().get();
+    const lifted = { overlays: up.overlays?.length || 0, gap: up.clips.some(c => c.gap), linkedAudio: (up.audioClips || []).filter(a => a.linkOverlay).length };
+    const ob = block('overlay', up.overlays?.[0]?.id); if (!ob) return { pass: false, detail: { lifted, note: 'overlay block not drawn' } };
+    const [ox, oy] = centre(ob), [, my] = centre(lane());
+    pointer(ob, ox, oy, ox, my); await wait(400);
+    const down = E().get();
+    const back = { overlays: down.overlays?.length || 0, gap: down.clips.some(c => c.gap), audioClips: (down.audioClips || []).length, clips: down.clips.length };
+    return { pass: lifted.overlays === 1 && lifted.gap && lifted.linkedAudio === 1 && back.overlays === 0 && !back.gap && back.audioClips === 0 && back.clips === 2, detail: { lifted, back } };
+  },
+  async 'a locked track refuses edits'() {
+    await freshEditor();
+    $('#vt-tracks .vt-row[data-track-id="video-main"] .vt-label button').click(); await wait(200);
+    await setTime(6); const n = E().get().clips.length; $('#ed-split').click(); await wait(200);
+    const st = E().get(); st.clips[0] = { ...st.clips[0], end: st.clips[0].end - 2 }; E().patch({ clips: st.clips }); await wait(200);
+    return { pass: E().get().clips.length === n && E().get().clips[0].end === st.clips[0].end + 2, detail: { clips: E().get().clips.length, end: E().get().clips[0].end } };
+  },
+  async 'an empty project shows no fake clip'() {
+    localStorage.removeItem('vv-mock'); E().reset(); $('.v-nav [data-route=editor]').click(); await wait(500);
+    return { pass: !!$('#vt-tracks .v15-empty-main') && $('#ed-play').disabled && $('#ed-time').textContent === '00:00.0 / 00:00.0', detail: { prompt: !!$('#vt-tracks .v15-empty-main'), play: $('#ed-play').disabled, time: $('#ed-time').textContent } };
+  },
+  async 'adding a title keeps the playhead'() {
+    await freshEditor(); await setTime(8); const t = E().get().time;
+    await addTitle('Titles', 0); await addTitle('Callouts', 0);
+    const e = E().get().elements;
+    return { pass: Math.abs(E().get().time - t) < 1e-6 && e.every(x => x.start <= t && x.end > t), detail: { before: t, after: E().get().time, ranges: e.map(x => [x.start, x.end]) } };
+  },
+  async 'pasting at the end never makes a zero-length item'() {
+    await freshEditor(); await addTitle('Callouts', 0); tab('elements').click(); await wait(200);
+    block('element', E().get().elements[0].id).click(); await wait(150);
+    key('c', { metaKey: true }); const total = E().get().clips.reduce((n, c) => n + c.end - c.start, 0);
+    await setTime(total); key('v', { metaKey: true }); await wait(300);
+    const els = E().get().elements;
+    return { pass: els.length === 2 && els.every(e => e.end - e.start >= .1 && e.end <= total + 1e-6), detail: els.map(e => [e.start, e.end]) };
+  },
+  async 'a caption cannot be dragged over the next one'() {
+    await freshEditor(); tab('captions').click(); await wait(200);
+    panelButton(/Generate captions/).click(); await wait(1400); tab('captions').click(); await wait(200);
+    const lines = E().get().transcript, b = block('caption', lines[0].id); if (!b) return { pass: false, detail: 'no caption block' };
+    const [x, y] = centre(b); pointer(b, x, y, x + 6 / secondsPerPx(), y); await wait(300);
+    const l = E().get().transcript;
+    return { pass: l[0].end <= l[1].start + 1e-6, detail: { first: [l[0].start, l[0].end], second: [l[1].start, l[1].end] } };
+  },
+  async 'the first clip never keeps a transition'() {
+    await freshEditor(); const st = E().get();
+    st.clips[1] = { ...st.clips[1], transitionIn: { type: 'dissolve', duration: .5 } };
+    E().patch({ clips: [st.clips[1], st.clips[0]] }); await wait(200);
+    return { pass: !E().get().clips[0].transitionIn, detail: E().get().clips.map(c => c.transitionIn?.type || '-') };
+  },
+  async 'music can be trimmed and then moved'() {
+    await freshEditor(); tab('audio').click(); await wait(200);
+    panelButton(/Music library/).click(); await wait(900);
+    $$('.v-dialog button').find(b => b.textContent.trim() === 'Add').click(); await wait(500);
+    if (!$('#v-overlay').hidden) $('#v-dialog-close').click();
+    tab('audio').click(); await wait(300);
+    const m = E().get().music, b = block('music', m.asset); if (!b) return { pass: false, detail: 'no music block' };
+    const edge = b.querySelector('.v6-edge.end'); if (!edge) return { pass: false, detail: 'no end handle on music' };
+    const [x, y] = centre(edge); pointer(edge, x, y, x - 10 / secondsPerPx(), y); await wait(300);
+    const trimmed = E().get().music;
+    const b2 = block('music', m.asset), [bx, by] = centre(b2); pointer(b2, bx, by, bx + 3 / secondsPerPx(), by); await wait(300);
+    const moved = E().get().music;
+    return { pass: trimmed.end < 20 && moved.start > 2, detail: { trimmed: [trimmed.start, trimmed.end], moved: [moved.start, moved.end] } };
+  },
+  async 'a locked item’s panel is read-only'() {
+    await freshEditor(); await addTitle('Callouts', 0); tab('elements').click(); await wait(200);
+    const id = E().get().elements[0].id; { const b = block('element', id), [x, y] = centre(b); pointer(b, x, y, x, y); } await wait(250);
+    const row = $$('#vt-tracks .vt-row').find(r => r.dataset.trackId?.startsWith('graphics-'));
+    row.querySelector('.vt-label button').click(); await wait(250);
+    // A locked item can't be selected; the panel that was already open becomes read-only.
+    const inputs = $$('#ed-panel input,#ed-panel select,#ed-panel textarea');
+    return { pass: !!$('#ed-panel .v15-locked-note') && inputs.length > 0 && inputs.every(i => i.disabled), detail: { note: !!$('#ed-panel .v15-locked-note'), inputs: inputs.length, disabled: inputs.filter(i => i.disabled).length } };
+  },
+  async 'tracks have short names (V1, V2, A1)'() {
+    await freshEditor(); $('#vt-tracks [aria-label="Add Video track"]').click(); await wait(300);
+    const names = $$('#vt-tracks .vt-row').filter(r => r.dataset.trackId && !r.hidden).map(r => r.querySelector('.vt-label span')?.textContent);
+    return { pass: JSON.stringify(names) === '["V2","V1","A1"]', detail: names };
+  },
+});
+
 export async function run(only) {
   const results = [];
   const errors = []; const onError = e => errors.push(e.message || String(e.reason)); window.addEventListener('error', onError); window.addEventListener('unhandledrejection', onError);

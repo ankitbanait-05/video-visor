@@ -11,7 +11,7 @@ This is the single list of everything found in QA and everything requested in re
 | Pri | **H** must fix before org-wide release · **M** should fix · **L** nice to fix |
 | Evidence | **Repro** reproduced by hand · **Measured** timed on a test file · **Code** found in the code, not reproduced · **Request** asked for in review · **Suspected** needs a check in the real app |
 | Was | Earlier ID from the QA rounds, for traceability |
-| Status | ☐ open · ◐ partly done · ✅ done and checked in the browser preview |
+| Status | ☐ open · ◐ partly done, or done but not yet exercised in the preview · ✅ done and checked |
 
 ---
 
@@ -55,7 +55,7 @@ This is the single list of everything found in QA and everything requested in re
 | P0-01 | Separate **project data** (clips, items, tracks) from **view state** (open tab, scroll, zoom, collapsed groups, Show all). View state is not saved in the project, not undone by Undo, and not copied into new projects | H | Code | B16 || ✅ |
 | P0-02 | One selection model and one lock model, replacing the two of each that coexist today | H | Code | — || ◐ |
 | P0-03 | Drawing never changes data: today every redraw re-sorts overlapping items onto new rows and creates "Graphics 2/3…" tracks that are never removed | H | Code, seen | B6, R6 || ✅ |
-| P0-04 | Redraw only what changed. Cache thumbnails and waveforms per clip, so they no longer flicker and get re-requested on every redraw. Trimming relays out the whole timeline live | H | Code | B19, B20 || ◐ |
+| P0-04 | Redraw only what changed. Cache thumbnails and waveforms per clip, so they no longer flicker and get re-requested on every redraw. Trimming relays out the whole timeline live | H | Code | B19, B20 || ✅ |
 | P0-05 | Stable unique ids for every clip and item. Today a second Magic Edit pass creates duplicate ids, so selecting or deleting one affects both | H | Code | B7 || ✅ |
 | P0-06 | Explicit track model (Spec A). V1/Main at the bottom, video tracks stack upward, audio tracks below. Tracks are created on demand and empty ones removed. **Every new project starts with V1 + A1 only** | H | Repro | R5, B15 || ✅ |
 | P0-07 | Undo: one step per real change. No empty steps from clicking into a field or touching the canvas (which today also wipes Redo) | M | Code | B17 || ✅ |
@@ -96,33 +96,66 @@ Also done in this pass: TL-04, TL-05, TL-07, TL-08, and the split half of TL-21.
 
 | ID | Change | Pri | Evidence | Was | ☐ |
 |---|---|---|---|---|---|
-| TL-01 | **Snapping** everywhere, with a thin snap line and a magnet toggle (shortcut S). Correction: dragging graphics, captions and effects already snaps to edges and the playhead; trimming and main-track clips don't snap, there is no snap line and no toggle | H | Request, Code | — | ☐ |
-| TL-02 | **No overlaps.** Dropping onto an occupied spot is refused, or the item goes to the nearest free row of its group. Items are never placed on top of each other | H | Request | B6 | ☐ |
-| TL-03 | Move clips between video tracks, including off Main; linked audio follows to an audio track. Today this is blocked with a generic message | H | Repro | — | ☐ |
+| TL-01 | **Snapping** everywhere, with a thin snap line and a magnet toggle (shortcut S). Correction: dragging graphics, captions and effects already snaps to edges and the playhead; trimming and main-track clips don't snap, there is no snap line and no toggle | H | Request, Code | — | ✅ |
+| TL-02 | **No overlaps.** Dropping onto an occupied spot is refused, or the item goes to the nearest free row of its group. Items are never placed on top of each other | H | Request | B6 | ✅ |
+| TL-03 | Move clips between video tracks, including off Main; linked audio follows to an audio track. Today this is blocked with a generic message | H | Repro | — | ✅ |
 | TL-04 | A new video track is created **above** Main (today it is placed below) | H | Repro | — || ✅ |
 | TL-05 | Layer visibility per tab (Spec B), with thin strips (D2). Pressing + no longer switches to "Show all tracks" | H | Request | — || ✅ |
-| TL-06 | Thin strips no longer draw over the Audio and Captions rows | M | Seen | B14 | ☐ |
+| TL-06 | Thin strips no longer draw over the Audio and Captions rows | M | Seen | B14 | ✅ |
 | TL-07 | Deleting an item keeps the current tab and the timeline scroll. Today deleting a graphic switches to Media and jumps to the main video | H | Repro | — || ✅ |
 | TL-08 | Delete / Backspace act only on a selection. Today, with nothing selected, they delete the clip under the playhead, one per press | H | Repro | B1 || ✅ |
 | TL-09 | "Source · clip" audio is **linked** to its video by design (as in Premiere), so delete and drag act on both. Add "Delete audio only", Unlink and Re-link in the right-click menu (with PN-04) | M | Code | B4 | ☐ |
-| TL-10 | Tracking blur can be trimmed and moved on the timeline, and has start/end fields in its panel. The tracked range is chosen by the user, not forced to the end of the clip | H | Repro | R1, B2 | ☐ |
-| TL-11 | Adding a second tracking blur no longer cuts the first one off at the playhead | H | Code | B3 | ☐ |
-| TL-12 | Deleting a clip also removes its tracking masks (today they stay hidden and count toward the 100-item limit) | L | Code | — | ☐ |
-| TL-13 | Music can be moved and trimmed on the timeline | M | Code | B22 | ☐ |
-| TL-14 | Caption drag checks for overlaps (today an overlap creates "Captions 2" and only one caption shows) | M | Code | B23 | ☐ |
-| TL-15 | Copy and paste work for every item type. No zero-length items when pasting at the end. The 100-item and 200-clip limits also apply to paste and duplicate | M | Code | B25 | ☐ |
-| TL-16 | Track lock blocks every edit (split, transitions, panel edits, Magic Edit), not only drag and delete | M | Code | B26 | ☐ |
-| TL-17 | The timeline follows the playhead during playback. Zoom goes from the whole video down to single frames, with "Fit" | M | Code | B21 | ☐ |
-| TL-18 | Trim handles at least 8 px wide, visible on hover, with a time tooltip while dragging (today 9 px and easy to miss) | M | Repro | B36 | ☐ |
-| TL-19 | Track sizes and headers per Spec A. The group header no longer reads like a second "Audio 1" layer | M | Repro | R5 | ☐ |
-| TL-20 | Main track is magnetic: removing or trimming a clip closes the gap | M | Request | — | ☐ |
-| TL-21 | Split does not copy the incoming transition onto the second half (✅ done in Phase 0). A clip moved to first position drops its transition (open) | M | Code | B8 | ◐ |
-| TL-22 | One minimum length for trim, split and insert (today 0.1 s, 0.3 s and 0.25 s) | L | Code | B38 | ☐ |
-| TL-23 | Adding a title no longer moves the playhead forward by 0.3 s | L | Repro | B32 | ☐ |
-| TL-24 | Empty project shows an empty timeline with a drop prompt. No fake 5-second "Add footage" clip, no 00:05 duration, Play disabled | M | Repro | B29 | ☐ |
-| TL-25 | Caption and transition panels track their item by id, not list position (today they can edit the wrong caption after Undo) | M | Code | — | ☐ |
-| TL-26 | Script cuts keep picture-in-picture overlays and element ids (today overlays are silently deleted) | M | Code | — | ☐ |
-| TL-27 | Magic Edit pause removal shifts music and voiceover along with the cuts (today narration drifts) | M | Code | B24 | ☐ |
+| TL-10 | Tracking blur can be trimmed and moved on the timeline, and has start/end fields in its panel. The tracked range is chosen by the user, not forced to the end of the clip | H | Repro | R1, B2 | ✅ |
+| TL-11 | Adding a second tracking blur no longer cuts the first one off at the playhead | H | Code | B3 | ◐ |
+| TL-12 | Deleting a clip also removes its tracking masks (today they stay hidden and count toward the 100-item limit) | L | Code | — | ◐ |
+| TL-13 | Music can be moved and trimmed on the timeline | M | Code | B22 | ✅ |
+| TL-14 | Caption drag checks for overlaps (today an overlap creates "Captions 2" and only one caption shows) | M | Code | B23 | ✅ |
+| TL-15 | Copy and paste work for every item type. No zero-length items when pasting at the end. The 100-item and 200-clip limits also apply to paste and duplicate | M | Code | B25 | ✅ |
+| TL-16 | Track lock blocks every edit (split, transitions, panel edits, Magic Edit), not only drag and delete | M | Code | B26 | ✅ |
+| TL-17 | The timeline follows the playhead during playback. Zoom goes from the whole video down to single frames, with "Fit" | M | Code | B21 | ◐ |
+| TL-18 | Trim handles at least 8 px wide, visible on hover, with a time tooltip while dragging (today 9 px and easy to miss) | M | Repro | B36 | ✅ |
+| TL-19 | Track sizes and headers per Spec A. The group header no longer reads like a second "Audio 1" layer | M | Repro | R5 | ✅ |
+| TL-20 | Main track is magnetic: removing or trimming a clip closes the gap | M | Request | — | ✅ |
+| TL-21 | Split does not copy the incoming transition onto the second half. A clip moved to first position drops its transition | M | Code | B8 | ✅ |
+| TL-22 | One minimum length for trim, split and insert (today 0.1 s, 0.3 s and 0.25 s) | L | Code | B38 | ✅ |
+| TL-23 | Adding a title no longer moves the playhead forward by 0.3 s | L | Repro | B32 | ✅ |
+| TL-24 | Empty project shows an empty timeline with a drop prompt. No fake 5-second "Add footage" clip, no 00:05 duration, Play disabled | M | Repro | B29 | ✅ |
+| TL-25 | Caption and transition panels track their item by id, not list position (today they can edit the wrong caption after Undo) | M | Code | — | ◐ |
+| TL-26 | Script cuts keep picture-in-picture overlays and element ids (today overlays are silently deleted) | M | Code | — | ◐ |
+| TL-27 | Magic Edit pause removal shifts music and voiceover along with the cuts (today narration drifts) | M | Code | B24 | ✅ |
+
+### Phase 1 status (14 Nov)
+
+31 checks in `tools/preview/qa.js` pass (17 from Phase 0, 14 new). Moving a clip up to V2 and snapping a trim were also done with a real mouse. The Dev build starts and quits with no errors logged.
+
+| ID | What changed |
+|---|---|
+| TL-01 ✅ | Snapping when dragging or trimming any item and when trimming a main clip's end: to the playhead, clip boundaries and other items' edges, with a yellow snap line. Toggle with the **Snap** button or **N** (S stays Split). Hold Alt to skip |
+| TL-02 ✅ | Trimming stops at the neighbouring item on the same track. Dragging onto a taken spot is refused with a clear message |
+| TL-03 ✅ | Drag a main clip up onto V2/V3: it becomes a full-frame layer at the same time, leaving a striped gap on V1 (as in Premiere), and its sound becomes a linked audio clip. Drag it back down onto V1: it fills the gap (or is inserted) and its audio joins it again. Moving, trimming or deleting the layer takes its linked audio with it |
+| TL-06 ✅ | Thin strips sit below the rows instead of over them |
+| TL-10 ✅ | Tracking blur ends can be trimmed on the timeline (within what was tracked); From / Until fields in its panel. It tracks up to 2 minutes from the playhead, which also fixes the 10-minute failure |
+| TL-11 ◐ | Only "Correct tracking from playhead" cuts the earlier mask; adding a second blur no longer does. Not yet exercised in the preview |
+| TL-12 ◐ | Tracking masks whose footage is no longer on the timeline are removed after each edit. Not yet exercised |
+| TL-13 ✅ | Music can be trimmed at both ends, then moved |
+| TL-14 ✅ | A caption can't be dragged or trimmed over its neighbour |
+| TL-15 ✅ | Paste works for clips, graphics, effects, overlays, audio clips and captions. Never zero-length at the end. Limits enforced. Music, narration and tracking blur are explained instead of silently ignored |
+| TL-16 ✅ | No edit can change anything on a locked track; it is refused with a message. Split checks the main track. Canvas dragging respects locks. A locked item's panel is read-only |
+| TL-17 ◐ | The timeline follows the playhead while playing. Zoom now reaches single frames, and the +/− keys zoom by ×1.4. Follow can't be exercised in the hidden preview |
+| TL-18 ✅ | 8 px trim handles, shown on hover and when selected. A length tooltip while trimming. The clips after a trimmed main clip move live |
+| TL-19 ✅ | Track names V1, V2…, A1, A2…, Text, Captions, Effects. Heights: video 56 px, audio 40 px, others 32 px |
+| TL-20 ✅ | The main track closes gaps on delete and trim. Moving a clip up deliberately leaves a gap, which can be deleted |
+| TL-21 ✅ | Also: the first clip never keeps a transition |
+| TL-22 ✅ | Clips: 0.25 s minimum for trim and split. Items: 0.1 s |
+| TL-23 ✅ | Adding a title, callout or icon no longer moves the playhead. It starts just before the playhead (by its entrance time), so it is visible there at once |
+| TL-24 ✅ | An empty project shows "Add footage to start…" instead of a fake clip, 00:00 duration and a disabled Play button |
+| TL-25 ◐ | The caption and transition panels follow their item by id through Undo and edits. Not yet exercised |
+| TL-26 ◐ | Script cuts keep item ids, overlays, audio clips and tracking blurs. Not yet exercised |
+| TL-27 ✅ | Magic Edit moves music and narration with the cuts (unit-tested) |
+| P0-04 ✅ | Live relayout while trimming, completing Phase 0's item |
+| PN-09 ◐ | Tracking blur, blur region and solid cover bars are named properly. Panel headings are still open |
+
+Still open in Phase 1: TL-09 (unlink / re-link / delete audio only) moves to Phase 3 with PN-04.
 
 ---
 
@@ -155,7 +188,7 @@ Also done in this pass: TL-04, TL-05, TL-07, TL-08, and the split half of TL-21.
 | PN-06 | Blur region, Solid cover and Tracking blur open under **Effects**; Back, Remove and the tab highlight all return to Effects | H | Repro | R2, B13 | ☐ |
 | PN-07 | Every slider has a number box beside it | M | Review | U4 | ☐ |
 | PN-08 | Long panels grouped into collapsible sections, e.g. the title editor's ~25 controls into Text / Style / Animation | M | Repro | U7 | ☐ |
-| PN-09 | Correct panel headings ("Edit lower third", "Edit chapter"…). No raw internal names such as `tracking-blur` | L | Repro | B33, B34 | ☐ |
+| PN-09 | Correct panel headings ("Edit lower third", "Edit chapter"…). No raw internal names such as `tracking-blur` | L | Repro | B33, B34 | ◐ |
 | PN-10 | Confirmations ("Captions generated", "Music added") shown near the action, not only in the small footer | M | Repro | U6 | ☐ |
 | PN-11 | Per-clip crop | M | Review | U3 | ☐ |
 | PN-12 | The editor tab row never wraps to two lines at the default window width | M | Repro | B30 | ☐ |

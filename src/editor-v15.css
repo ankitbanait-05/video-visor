@@ -9,3 +9,61 @@
 }
 #visor-app #vv-editor #vt-tracks .v15-placeholder-lane.v8-drop-target{border-color:#4b8cf7;color:#cfe0ff;background:rgba(75,140,247,.12)}
 #visor-app #vv-editor #vt-tracks .v15-placeholder .vt-label{color:#8f9bb0}
+
+/* ---------- Phase 1 ---------- */
+#vt-tracks .vt-surface{position:relative}
+/* Snap line and the length tooltip shown while dragging or trimming */
+#v15-snapline{position:absolute;top:0;bottom:0;width:1px;background:#ffd34d;box-shadow:0 0 0 1px rgba(255,211,77,.25);z-index:40;pointer-events:none}
+#v15-snapline[hidden]{display:none}
+#v15-tip{position:fixed;z-index:9999;pointer-events:none;padding:3px 7px;border-radius:5px;background:#0d1117;color:#fff;font:600 11px 'DM Sans',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+/* Snap toggle in the timeline toolbar */
+#visor-app #vv-editor #v15-snap{display:inline-flex;align-items:center;gap:5px}
+#visor-app #vv-editor #v15-snap:not(.active){opacity:.55}
+#visor-app #vv-editor #v15-snap.active{color:#ffd34d}
+
+/* Track heights: video 56 px, audio 40 px, text / captions / effects 32 px */
+#visor-app #vv-editor #vt-tracks .vt-row:has(> .vt-lane.vt-video),
+#visor-app #vv-editor #vt-tracks .vt-row:has(> .vt-lane.vt-overlay){min-height:56px}
+#visor-app #vv-editor #vt-tracks .vt-lane.vt-video > .vt-block,
+#visor-app #vv-editor #vt-tracks .vt-lane.vt-overlay > .vt-block{top:5px;height:46px}
+#visor-app #vv-editor #vt-tracks .vt-row:has(> .vt-lane.vt-audio){min-height:40px}
+#visor-app #vv-editor #vt-tracks .vt-lane.vt-audio > .vt-block{top:5px;height:30px}
+#visor-app #vv-editor #vt-tracks .vt-row:has(> .vt-lane.vt-text),
+#visor-app #vv-editor #vt-tracks .vt-row:has(> .vt-lane.vt-captions),
+#visor-app #vv-editor #vt-tracks .vt-row:has(> .vt-lane.vt-zoom),
+#visor-app #vv-editor #vt-tracks .v15-placeholder{min-height:32px}
+#visor-app #vv-editor #vt-tracks .vt-row:has(> .vt-lane.vt-text) .vt-label,
+#visor-app #vv-editor #vt-tracks .vt-row:has(> .vt-lane.vt-captions) .vt-label,
+#visor-app #vv-editor #vt-tracks .vt-row:has(> .vt-lane.vt-zoom) .vt-label,
+#visor-app #vv-editor #vt-tracks .v15-placeholder .vt-label{min-height:32px}
+#visor-app #vv-editor #vt-tracks .vt-lane.vt-text > .vt-block,
+#visor-app #vv-editor #vt-tracks .vt-lane.vt-captions > .vt-block,
+#visor-app #vv-editor #vt-tracks .vt-lane.vt-zoom > .vt-block{top:4px;height:24px;line-height:22px}
+
+/* Trim handles: 8 px, clearly visible on hover and on the selected item */
+#visor-app #vv-editor #vt-tracks .v6-edge,
+#visor-app #vv-editor #vt-tracks .vt-trim{width:8px;background:transparent;z-index:6;transition:background .12s}
+#visor-app #vv-editor #vt-tracks .vt-block:hover .v6-edge,
+#visor-app #vv-editor #vt-tracks .vt-block:hover .vt-trim,
+#visor-app #vv-editor #vt-tracks .vt-block.selected .v6-edge,
+#visor-app #vv-editor #vt-tracks .vt-block.selected .vt-trim{background:rgba(255,255,255,.55)}
+#visor-app #vv-editor #vt-tracks .v6-edge.start,#visor-app #vv-editor #vt-tracks .vt-trim.start{left:0;border-radius:4px 0 0 4px}
+#visor-app #vv-editor #vt-tracks .v6-edge.end,#visor-app #vv-editor #vt-tracks .vt-trim.end{right:0;border-radius:0 4px 4px 0}
+
+/* Thin strips for other layers sit after the rows instead of over them */
+#visor-app #vv-editor #vt-tracks .v10-strip{position:relative !important;bottom:auto !important}
+
+/* Empty project: a prompt instead of a fake clip */
+#visor-app #vv-editor #vt-tracks .v15-empty-main{position:absolute;inset:5px 8px;display:flex;align-items:center;justify-content:center;border:1px dashed rgba(255,255,255,.18);border-radius:6px;color:#8f9bb0;font-size:12px;pointer-events:none}
+
+/* Moving a main clip onto another video track */
+#visor-app #vv-editor #vt-tracks .v15-lift-target.v8-drop-target{background:rgba(75,140,247,.14);outline:1px dashed #4b8cf7;outline-offset:-2px}
+
+/* Tracking blur range fields */
+#visor-app #vv-editor .v15-track-range{gap:8px;margin:8px 0}
+#visor-app #vv-editor .v15-track-range label{flex:1}
+/* Gap left on the main track (for example after moving a clip up to V2) */
+#visor-app #vv-editor #vt-tracks .vt-block.v15-gap{background:repeating-linear-gradient(135deg,#171c24 0 6px,#1f2630 6px 12px) !important;border:1px dashed #3a4554 !important;color:#8f9bb0 !important}
+#visor-app #vv-editor #vt-tracks .vt-block.v15-gap .v5-filmstrip,#visor-app #vv-editor #vt-tracks .vt-block.v15-gap img{display:none !important}
+/* Locked item panel */
+#visor-app #vv-editor .v15-locked-note{margin:0 0 10px;padding:8px 10px;border-radius:6px;background:rgba(255,211,77,.12);color:#e9c46a;font-size:12px}
