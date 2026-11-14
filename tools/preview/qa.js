@@ -634,6 +634,36 @@ Object.assign(checks, {
   },
 });
 
+// Phase 10: file tools (the engine itself is measured by `VV_BENCH_ONLY=tools` in the real app).
+async function openToolV(group, id) { $('.v-nav [data-route=' + group + ']').click(); await wait(300); $('#v-content [data-tool="' + id + '"]').click(); await wait(300); }
+Object.assign(checks, {
+  async 'PDF tools show one editor card and honest names'() {
+    $('.v-nav [data-route=pdf]').click(); await wait(300);
+    const ids = $$('#v-content [data-tool]').map(b => b.dataset.tool), names = $$('#v-content [data-tool] h3').map(h => h.textContent);
+    return { pass: !ids.includes('forms') && !ids.includes('organize') && ids.includes('editpdf') && !names.some(n => /Summarize|Recognize text \(OCR\)/.test(n)), detail: names };
+  },
+  async 'Process files waits for a file'() {
+    await openToolV('video', 'vcompress'); const before = $('[data-action="run-tool"]').disabled;
+    return { pass: before === true, detail: { disabledWithoutFiles: before } };
+  },
+  async 'single-choice settings are hidden'() {
+    await openToolV('pdf', 'ocr'); const visible = $$('aside select').filter(x => x.offsetParent && x.options.length < 2).length;
+    return { pass: visible === 0, detail: visible };
+  },
+  async 'Sign PDF offers drawing and typing, and needs a signature'() {
+    await openToolV('pdf', 'sign'); const pad = $('#v15-sign-pad'), modes = $$('[data-sign-mode]').length;
+    let err = ''; const n = window.__notifyHook; try { $('[data-action="run-tool"]').disabled = false; $('[data-action="run-tool"]').click(); await wait(200); err = $('#v-status')?.textContent || ''; } catch (e) { err = e.message; }
+    $$('[data-sign-mode]')[1].click(); $('#v-signname').value = 'Test Person'; $('#v-signname').dispatchEvent(new Event('input')); await wait(300);
+    const inked = pad.dataset.ink === '1';
+    return { pass: !!pad && modes === 2 && /signature first/i.test(err) && inked, detail: { modes, err: err.slice(0, 60), inked } };
+  },
+  async 'Hindi text is drawn as an image for PDFs'() {
+    const url = window.textImageV15('ड्राफ़्ट ₹500', { size: 30 });
+    const b = atob(url.slice(22, 22 + 44)), u = i => (b.charCodeAt(i) << 24 | b.charCodeAt(i + 1) << 16 | b.charCodeAt(i + 2) << 8 | b.charCodeAt(i + 3)) >>> 0, width = u(16), height = u(20); // PNG header (decode() stalls in a hidden pane)
+    return { pass: url.startsWith('data:image/png') && width > 60, detail: { width, height } };
+  },
+});
+
 export const count = () => Object.keys(checks).length;
 export async function run(only) {
   const results = [];

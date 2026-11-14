@@ -38,6 +38,37 @@ async function run(ctx) {
     const after = await win.webContents.executeJavaScript(`native.storageInfo(${JSON.stringify(ids)})`);
     out('storage', { projectAssets: ids.length, registered: all.length, before, freed: res.freed, previewsKept: kept + '/' + keep.length, afterForProjects: after });
   }
+  if (only.includes('tools')) {
+    // Phase 10 file tools through processTool, as the Tools screens call it (save dialogs answered automatically).
+    const T = require('./engines/tools.cjs'), { dialog } = require('electron'), tdir = path.join(dir, 'tools'); await fs.rm(tdir, { recursive: true, force: true }); await fs.mkdir(tdir, { recursive: true });
+    for (let i = 0; i < 100 && !(await win.webContents.executeJavaScript('!!window.textImageV15')); i++) await new Promise(r => setTimeout(r, 100));
+    const nativeBin = path.join(process.resourcesPath, 'native-bin/visor-utilities');
+    const tool = async (id, assets, opts = {}, name) => { try { return await T.processTool({ id, assets: assets.map(a => ({ ...ctx.registryEntry(a.id), id: a.id })), opts, run: exec, ffmpeg, root, saveDialog: async n => path.join(tdir, name || n), progress: () => {}, dialog: { showOpenDialog: async () => ({ canceled: false, filePaths: [tdir] }) }, win, cancelled: () => false, nativeBin, log: () => {} }); } catch (e) { return { error: e.message }; } };
+    const small = await register(await make('small-640.mp4', ['-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=30:duration=3', '-f', 'lavfi', '-i', 'sine=d=3', '-c:v', 'libx264', '-preset', 'ultrafast', '-c:a', 'aac', '-shortest']));
+    const photo = await make('photo.jpg', ['-f', 'lavfi', '-i', 'testsrc2=size=2400x1600', '-frames:v', '1', '-q:v', '3']), heic = path.join(dir, 'photo.heic');
+    await exec('/usr/bin/sips', ['-s', 'format', 'heic', photo, '--out', heic]).catch(() => {});
+    const img = await register(photo), h = await register(heic).catch(() => null);
+    const r = {};
+    r.frameAtEnd = await tool('frame', [small], { 'v-option': 'PNG', 'v-frame-time': 2.99 }, 'end.png'); r.frameAtEndBytes = await fs.stat(path.join(tdir, 'end.png')).then(s => s.size, () => 0);
+    r.wrongKind = (await tool('merge', [small])).error;
+    const jp = await tool('jpgpdf', [img], { 'v-option': 'A4' }, 'photo.pdf'); r.jpgpdf = jp; r.photoPdfKB = Math.round((await fs.stat(path.join(tdir, 'photo.pdf')).then(s => s.size, () => 0)) / 1024); r.photoJpgKB = Math.round((await fs.stat(photo)).size / 1024);
+    if (jp?.error) { out('tools', { early: true, ...r }); return; }
+    const pdf = await register(path.join(tdir, 'photo.pdf'));
+    await tool('protect', [pdf], { 'v-password': 'secret1' }, 'locked.pdf'); const locked = await register(path.join(tdir, 'locked.pdf')).catch(() => null);
+    r.lockedMerge = locked ? (await tool('merge', [pdf, locked])).error : 'protect failed';
+    const hindi = await win.webContents.executeJavaScript("window.textImageV15('ड्राफ़्ट · गोपनीय ₹500',{size:40,colour:'#3f66a6'})");
+    r.hindiWatermark = await tool('watermark', [pdf], { input0: 'ड्राफ़्ट', 'v-text-image': hindi, 'v-option': 'Centre' }, 'hindi.pdf');
+    const sig = await win.webContents.executeJavaScript("(async()=>{await document.fonts.load('96px Caveat');const c=document.createElement('canvas');c.width=420;c.height=120;const x=c.getContext('2d');x.font='80px Caveat';x.fillStyle='#14213d';x.textBaseline='middle';x.fillText('Ankit B.',10,64);return c.toDataURL('image/png');})()");
+    r.signed = await tool('sign', [pdf], { 'v-sign-image': sig, 'v-option': 'Last page · bottom right' }, 'signed.pdf');
+    for (const n of ['hindi', 'signed']) { const reg = await register(path.join(tdir, n + '.pdf')); await tool('pdfjpg', [reg], { 'v-option': 'PNG' }, n + '-page.png'); }
+    r.noUpscale = await tool('vcompress', [small], { 'v-resolution': '1080p', 'v-quality': 75 }, 'small-c.mp4'); { let t = ''; await exec(ffmpeg, ['-hide_banner', '-i', path.join(tdir, 'small-c.mp4')], null, null, d => { t += d; }).catch(() => {}); r.compressedSize = (/(\d{2,5})x(\d{2,5})/.exec(t) || [])[0]; }
+    if (h) { await tool('icompress', [h], { 'v-option': 'Keep original', 'v-quality': 80 }, 'photo-edited.heic'); const outs = (await fs.readdir(tdir)).filter(f => f.startsWith('photo-edited')); r.heicOut = outs; r.heicKB = Math.round((await fs.stat(heic)).size / 1024); }
+    const two = await register(await make('small-b.mp4', ['-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=30:duration=2', '-c:v', 'libx264', '-preset', 'ultrafast']));
+    r.batch = await tool('frame', [small, two], { 'v-option': 'PNG', 'v-frame-time': 1 });
+    const four = await register(await make('pages.pdf', ['-f', 'lavfi', '-i', 'color=c=white:s=400x300', '-frames:v', '1']).catch(() => null)).catch(() => null);
+    r.splitAgain = [(await tool('split', [pdf], { 'v-option': 'Every page separately' }, 'part.pdf')), (await tool('split', [pdf], { 'v-option': 'Every page separately' }, 'part.pdf'))].map(x => x?.error || x?.paths?.map(p => path.basename(p)));
+    out('tools', { dir: tdir, ...Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v?.paths ? v.paths.map(p => path.basename(p)) : v])) });
+  }
   if (only.includes('theme')) {
     // Settings → Appearance through the real IPC path; the menu must not offer Reload outside Dev builds.
     const { nativeTheme, Menu } = require('electron'), res = {};

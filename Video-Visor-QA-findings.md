@@ -464,24 +464,61 @@ The recorder runs in its own window, which the browser preview cannot show, so t
 
 | ID | Change | Pri | Evidence | Was | ☐ |
 |---|---|---|---|---|---|
-| FT-01 | Frame capture near the very end of a video produces no file and a raw error | M | Repro | T1 | ☐ |
-| FT-02 | Merging a password-protected PDF shows a raw developer error | M | Repro | T2 | ☐ |
-| FT-03 | "Fill & create forms": implement it or remove the card (the engine says "not available in this build") | M | Repro | T3 | ☐ |
-| FT-04 | OCR: produce a searchable PDF as promised, or rename; the language option is ignored today | M | Repro | T4 | ☐ |
-| FT-05 | "Summarize PDF" only returns the first sentences: rename to "Extract opening" or make it real | L | Repro | T5 | ☐ |
-| FT-06 | "Sign PDF" only types your name: add a drawn or image signature, or rename | M | Repro | T6 | ☐ |
-| FT-07 | "Compare PDFs" is a text diff, not side by side: rename or build it | L | Repro | T7 | ☐ |
-| FT-08 | Batch jobs ask for an output folder once, not one save dialog per file | M | Code | T8 | ☐ |
-| FT-09 | "Process files" disabled until a file is added | L | Repro | T9 | ☐ |
-| FT-10 | Remove dropdowns with a single choice (Background, Compression, OCR output, Compare) | L | Repro | T10 | ☐ |
-| FT-11 | One card for the PDF editor instead of three ("Organize pages", "Fill & create forms", "PDF editor") | L | Repro | T11 | ☐ |
-| FT-12 | Tool errors in plain language, not raw technical output | M | Code | O1 | ☐ |
-| FT-13 | "Choose files" filters by type (today a video can be added to Merge PDFs) | M | Code | O2 | ☐ |
-| FT-14 | PDF watermark, signature and added text support Hindi and other non-Latin text | M | Code | O3 | ☐ |
-| FT-15 | PDF editor no longer flattens form fields on every save | M | Code | O4 | ☐ |
-| FT-16 | Output quality fixes: Images to PDF embeds JPEGs as PNG (huge files); Image compressor turns HEIC into larger PNGs; Video compressor upscales small videos to 1080p; Resize & crop has no crop rectangle | M | Code | — | ☐ |
-| FT-17 | "Open" and "Show in Finder" work for multi-file results; tool outputs can be overwritten on a re-run | L | Code | — | ☐ |
+| FT-01 | Frame capture near the very end of a video produces no file and a raw error | M | Repro | T1 | ✅ |
+| FT-02 | Merging a password-protected PDF shows a raw developer error | M | Repro | T2 | ✅ |
+| FT-03 | "Fill & create forms": implement it or remove the card (the engine says "not available in this build") | M | Repro | T3 | ✅ |
+| FT-04 | OCR: produce a searchable PDF as promised, or rename; the language option is ignored today | M | Repro | T4 | ✅ |
+| FT-05 | "Summarize PDF" only returns the first sentences: rename to "Extract opening" or make it real | L | Repro | T5 | ✅ |
+| FT-06 | "Sign PDF" only types your name: add a drawn or image signature, or rename | M | Repro | T6 | ✅ |
+| FT-07 | "Compare PDFs" is a text diff, not side by side: rename or build it | L | Repro | T7 | ✅ |
+| FT-08 | Batch jobs ask for an output folder once, not one save dialog per file | M | Code | T8 | ✅ |
+| FT-09 | "Process files" disabled until a file is added | L | Repro | T9 | ✅ |
+| FT-10 | Remove dropdowns with a single choice (Background, Compression, OCR output, Compare) | L | Repro | T10 | ✅ |
+| FT-11 | One card for the PDF editor instead of three ("Organize pages", "Fill & create forms", "PDF editor") | L | Repro | T11 | ✅ |
+| FT-12 | Tool errors in plain language, not raw technical output | M | Code | O1 | ✅ |
+| FT-13 | "Choose files" filters by type (today a video can be added to Merge PDFs) | M | Code | O2 | ✅ |
+| FT-14 | PDF watermark, signature and added text support Hindi and other non-Latin text | M | Code | O3 | ✅ |
+| FT-15 | PDF editor no longer flattens form fields on every save | M | Code | O4 | ✅ |
+| FT-16 | Output quality fixes: Images to PDF embeds JPEGs as PNG (huge files); Image compressor turns HEIC into larger PNGs; Video compressor upscales small videos to 1080p; Resize & crop has no crop rectangle | M | Code | — | ✅ |
+| FT-17 | "Open" and "Show in Finder" work for multi-file results; tool outputs can be overwritten on a re-run | L | Code | — | ✅ |
 | FT-18 | Check background removal on a real photo | L | Suspected | — | ☐ |
+
+### Phase 10 status (14 Nov)
+
+82 checks in `tools/preview/qa.js` pass (5 new). The engine was run on generated files in the real app (new `tools` step in `src/bench.cjs`):
+
+| Run | Result |
+|---|---|
+| Frame at 2.99 s of a 3 s video | saved (was: no file and a raw error) |
+| A video added to Merge PDFs | "“small-640.mp4” isn’t a PDF. Remove it and try again." |
+| Merge with a password-protected PDF | "“locked.pdf” is password-protected. Remove the password first (PDF tools → Unlock PDF), then try again." |
+| 2400 × 1600 JPEG photo → PDF | 165 KB (the photo is 182 KB); it was re-encoded as PNG before |
+| Hindi watermark "ड्राफ़्ट · गोपनीय ₹500", drawn signature | both render correctly on the page |
+| 640 × 360 video compressed at "1080p" | stays 640 × 360 |
+| HEIC photo, Image compressor "Keep original" | JPEG, 136 KB (HEIC 141 KB) |
+| Frame from two videos | one folder chosen once, two files |
+| Split every page, run twice | "part-1.pdf", then "part-1 2.pdf" (was an error) |
+
+| ID | What changed |
+|---|---|
+| FT-01 ✅ | A frame asked for at the very end uses the last frame |
+| FT-02 ✅ | Password-protected or damaged PDFs get a plain message pointing to Unlock or Repair |
+| FT-03 ✅ | "Fill & create forms" card removed: filling existing form fields and adding text are in the PDF editor |
+| FT-04 ✅ | Renamed "Text from scanned pages" ("read the text in scanned pages into a text file"); the language option, which was ignored, is gone |
+| FT-05 ✅ | Renamed "Opening sentences", saying it isn't an AI summary |
+| FT-06 ✅ | **Sign PDF: Draw or Type.** Draw with the mouse or trackpad; typed names are written in the Caveat handwriting font. The signature is cropped and placed as an image |
+| FT-07 ✅ | Renamed "Compare PDF text": lists added and removed lines |
+| FT-08 ✅ | Several files ask for one output folder; names never overwrite ("name 2") |
+| FT-09 ✅ | Process files is disabled until a file is added |
+| FT-10 ✅ | Settings with a single choice are hidden on every tool |
+| FT-11 ✅ | One "PDF editor" card (pages, text and forms) instead of three |
+| FT-12 ✅ | Raw tool output is replaced by plain messages (unreadable file, disk full, no permission, file moved); details go to the diagnostics log |
+| FT-13 ✅ | Each tool checks the kind of file: PDF tools take PDFs, Images to PDF takes images, and so on |
+| FT-14 ✅ | Watermark, typed signature and added text support Hindi and other scripts: such text is drawn by the app with its own fonts and placed as an image |
+| FT-15 ✅ | Filling a form no longer flattens it; fields stay editable |
+| FT-16 ✅ | Images to PDF keeps photos as JPEG; HEIC becomes JPEG; Video compressor never upscales; Resize & crop has "When cropping, keep" (centre, top, bottom, left, right) |
+| FT-17 ✅ | The result dialog has Open (one file) and Show in Finder; re-runs get free names instead of failing |
+| FT-18 ☐ | Background removal still to be tried on a real photo |
 
 ---
 

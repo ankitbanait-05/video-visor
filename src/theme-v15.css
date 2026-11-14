@@ -105,3 +105,9 @@
 #visor-app .v15-missing span{flex:1}
 #visor-app .v15-missing button{padding:4px 9px;font-size:12px}
 #visor-app[data-theme=dark] .v15-missing{background:#3a1d18;color:#ffb4a6}
+/* Sign PDF (FT-06) */
+#visor-app .v15-sign{display:grid;gap:8px;margin:6px 0 10px}
+#visor-app .v15-sign-modes{display:flex;gap:6px}
+#visor-app .v15-sign-modes .on{border-color:var(--v-purple);background:var(--v-tint)}
+#visor-app #v15-sign-pad{width:100%;height:auto;aspect-ratio:56/18;background:#fff;border:1px dashed #9fb3c8;border-radius:8px;touch-action:none;cursor:crosshair}
+#visor-app .v15-sign #v15-sign-clear{justify-self:start}
