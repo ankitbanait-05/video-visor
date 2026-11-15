@@ -125,18 +125,41 @@ function magic(){window.nativeMagic();}
 
 
 function previewSuggestion(id){const t={pause:14,repeat:25,zoom:8,colour:5}[id]||0;closeModal();E().jump(t);E().open(id==='zoom'?'zoom':'clip');q('#flow-reviewbar').hidden=false;q('#flow-reviewbar').innerHTML='<span>'+({pause:'Review sample pause · 14–17s',repeat:'Review possible repeated take · 25–28s',zoom:'Compare cursor focus',colour:'Compare lighting adjustment'}[id])+'</span><button class="v-button" data-flow="preview-before">Before</button><button class="v-button" data-flow="preview-after">After preview</button><button class="v-button primary" data-flow="review-back">Back to suggestions</button>';q('#flow-reviewbar').dataset.preview=id;E().previewBefore(true);}
-function exportFlow(){const e=E().get(),d=e.clips.reduce((n,c)=>n+c.end-c.start,0)/e.speed;modal('Where is your video going?','<div class="flow-purpose">'+[['presentation','Presentation','Clear text · 1080p'],['email','Email or chat','Smaller file · 720p'],['quality','High quality','4K output'],['custom','Custom','Formats & details']].map(([id,t,d])=>'<button class="v-card '+(id==='presentation'?'selected':'')+'" data-purpose="'+id+'"><strong>'+t+'</strong><p>'+d+'</p></button>').join('')+'</div><div class="v-fields"><div id="v15-export-custom" hidden>'+field('Format',select('v-export-format',['MP4','MOV','WebM','GIF','Audio only']))+field('Resolution',select('v-export-resolution',['1080p','720p','4K UHD']))+'</div><div class="v-row v-between flow-export-estimate"><span>'+d.toFixed(1)+'s · estimated output</span><strong id="flow-estimate">~'+(d*.75).toFixed(1)+' MB</strong></div><p>Choose the destination in the save dialog.</p><details class="v-more"><summary>More settings</summary>'+field('Frame rate',select('v-export-fps',['Automatic','Match source','24 fps','30 fps','60 fps']))+field('Captions',select('v-export-captions',['Burn into video','Separate SRT','None']))+'<label>GIF width<select class="v-select" id="flow-gif-width"><option>640 px</option><option>480 px</option><option>320 px</option></select></label><label>Audio format<select class="v-select" id="flow-audio-format"><option>MP3</option><option>WAV</option><option>M4A</option></select></label></details></div><p class="v-small v-muted">4K does not add source detail. Export renders your captions, elements and focus settings.</p><button class="v-button primary v-full" data-flow="export-start">Export video</button>');root.querySelectorAll('[data-purpose]').forEach(b=>b.onclick=()=>{root.querySelectorAll('[data-purpose]').forEach(x=>x.classList.toggle('selected',x===b));q('#v-export-resolution').value={presentation:'1080p',email:'720p',quality:'4K UHD',custom:'1080p'}[b.dataset.purpose];const custom=b.dataset.purpose==='custom';q('#v15-export-custom').hidden=!custom;if(!custom)q('#v-export-format').value='MP4';updateEstimate();});function updateEstimate(){const f=q('#v-export-format').value,res=q('#v-export-resolution').value;q('#v-export-resolution').disabled=['GIF','Audio only'].includes(f);
+// 0.15 (Phase 30): a simpler Export window. Quality is chosen by its result (720p / 1080p / 4K), one line says what
+// you will get and how big it is, and the rest (format, frame rate, captions, GIF width, audio format) is under
+// More settings. The ids are the ones nativeExport reads.
+function exportFlow(){const e=E().get(),d=e.clips.reduce((n,c)=>n+c.end-c.start,0)/e.speed;
+ const qualities=[['720p','720p','Smaller file'],['1080p','1080p','Recommended'],['4K UHD','4K','Sharpest, largest file']];
+ modal('Export','<div class="v30-export">'
+  +'<div class="v30-label" id="v30-quality-label">Quality</div><div class="v30-quality" role="radiogroup" aria-labelledby="v30-quality-label">'+qualities.map(([v,t,d])=>'<button type="button" role="radio" class="v30-q'+(v==='1080p'?' selected':'')+'" aria-checked="'+(v==='1080p')+'" data-quality="'+v+'"'+(v==='4K UHD'?' title="4K is sharper on large screens. It does not add detail your footage does not have."':'')+'><strong>'+t+'</strong><span>'+d+'</span></button>').join('')+'</div>'
+  +'<div class="v30-summary flow-export-estimate"><span id="v30-what"></span><strong id="flow-estimate">~'+(d*.75).toFixed(1)+' MB</strong></div>'
+  +'<details class="v-more v30-more"><summary>More settings</summary><div class="v30-grid">'
+   +field('Format',select('v-export-format',['MP4','MOV','WebM','GIF','Audio only']))+field('Frame rate',select('v-export-fps',['Automatic','Match source','24 fps','30 fps','60 fps']))
+   +field('Captions',select('v-export-captions',['Burn into video','Separate SRT','None']))
+   +'<label id="v30-gif">GIF width<select class="v-select" id="flow-gif-width"><option>640 px</option><option>480 px</option><option>320 px</option></select></label>'
+   +'<label id="v30-audio">Audio format<select class="v-select" id="flow-audio-format"><option>MP3</option><option>WAV</option><option>M4A</option></select></label>'
+   +'<label hidden>Resolution'+select('v-export-resolution',['1080p','720p','4K UHD'])+'</label>'
+  +'</div></details>'
+  +'<button class="v-button primary v-full v30-go" data-flow="export-start" id="v30-export">Export video</button><p class="v30-hint">Next, choose where to save it.</p></div>');
+ const res=q('#v-export-resolution'),fmt=q('#v-export-format');
+ root.querySelectorAll('[data-quality]').forEach(b=>b.onclick=()=>{if(b.disabled)return;root.querySelectorAll('[data-quality]').forEach(x=>{x.classList.toggle('selected',x===b);x.setAttribute('aria-checked',String(x===b));});res.value=b.dataset.quality;updateEstimate();});
+ function updateEstimate(){const f=fmt.value,r=res.value,still=['GIF','Audio only'].includes(f);res.disabled=still;
+ root.querySelectorAll('[data-quality]').forEach(x=>{x.disabled=still;});q('#v30-gif').hidden=f!=='GIF';q('#v30-audio').hidden=f!=='Audio only';q('#v-export-captions').closest('label').hidden=f==='Audio only';
  /* 0.15 (AU-06): the same sizes and bitrates the export uses. AU-07: GIFs are capped at 15 fps and warned about when long. */
- const [ra,rb]=String(e.ratio||'16/9').split('/').map(Number),ht=res.startsWith('4K')?2160:res.startsWith('720')?720:1080;let w=ra>=rb?ht*ra/rb:ht,h=ra>=rb?ht:ht*rb/ra;const big=Math.max(w,h);if(big>4096){w*=4096/big;h*=4096/big;}
+ const [ra,rb]=String(e.ratio||'16/9').split('/').map(Number),ht=r.startsWith('4K')?2160:r.startsWith('720')?720:1080;let w=ra>=rb?ht*ra/rb:ht,h=ra>=rb?ht:ht*rb/ra;const big=Math.max(w,h);if(big>4096){w*=4096/big;h*=4096/big;}
  const fpsSel=window.exportFpsV15?window.exportFpsV15(e,q('#v-export-fps')?.value):(parseInt(q('#v-export-fps')?.value)||30),fps=f==='GIF'?Math.min(15,fpsSel):fpsSel;let mb;
- if(f==='Audio only'){const af=q('#flow-audio-format')?.value||'MP3';mb=d*(af==='WAV'?1536e3:256e3)/8/1e6;}
- else if(f==='GIF'){const gw=parseInt(q('#flow-gif-width')?.value)||640,gh=gw*h/w;mb=d*gw*gh*fps*.08/1e6;}
+ const af=q('#flow-audio-format')?.value||'MP3',gw=parseInt(q('#flow-gif-width')?.value)||640;
+ if(f==='Audio only')mb=d*(af==='WAV'?1536e3:256e3)/8/1e6;
+ else if(f==='GIF'){const gh=gw*h/w;mb=d*gw*gh*fps*.08/1e6;}
  else if(f==='WebM')mb=d*(w*h*fps*.05+128e3)/8/1e6;
  else mb=d*(Math.min(80e6,Math.max(4e6,w*h*fps*.2))+192e3)/8/1e6;
  q('#flow-estimate').textContent='~'+(mb<10?mb.toFixed(1):Math.round(mb))+' MB';
+ const len=d<60?d.toFixed(1)+' s':Math.floor(d/60)+' min '+Math.round(d%60)+' s';
+ q('#v30-what').textContent=(f==='Audio only'?af+' audio':f==='GIF'?'GIF · '+gw+' px wide':f+' · '+Math.round(w/2)*2+' × '+Math.round(h/2)*2)+' · '+len;
+ q('#v30-export').textContent=f==='Audio only'?'Export audio':f==='GIF'?'Export GIF':'Export video';
  let warn=q('#v15-export-warn');if(!warn){warn=document.createElement('p');warn.id='v15-export-warn';warn.className='v-small v15-warn';q('.flow-export-estimate').after(warn);}
  warn.textContent=f==='GIF'&&d>15?'GIFs longer than 15 seconds get large and choppy (they play at up to 15 fps). MP4 is smaller and smoother for anything longer.':big>4096?'This canvas shape is too wide for full 4K, so it exports at '+Math.round(w/2)*2+' × '+Math.round(h/2)*2+'.':'';warn.hidden=!warn.textContent;}
-q('#v-export-resolution').onchange=q('#v-export-format').onchange=updateEstimate;['v-export-fps','flow-gif-width','flow-audio-format'].forEach(id=>{const x=q('#'+id);if(x)x.addEventListener('change',updateEstimate);});updateEstimate();}
+ res.value='1080p';fmt.onchange=res.onchange=updateEstimate;['v-export-fps','flow-gif-width','flow-audio-format'].forEach(id=>{const x=q('#'+id);if(x)x.addEventListener('change',updateEstimate);});updateEstimate();}
 function startExport(){window.nativeExport();}
 function recorder(){window.nativeRecorder();}
 function beginCountdown(){if(recTimer)clearInterval(recTimer);if(recordCountdown)clearInterval(recordCountdown);let n=3;modal('Get ready','<div class="v-record-clock" id="flow-countdown">3</div><p class="v-muted">Simulated countdown. No permissions or devices are used.</p><button class="v-button" data-flow="record-cancel">Cancel</button>');recordCountdown=setInterval(()=>{n--;if(n>0){if(q('#flow-countdown'))q('#flow-countdown').textContent=n;return;}clearInterval(recordCountdown);recordCountdown=null;closeModal();recSeconds=0;startRec();},700);}

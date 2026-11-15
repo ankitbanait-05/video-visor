@@ -529,11 +529,12 @@ Object.assign(checks, {
     tile.click(); await wait(250); const fill = $$('#ed-panel .v15-choice').find(b => /^Fill/.test(b.textContent)); fill?.click(); await wait(250);
     return { pass: E().get().ratio === '1/1' && !!fill && $('#v5-ratio-select').hidden, detail: { ratio: E().get().ratio } };
   },
-  async 'export shows format and resolution only for Custom'() {
+  async 'export: three qualities, one summary line, the rest under More settings'() { // Phase 30
     await freshEditor(); $$('#vv-editor button').find(x => /^Export/.test(x.textContent.trim())).click(); await wait(400);
-    const before = $('#v15-export-custom').hidden; $('[data-purpose=custom]').click(); await wait(100); const after = $('#v15-export-custom').hidden;
-    const shapes = !!$('#v13-export-queue.v15-shapes-button'); $('#v-dialog-body')?.closest('dialog, .v-modal, #v-dialog')?.querySelector('[data-action=close], .v-close, button[aria-label=Close]')?.click(); key('Escape'); await wait(200);
-    return { pass: before === true && after === false && shapes, detail: { before, after, shapes } };
+    const q = $$('[data-quality]').map(b => b.querySelector('strong').textContent + (b.classList.contains('selected') ? '*' : '')), closed = !$('.v30-more').open, what = $('#v30-what').textContent;
+    $$('[data-quality]')[0].click(); await wait(100); const res = $('#v-export-resolution').value, what720 = $('#v30-what').textContent;
+    const shapes = !!$('#v13-export-queue.v15-shapes-button'), title = $('#v-dialog-title').textContent; $('#v-dialog-close')?.click(); await wait(200);
+    return { pass: JSON.stringify(q) === '["720p","1080p*","4K"]' && closed && /^MP4 · 1920 × 1080 · /.test(what) && res === '720p' && /1280 × 720/.test(what720) && shapes && title === 'Export', detail: { q, closed, what, res, what720, shapes, title } };
   },
   async 'home has one New video entry and no version pill'() {
     $('.v-nav [data-route=home]').click(); await wait(300);
@@ -562,7 +563,7 @@ Object.assign(checks, {
     return { pass: speaking === .45 && pause === 1 && noCaptions === .45, detail: { speaking, pause, noCaptions } };
   },
   async 'export size estimate follows resolution, frame rate and format'() {
-    await freshEditor(); await exportDialog(); $('[data-purpose=custom]').click(); await wait(100);
+    await freshEditor(); await exportDialog(); $('.v30-more').open = true; await wait(100);
     const set = async (id, v) => { const x = $('#' + id); x.value = v; x.dispatchEvent(new Event('change', { bubbles: true })); x.onchange?.(); await wait(60); };
     await set('v-export-resolution', '720p'); const r720 = mb(); await set('v-export-resolution', '1080p'); const r1080 = mb();
     await set('v-export-fps', '60 fps'); const f60 = mb(); await set('v-export-fps', '30 fps');
@@ -571,7 +572,7 @@ Object.assign(checks, {
     return { pass: r720 < r1080 && f60 > r1080 && audio < r720 && warn, detail: { r720, r1080, f60, audio, gifWarning: warn } };
   },
   async 'a very wide canvas at 4K explains its size'() {
-    await freshEditor(); E().patch({ ratio: '32/9' }); await exportDialog(); $('[data-purpose=quality]').click(); await wait(100);
+    await freshEditor(); E().patch({ ratio: '32/9' }); await exportDialog(); $('[data-quality="4K UHD"]').click(); await wait(100);
     const text = $('#v15-export-warn').hidden ? '' : $('#v15-export-warn').textContent; await closeDialog();
     return { pass: /4096 × 1152|too wide/.test(text), detail: text };
   },
@@ -752,7 +753,7 @@ Object.assign(checks, {
   },
   async 'the export sends the chosen frame rate'() {
     await freshEditor(); window.__exportCfg = null; const orig = window.native.export; window.native.export = async (st, cfg) => { window.__exportCfg = cfg; return null; };
-    try { await exportDialog(); $('[data-purpose=custom]').click(); await wait(100); $('#v-export-fps').value = 'Match source'; $('#v-export-fps').dispatchEvent(new Event('change')); await window.nativeExport(); await wait(200); }
+    try { await exportDialog(); $('.v30-more').open = true; await wait(100); $('#v-export-fps').value = 'Match source'; $('#v-export-fps').dispatchEvent(new Event('change')); await window.nativeExport(); await wait(200); }
     finally { window.native.export = orig; await closeDialog(); }
     const src = E().get().assets.find(a => a.id === E().get().clips[0].asset)?.fps || 30;
     return { pass: window.__exportCfg?.fps === Math.round(src), detail: { sent: window.__exportCfg?.fps, source: src } };
@@ -1009,6 +1010,8 @@ Object.assign(checks, {
 // Phase 20: Home, Projects, Settings.
 Object.assign(checks, {
   async 'Home shows four recent projects and the tools you use most'() {
+    // tool use from earlier runs in this page (the crawler, the alignment audit) would outrank the tool opened here
+    const app = window.openai?.widgetState?.privateContent?.app; if (app) app.toolUse = {};
     await freshEditor(); await freshEditor();
     for (let i = 0; i < 3; i++) { await openToolV('pdf', 'pcompress'); }
     $('.v-nav [data-route=home]').click(); await wait(400);
