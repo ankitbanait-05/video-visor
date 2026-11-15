@@ -112,3 +112,18 @@ The button crawler clicked every button on every screen and editor panel. Nothin
 | Bench | The bench now keeps the hidden app from being put to sleep by macOS (App Nap had frozen its timers and FFmpeg runs for minutes). |
 | Screen review | Light and dark at 1440 × 900, light at 1024 × 768: editor with every kind of track, clip panel, layer panel, box panel, Home. Nothing runs off the edge and nothing scrolls sideways. Two fixes: (1) the time ruler scrolled away with the tracks; it now stays at the top. (2) In the clip and layer panels, an animated value's ‹ › arrows pushed its label to the right, so labels didn't line up; the arrows now sit at the right end of the row. Video layer rows are a little more compact (44 px instead of 56), so more tracks fit. |
 | Note | The bench's generated test pattern has no colour tags, so its saturated colours decode slightly differently in the export and in FFmpeg's comparison (red 254,0,0 against 255,25,0). Real recordings carry colour tags. This is why the blur check compares inside against outside rather than a fixed score. |
+
+---
+
+## Phase 29: fixes from your hands-on test (15 Nov, two recordings and a screenshot)
+
+| Your note | Status |
+|---|---|
+| No way to make a new track by drag and drop | Done. While a file is dragged from Main, the timeline shows a "New video track" strip above the top video track and a "New audio track" strip below the last audio track. Dropping there puts the file on a new track at the drop point. |
+| Add menu wording (audio said "Add to video") | Done. Video and images: "Add to the main video" (into V1) and "Add on a new track" (a new V2, V3 …). Audio: "Add to the timeline" (on a free audio track) and "Add on a new track" (a new A2, A3 …). "On a new track" always makes a new track. |
+| Icons not lined up with text (Add menu) | Done. The icons sat 6 px above their titles (extra spacing in the text block); they are now on the title line (0 px). |
+| Dropdown arrows touching the box edge | Done, everywhere: every dropdown draws the app's own arrow 10 px in from the edge, with room for the text (light and dark). |
+| Music and narration can't be split | Done. Splitting turns them into audio clips that keep their role: music keeps the Music volume and "Keep music quiet beneath voice"; narration keeps the Voice volume. They can then be trimmed or deleted like any audio clip. The export and the preview treat them as before. |
+| Moving things on the preview | Done, for titles, icons, callouts, blur / cover boxes and video layers: they move from where they are grabbed (an icon used to jump so its corner was under the pointer), stay whole inside the frame, and snap to the middle and the frame edges with the guide lines. |
+| Checking everything | `tools/preview/align.js` measures every screen, editor panel, menu and dialog (light and dark, 1440 and 1024 wide): icon against text, icon in icon-only buttons, dropdown arrows, cut-off text. After the fixes it reports nothing. Its first version missed the Add menu because menus are fixed-position; that was found and fixed. |
+| Also found | Colour pickers came in three sizes and sat off their labels; one size now, centred on the label. The Captions panel's title was below its language settings; it is first now. The Audio panel's title was a slogan; it is "Audio". The Transitions and Captions panels used the browser's ▸ triangles for folding sections; they now use the same chevron as the clip panel. An empty track's placeholder row had a plain label; it has the same icon and short name as other track headers. |

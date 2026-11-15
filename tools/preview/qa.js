@@ -853,9 +853,9 @@ Object.assign(checks, {
     const card = $('#ed-panel .v5-media'), visible = [...card.querySelectorAll('button')].filter(b => b.offsetParent && !b.closest('.v16-menu') && !b.dataset.mediaPreview).map(b => b.textContent.trim() || b.getAttribute('aria-label'));
     const arrow = card.querySelector('.v21-add-arrow'), drawn = !!arrow.querySelector('svg'); arrow.click(); await wait(80);
     const items = [...card.querySelectorAll('.v21-add-menu button')].filter(b => b.offsetParent).map(b => b.querySelector('strong')?.textContent);
-    const before = (E().get().overlays || []).length; [...card.querySelectorAll('.v21-add-menu button')].find(b => /layer/.test(b.textContent)).click(); await wait(300);
+    const before = (E().get().overlays || []).length; [...card.querySelectorAll('.v21-add-menu button')].find(b => /new track/.test(b.textContent)).click(); // Phase 29 wording await wait(300);
     const layers = (E().get().overlays || []).length, closed = card.isConnected ? card.querySelector('.v21-add-menu').hidden : true;
-    return { pass: visible[0] === 'Add' && /More ways to add/.test(visible[1]) && drawn && JSON.stringify(items) === '["Add to video","Add as a layer","Delete from project"]' && layers === before + 1 && closed, detail: { visible, drawn, items, layers: [before, layers], closed } };
+    return { pass: visible[0] === 'Add' && /More ways to add/.test(visible[1]) && drawn && JSON.stringify(items) === '["Add to the main video","Add on a new track","Delete from project"]' && layers === before + 1 && closed, detail: { visible, drawn, items, layers: [before, layers], closed } };
   },
   async 'timeline view buttons are icons with names'() {
     await freshEditor(); const v = $('#v27-add-track'), f = $('#v5-fit-timeline'); // Phase 27: "Show all tracks" is gone (every track shows)
@@ -1390,6 +1390,46 @@ Object.assign(checks, {
     const left = p => Math.round(layerDiamond(p).closest('label').querySelector('.v17-diamond').getBoundingClientRect().left);
     const xs = ['x', 'y', 'scale', 'opacity'].map(left), arrows = getComputedStyle(layerDiamond('x').closest('label').querySelector('.v17-next')).display;
     return { pass: new Set(xs).size === 1 && arrows !== 'none', detail: { diamonds: xs, arrows } };
+  },
+});
+
+// Phase 29: fixes from hands-on testing (round 3).
+const projectWithMusic = async () => { await freshEditor(); const v = E().get().assets.find(x => x.kind === 'video').id; E().patch({ music: { asset: v, name: 'Song', duck: true, start: 0, trackId: 'audio-2' } }); await wait(400); E().open('audio'); await wait(300); return v; };
+Object.assign(checks, {
+  async 'the Add menu says where the file goes and its icons sit on the title line'() {
+    await freshEditor(); E().open('media'); await wait(300); $$('.v21-add-arrow')[0].click(); await wait(250);
+    const items = $$('.v21-add-menu:not([hidden]) button'), offs = items.map(b => { const i = b.querySelector('svg').getBoundingClientRect(), t = b.querySelector('strong').getBoundingClientRect(); return +((i.top + i.height / 2) - (t.top + t.height / 2)).toFixed(1); });
+    const names = items.map(b => b.querySelector('strong').textContent); items.find(b => /new track/.test(b.textContent)).click(); await wait(350);
+    const s = E().get(), o = s.overlays?.[0], track = s.timelineTracks.find(t => t.id === o?.trackId);
+    return { pass: JSON.stringify(names) === '["Add to the main video","Add on a new track","Delete from project"]' && offs.every(x => Math.abs(x) <= 1) && !!track && track.manual === true, detail: { names, offs, track: o?.trackId } };
+  },
+  async 'dragging a file shows new-track strips; a drop there makes a new track'() {
+    await freshEditor(); E().open('media'); await wait(300); const card = $('[data-media-preview]');
+    card.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: new DataTransfer() })); await wait(150);
+    const zones = $$('.v29-new-track').map(z => z.dataset.group), lane = $('.v29-new-track[data-group="video"] .vt-lane'), r = lane.getBoundingClientRect(), dt = new DataTransfer(); dt.setData('application/x-video-visor-media', card.dataset.mediaPreview);
+    lane.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: r.left + r.width / 2, clientY: r.top + 5 })); await wait(350);
+    const s = E().get(), o = s.overlays?.[0];
+    return { pass: JSON.stringify(zones) === '["video","audio"]' && !!o && o.trackId === 'video-1' && Math.abs(o.start - total() / 2) < 1 && !$('.v29-new-track'), detail: { zones, overlay: o && [o.trackId, o.start] } };
+  },
+  async 'music can be split; the pieces keep its role, level and ducking'() {
+    await projectWithMusic(); const b = block('music', E().get().music.asset), r = b.getBoundingClientRect(); pointer(b, r.left + 8, r.top + 5, r.left + 8, r.top + 5); await wait(250);
+    E().jump(6); await wait(150); $('#ed-split').click(); await wait(350);
+    const s = E().get(), pieces = (s.audioClips || []).map(a => [a.role, a.start, a.sourceIn, a.duck]);
+    return { pass: s.music === null && JSON.stringify(pieces) === '[["music",0,0,true],["music",6,6,true]]' && /Split at/.test($('#ed-status').textContent), detail: { music: s.music, pieces } };
+  },
+  async 'dragging an icon moves it from the grab point and keeps it inside the frame'() {
+    await freshEditor(); await addTitle('Icons', 0); const e = E().get().elements.at(-1); E().jump(e.start + 1); await wait(250);
+    const el = () => $('.ed-layer[data-id="' + e.id + '"]'), c = $('#ed-canvas').getBoundingClientRect(), r = el().getBoundingClientRect(), x = r.left + r.width * .7, y = r.top + r.height * .7, base = { bubbles: true, pointerId: 21, button: 0 };
+    el().dispatchEvent(new PointerEvent('pointerdown', { ...base, clientX: x, clientY: y }));
+    el().dispatchEvent(new PointerEvent('pointermove', { ...base, clientX: x - 40, clientY: y + 20 })); const mid = el().getBoundingClientRect(), follow = [Math.round(mid.left - r.left), Math.round(mid.top - r.top)];
+    el().dispatchEvent(new PointerEvent('pointermove', { ...base, clientX: x + 2000, clientY: y })); const far = el().getBoundingClientRect();
+    el().dispatchEvent(new PointerEvent('pointerup', { ...base, clientX: x + 2000, clientY: y })); await wait(300); const after = el().getBoundingClientRect();
+    return { pass: follow[0] === -40 && follow[1] === 20 && Math.abs(far.right - c.right) <= 1 && Math.abs(after.right - c.right) <= 1.5 && after.left > c.left, detail: { follow, farGap: c.right - far.right, afterGap: c.right - after.right } };
+  },
+  async 'every dropdown draws its arrow 10 px in from the edge'() {
+    await freshEditor(); E().open('style'); await wait(300);
+    const sel = [...document.querySelectorAll('#vv-editor select')].filter(x => x.offsetParent), bad = sel.filter(x => { const cs = getComputedStyle(x); return cs.appearance !== 'none' || parseFloat(cs.paddingRight) < 28 || !/10px/.test(cs.backgroundPositionX); }).map(x => x.id);
+    return { pass: sel.length >= 2 && !bad.length, detail: { checked: sel.map(x => x.id), bad } };
   },
 });
 

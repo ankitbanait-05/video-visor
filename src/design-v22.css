@@ -325,3 +325,36 @@
 #visor-app #vv-editor label:has(> .v17-keys) > .v17-keys{position:static}
 #visor-app #vv-editor label.v17-animated > .v17-keys .v17-prev{position:absolute;right:20px;top:0}
 #visor-app #vv-editor label.v17-animated > .v17-keys .v17-next{position:absolute;right:0;top:0}
+/* 0.15 (Phase 29): menu items with a title and a hint: the icon sits on the title's line */
+#visor-app #vv-editor .v21-add-menu button{align-items:flex-start!important}
+#visor-app #vv-editor .v21-add-menu button > span{display:flex;flex-direction:column;justify-content:flex-start;gap:2px;min-height:0;height:auto;padding:0;margin:0}
+#visor-app #vv-editor .v21-add-menu button > span > strong,#visor-app #vv-editor .v21-add-menu button > span > small{margin:0;padding:0;line-height:18px;min-height:0}
+#visor-app #vv-editor .v21-add-menu button > span > small{line-height:16px}
+#visor-app #vv-editor .v21-add-menu button > svg{margin-top:1px!important}
+/* 0.15 (Phase 29): every dropdown draws the app's own arrow, 10 px in from the right edge, with room for it
+   (the system arrow sat 4–6 px from the edge) */
+#visor-app select,#v-overlay select{-webkit-appearance:none!important;appearance:none!important;padding-right:30px!important;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7684' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")!important;
+ background-repeat:no-repeat!important;background-position:right 10px center!important;background-size:12px 12px!important;text-overflow:ellipsis}
+:root[data-theme=dark] #visor-app select,#visor-app[data-theme=dark] select,:root[data-theme=dark] #v-overlay select{
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a3adba' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")!important}
+#visor-app select:disabled{opacity:.55}
+/* 0.15 (Phase 29): colour pickers: one size and shape, centred on their label's line */
+#visor-app input[type=color],#visor-app #vv-editor input[type=color],#visor-app #vv-editor #ed-panel input[type=color]{-webkit-appearance:none;appearance:none;flex:none;width:36px!important;height:24px!important;padding:2px!important;border:1px solid var(--line)!important;border-radius:var(--r-sm)!important;background:var(--v-panel)!important;cursor:pointer;vertical-align:middle;box-sizing:border-box}
+#visor-app input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+#visor-app input[type=color]::-webkit-color-swatch{border:0;border-radius:4px;box-shadow:inset 0 0 0 1px rgb(0 0 0 / 12%)}
+#visor-app #vv-editor label:has(> input[type=color]){display:flex;align-items:center;gap:10px}
+
+/* 0.15 (Phase 29): drop strips for a new track while a file is dragged from Media */
+#visor-app #vv-editor #vt-tracks .vt-row.v29-new-track{min-height:34px}
+#visor-app #vv-editor #vt-tracks .v29-new-track .vt-label{display:flex;align-items:center;gap:6px;color:var(--primary);font-weight:600}
+#visor-app #vv-editor #vt-tracks .v29-new-track .vt-label svg{width:14px;height:14px;flex:none}
+#visor-app #vv-editor #vt-tracks .v29-new-lane{display:flex;align-items:center;justify-content:center;margin:4px 8px;border:1.5px dashed color-mix(in srgb,var(--primary) 55%,transparent);border-radius:var(--r-md);color:var(--primary);font-size:12px;background:color-mix(in srgb,var(--primary) 6%,transparent)}
+#visor-app #vv-editor #vt-tracks .v29-new-lane.v8-drop-target{background:color-mix(in srgb,var(--primary) 16%,transparent);border-style:solid}
+#visor-app #vv-editor #vt-tracks .v29-new-track .vt-label{justify-content:flex-start!important;padding-left:10px}
+/* 0.15 (Phase 29): every other folding section in the editor panels (Recommended / All transitions, Look, Correct
+   captions …) uses the same chevron as the clip panel's sections instead of the browser's ▸ triangle */
+#visor-app #vv-editor #ed-panel details:not(.v15-section):not(.v22-section) > summary{list-style:none;display:flex;align-items:center;gap:8px;min-height:32px;cursor:pointer;font-weight:600;font-size:var(--fs-13,13px);color:var(--v-ink)}
+#visor-app #vv-editor #ed-panel details:not(.v15-section):not(.v22-section) > summary::-webkit-details-marker{display:none}
+#visor-app #vv-editor #ed-panel details:not(.v15-section):not(.v22-section) > summary::after{content:'';flex:none;margin-left:auto;margin-right:4px;width:7px;height:7px;border-right:1.5px solid var(--v-sub);border-bottom:1.5px solid var(--v-sub);transform:rotate(45deg) translate(-2px,-2px);transition:transform var(--t-fast) var(--ease)}
+#visor-app #vv-editor #ed-panel details[open]:not(.v15-section):not(.v22-section) > summary::after{transform:rotate(225deg) translate(-2px,-2px)}
