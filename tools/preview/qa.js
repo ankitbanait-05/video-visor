@@ -1377,6 +1377,22 @@ Object.assign(checks, {
   },
 });
 
+// Phase 28: fixes from the screen-by-screen review.
+Object.assign(checks, {
+  async 'the time ruler stays at the top while the tracks scroll'() {
+    await withAudioAndLayer(); E().open('effects'); await wait(250); panelButton(/Blur region/).click(); await wait(300); E().open('media'); await wait(300);
+    const h = host(); h.scrollTop = h.scrollHeight; await wait(100);
+    const off = Math.round(h.querySelector('.vt-ruler').getBoundingClientRect().top - h.getBoundingClientRect().top);
+    return { pass: h.scrollTop > 0 && Math.abs(off) <= 2, detail: { scrollTop: h.scrollTop, rulerOffset: off } };
+  },
+  async 'keyframe labels stay lined up when a value is animated'() {
+    await withLayers(); E().jump(2); await wait(120); layerDiamond('x').click(); await wait(250);
+    const left = p => Math.round(layerDiamond(p).closest('label').querySelector('.v17-diamond').getBoundingClientRect().left);
+    const xs = ['x', 'y', 'scale', 'opacity'].map(left), arrows = getComputedStyle(layerDiamond('x').closest('label').querySelector('.v17-next')).display;
+    return { pass: new Set(xs).size === 1 && arrows !== 'none', detail: { diamonds: xs, arrows } };
+  },
+});
+
 export const count = () => Object.keys(checks).length;
 export async function run(only) {
   const results = [];

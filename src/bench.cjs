@@ -17,6 +17,8 @@ async function run(ctx) {
   const timed = async fn => { const t = now(); const r = await fn(); return [r, Math.round(now() - t)]; };
   const make = async (name, args) => { const file = path.join(dir, name); if (!(await fs.stat(file).catch(() => null))) await exec(ffmpeg, ['-v', 'error', '-y', ...args, file]); return file; };
   win?.hide();
+  // The window is hidden, so macOS App Nap would throttle the app (timers and finished FFmpeg runs went unnoticed for minutes).
+  require('electron').powerSaveBlocker.start('prevent-app-suspension');
 
   if (only.includes('recover')) {
     // RC-04: a recording cut off mid-write (a WebM truncated at 70%) is found, saved and sent to the editor.
@@ -216,6 +218,52 @@ async function run(ctx) {
     const at = t => `trim=start=${t}:duration=0.04,setpts=PTS-STARTPTS`;
     const plainAt6 = await psnr(at(6), at(6)), zoomedAt12 = await psnr(at(12.4), at(12.4) + ',crop=1280:720,scale=1920:1080'), unzoomedAt12 = await psnr(at(12.4), at(12.4));
     out('keyframes', { wallMs: ms, direct: r?.timing?.direct?.frames || 0, plainAt6, zoomedAt12, unzoomedAt12 });
+  }
+  if (only.includes('round3')) {
+    // Round 3, in the real export: (A) a red video layer whose keyframes move it from x 25 % to 75 % and grow it from 20 %
+    // to 40 % wide between layer times 1 s and 9 s (linear; it plays from 2 s to 12 s), a green solid cover box, and a
+    // blue layer on a hidden track that must not appear. (B) a blur box over the test pattern with A1 muted: the box
+    // must differ from the source and the rest match it, and the sound must be silent.
+    const sp = require('node:child_process').spawn;
+    for (let i = 0; i < 150 && !(await win.webContents.executeJavaScript('!!window.visorEditor').catch(() => false)); i++) await new Promise(r => setTimeout(r, 100));
+    const solid = (name, colour, size, secs) => make(name, ['-f', 'lavfi', '-i', `color=c=${colour}:size=${size}:rate=30:duration=${secs}`, '-c:v', 'libx264', '-preset', 'ultrafast', '-g', '30', '-pix_fmt', 'yuv420p']);
+    const grey = await register(await solid('grey-14s-g30.mp4', '0x404040', '1280x720', 14)), red = await register(await solid('red-12s-g30.mp4', 'red', '320x180', 12)), blue = await register(await solid('blue-12s-g30.mp4', 'blue', '320x180', 12));
+    const tracks = [{ id: 'video-main', group: 'video', name: 'Main video' }, { id: 'video-1', group: 'video', name: 'Video 1' }, { id: 'video-2', group: 'video', name: 'Video 2', hidden: true }, { id: 'audio-1', group: 'audio', name: 'Audio 1' }, { id: 'effects-1', group: 'effects', name: 'Effects 1' }];
+    const lin = (a, b) => [{ t: 1, v: a, ease: 'linear' }, { t: 9, v: b, ease: 'linear' }];
+    const base = { elements: [], transcript: [], zooms: [], audioClips: [], time: 0, selected: 0, ratio: '16/9', speed: 1, audio: { voice: 100, music: 20 }, captions: false, trackSchema: 1 };
+    const A = { ...base, clips: [{ id: 'g', asset: grey.id, name: 'grey', kind: 'video', start: 0, end: 14, limit: 14, trackId: 'video-main' }], assets: [grey, red, blue], timelineTracks: tracks,
+      overlays: [{ id: 'L', asset: red.id, name: 'red', start: 2, end: 12, sourceIn: 0, x: 50, y: 50, scale: 20, shape: 'rect', border: 0, shadow: false, trackId: 'video-1', keyframes: { x: lin(25, 75), scale: lin(20, 40) } },
+        { id: 'B', asset: blue.id, name: 'blue', start: 0, end: 12, sourceIn: 0, x: 50, y: 50, scale: 60, shape: 'rect', border: 0, shadow: false, trackId: 'video-2' }],
+      elements: [{ id: 'cv', kind: 'cover', x: 80, y: 15, w: 20, h: 20, width: 20, fill: '#00ff00', fillOpacity: 100, start: 0, end: 14, animation: 'none', trackId: 'effects-1' }] };
+    const out1 = path.join(dir, 'round3-a-' + Date.now() + '.mp4');
+    const [r1, ms1] = await timed(() => job(() => runExport(A, { format: 'MP4', resolution: '1080p', fps: 30 }, async () => out1)));
+    const W = 320, H = 180;
+    const frame = (file, t) => new Promise(res => { const p = sp(ffmpeg, ['-v', 'error', '-ss', String(t), '-i', file, '-frames:v', '1', '-vf', `scale=${W}:${H}`, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-']); const c = []; p.stdout.on('data', d => c.push(d)); p.on('close', () => res(Buffer.concat(c))); });
+    const box = (px, test) => { let x0 = W, x1 = -1, y0 = H, y1 = -1; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 3; if (test(px[i], px[i + 1], px[i + 2])) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); } } return x1 < 0 ? null : { x: +((x0 + x1 + 1) / 2 / W * 100).toFixed(1), y: +((y0 + y1 + 1) / 2 / H * 100).toFixed(1), w: +((x1 - x0 + 1) / W * 100).toFixed(1), h: +((y1 - y0 + 1) / H * 100).toFixed(1) }; };
+    const isRed = (r, g, b) => r > 150 && g < 90 && b < 90, isGreen = (r, g, b) => g > 150 && r < 90 && b < 90, isBlue = (r, g, b) => b > 150 && r < 90 && g < 90;
+    const near = (a, b) => Math.abs(a - b) <= 1.5;
+    const layer = [];
+    for (const [t, x, w] of [[1, null, null], [3, 25, 20], [5, 37.5, 25], [7, 50, 30], [11, 75, 40], [12.5, null, null]]) {
+      const got = box(await frame(out1, t), isRed); layer.push({ t, expected: x == null ? 'none' : { x, w }, got, ok: x == null ? !got : !!got && near(got.x, x) && near(got.w, w) && near(got.y, 50) });
+    }
+    const f1 = await frame(out1, 1), cover = box(f1, isGreen), coverOk = !!cover && near(cover.x, 80) && near(cover.y, 15) && near(cover.w, 20) && near(cover.h, 20);
+    const hiddenOk = !box(await frame(out1, 5), isBlue) && !box(f1, isBlue);
+    // B: the blur box (x 30 %, y 50 %, 30 × 40 %) over the test pattern, A1 muted.
+    const scr = await register(screen);
+    const B = { ...base, clips: [{ id: 's', asset: scr.id, name: 'screen', kind: 'video', start: 0, end: 8, limit: scr.duration, trackId: 'video-main', audioTrackId: 'audio-1' }], assets: [scr], overlays: [],
+      timelineTracks: [{ id: 'video-main', group: 'video', name: 'Main video' }, { id: 'audio-1', group: 'audio', name: 'Audio 1', muted: true }, { id: 'effects-1', group: 'effects', name: 'Effects 1' }],
+      elements: [{ id: 'bl', kind: 'blur', x: 30, y: 50, w: 30, h: 40, width: 30, strength: 1.5, start: 0, end: 8, animation: 'none', trackId: 'effects-1' }] };
+    const out2 = path.join(dir, 'round3-b-' + Date.now() + '.mp4');
+    const [r2, ms2] = await timed(() => job(() => runExport(B, { format: 'MP4', resolution: '1080p', fps: 30 }, async () => out2)));
+    const psnr = crop => new Promise(res => { const p = sp(ffmpeg, ['-i', out2, '-i', screen, '-lavfi', `[0:v]trim=start=3:duration=0.5,setpts=PTS-STARTPTS,${crop}[a];[1:v]trim=start=3:duration=0.5,setpts=PTS-STARTPTS,${crop}[b];[a][b]psnr`, '-f', 'null', '-']); let e = ''; p.stderr.on('data', d => e += d); p.on('close', () => res(+(/average:([\d.inf]+)/.exec(e)?.[1] || 0))); });
+    // (the generated test pattern has no colour tags, so saturated colours decode a little differently; what matters is
+    // that the box differs much more from the source than the rest of the frame)
+    const inside = await psnr('crop=500:380:326:350'), outside = await psnr('crop=700:1080:1200:0');
+    const loud = await new Promise(res => { const p = sp(ffmpeg, ['-i', out2, '-map', '0:a?', '-af', 'volumedetect', '-f', 'null', '-']); let e = ''; p.stderr.on('data', d => e += d); p.on('close', () => { const m = /max_volume:\s*(-?[\d.inf]+) dB/.exec(e); res(m ? m[1] : 'no sound track'); }); });
+    const silent = loud === 'no sound track' || loud === '-inf' || +loud < -60;
+    out('round3', { allOk: layer.every(s => s.ok) && coverOk && hiddenOk && inside < 30 && outside - inside > 5 && silent,
+      layerKeyframes: { ok: layer.every(s => s.ok), layer }, coverBox: { ok: coverOk, got: cover }, hiddenTrack: { ok: hiddenOk },
+      blurBox: { ok: inside < 30 && outside - inside > 5, psnrInside: inside, psnrOutside: outside }, mutedA1: { ok: silent, maxVolume: loud }, wallMs: [ms1, ms2] });
   }
   if (only.includes('export') && assets.screen) {
     const a = assets.screen;

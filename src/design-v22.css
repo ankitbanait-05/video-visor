@@ -279,7 +279,7 @@
 .vt-block .v24-vol:focus-visible{box-shadow:0 0 0 2px var(--focus);border-radius:3px}
 
 /* ---------- 0.15 (Phase 25): blur regions and solid covers are plain boxes ---------- */
-#visor-app #vv-editor .ed-layer.v25-box{box-sizing:border-box;padding:0!important;font-size:0!important;line-height:0;border-radius:2px;overflow:visible;cursor:move;min-width:0;min-height:0;white-space:normal}
+#visor-app #vv-editor .ed-layer.v25-box{box-sizing:border-box;padding:0!important;font-size:0!important;line-height:0;border-radius:0!important;overflow:visible;cursor:move;min-width:0;min-height:0;white-space:normal}
 #visor-app #vv-editor .ed-layer.v25-box[data-kind=blur]{background:rgb(255 255 255 / 8%);border:1px dashed rgb(255 255 255 / 70%)}
 #visor-app #vv-editor .ed-layer.v25-box[data-kind=cover]{border:0}
 #visor-app #vv-editor .ed-layer.v25-box.selected{outline:2px solid var(--primary);outline-offset:0}
@@ -314,3 +314,14 @@
 #vv-editor .v27-add-menu[hidden]{display:none}
 /* the track header column is a little wider: name, eye or speaker, and lock side by side */
 #visor-app #vv-editor #vt-tracks .vt-row{grid-template-columns:148px 1fr}
+/* 0.15 (Phase 28): the time ruler stays at the top while the tracks scroll; layer rows are a little more compact,
+   so more tracks fit now that every track is always shown */
+#visor-app #vv-editor #vt-tracks .vt-surface > .vt-row:has(> .vt-ruler){position:sticky;top:0;z-index:15;background:var(--v-panel)}
+#visor-app #vv-editor #vt-tracks .vt-row:has(> .vt-lane.vt-overlay){min-height:44px}
+#visor-app #vv-editor #vt-tracks .vt-lane.vt-overlay > .vt-block{top:4px;height:36px}
+/* 0.15 (Phase 28): the ‹ › keyframe arrows of an animated value sit at the right end of its label row, so labels stay
+   lined up whether or not a value is animated */
+#visor-app #vv-editor label:has(> .v17-keys){position:relative}
+#visor-app #vv-editor label:has(> .v17-keys) > .v17-keys{position:static}
+#visor-app #vv-editor label.v17-animated > .v17-keys .v17-prev{position:absolute;right:20px;top:0}
+#visor-app #vv-editor label.v17-animated > .v17-keys .v17-next{position:absolute;right:0;top:0}

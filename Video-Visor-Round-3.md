@@ -64,7 +64,7 @@ The button crawler clicked every button on every screen and editor panel. Nothin
 | 25 | *Done.* Blur and solid cover as real boxes (A1–A4); zoom menu width and the Main tab (A8, A9) | M |
 | 26 | *Done.* Split acts on the selection (A5) | S–M |
 | 27 | *Done.* Premiere-style timeline: no group rows, hide / mute per track, order and spacing (A6, A7) | L |
-| 28 | Rigorous test and UI pass, including the real-app export checks | M |
+| 28 | *Done.* Rigorous test and UI pass, including the real-app export checks | M |
 
 ---
 
@@ -102,3 +102,13 @@ The button crawler clicked every button on every screen and editor panel. Nothin
 | Always visible | Done (your decision 1, as suggested). Every track with something on it is always shown, plus V1 and A1, and the empty track of the tab you are in (as somewhere to drop). "Show all tracks" is gone. |
 | Adding and removing tracks | Done. A "+" (Add track) above the timeline offers Video, Audio, Text and Effects tracks. Right-click on a track header: Hide / Mute, Lock, Add track, and Delete track (only for an empty track that isn't V1 or A1). |
 | Changed from the plan | "Add track above / below" became a single "Add track": a new video track always goes above the others and a new audio track below, so the position choice added nothing. |
+
+## Phase 28 status
+
+| Item | Status |
+|---|---|
+| Real-app export check | Done. `tools/bench.sh round3` runs two exports in the Dev app (with its own data folder) and measures the frames. Results: a video layer's keyframes put it within 1.5 % of where they should at every sample (x 25 → 75 %, width 20 → 40 %, absent before and after); a green cover box is exactly 20 × 20 % at 80 %, 15 %; a blue layer on a hidden track never appears; a blur box changes the picture inside it (25.7 dB against the source) far more than outside (32.1 dB); muting A1 makes the export silent (−91 dB). |
+| Found by the export check | The blur and cover boxes had rounded corners in the export (an older style for text boxes). They are square now, in the preview too. |
+| Bench | The bench now keeps the hidden app from being put to sleep by macOS (App Nap had frozen its timers and FFmpeg runs for minutes). |
+| Screen review | Light and dark at 1440 × 900, light at 1024 × 768: editor with every kind of track, clip panel, layer panel, box panel, Home. Nothing runs off the edge and nothing scrolls sideways. Two fixes: (1) the time ruler scrolled away with the tracks; it now stays at the top. (2) In the clip and layer panels, an animated value's ‹ › arrows pushed its label to the right, so labels didn't line up; the arrows now sit at the right end of the row. Video layer rows are a little more compact (44 px instead of 56), so more tracks fit. |
+| Note | The bench's generated test pattern has no colour tags, so its saturated colours decode slightly differently in the export and in FFmpeg's comparison (red 254,0,0 against 255,25,0). Real recordings carry colour tags. This is why the blur check compares inside against outside rather than a fixed score. |
