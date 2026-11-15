@@ -62,7 +62,7 @@ The button crawler clicked every button on every screen and editor panel. Nothin
 | Phase | Content | Size |
 |---|---|---|
 | 25 | *Done.* Blur and solid cover as real boxes (A1–A4); zoom menu width and the Main tab (A8, A9) | M |
-| 26 | Split acts on the selection (A5) | S–M |
+| 26 | *Done.* Split acts on the selection (A5) | S–M |
 | 27 | Premiere-style timeline: no group rows, hide / mute per track, order and spacing (A6, A7) | L |
 | 28 | Rigorous test and UI pass, including the real-app export checks | M |
 
@@ -84,3 +84,10 @@ The button crawler clicked every button on every screen and editor panel. Nothin
 | A8 Zoom menu | Done. 76 px wide (it was 150 px). |
 | A9 Main tab | Done. The first editor tab is called Main, with a dashboard icon. The panel inside is unchanged. |
 | Not yet | An export check of the boxes in the real app. It runs with the other export checks in Phase 28. The export draws boxes with the same code as the preview. |
+
+## Phase 26 status
+
+| Item | Status |
+|---|---|
+| A5 Split | Done. Split (button, S, right-click) cuts every selected item under the playhead: a main clip (with its sound), a video layer together with its own sound (they stay linked), an audio clip, a title or icon, a blur or cover, a zoom, or a caption. The second piece plays on from the right point of its source; a fade in stays on the first piece and a fade out on the second. The pieces after the cut stay selected, so pressing S again further on keeps cutting the same item. With nothing selected nothing is cut ("Select the clip to split"). Selected items the playhead isn't over are left as is, and the message says how many. Right-click offers Split at playhead for any item that can be cut, not only main clips. |
+| Not split | Music and narration (each is a single item; trim them instead), a camera linked to a screen recording (it follows the recording, so split that), and a tracking blur. The message says which. |

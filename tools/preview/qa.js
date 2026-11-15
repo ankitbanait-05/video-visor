@@ -103,7 +103,7 @@ const checks = {
     return { pass: E().get().elements.length === 0, detail: { elementsAfterOneUndo: E().get().elements.length } };
   },
   async 'split creates unique clip ids and no copied transition'() {
-    await freshEditor();
+    await freshEditor(); await selectClip(0); // 0.15 (Phase 26): Split cuts what is selected
     const sc = $('#ed-scrub'); sc.value = 6; sc.dispatchEvent(new Event('input', { bubbles: true })); await wait(100);
     $('#ed-split').click(); await wait(200);
     sc.value = 12; sc.dispatchEvent(new Event('input', { bubbles: true })); await wait(100);
@@ -925,7 +925,7 @@ Object.assign(checks, {
     return { pass: Math.abs(went - 2) < .01 && times[0] === 2 && Math.abs(times[1] - 8) < .3, detail: { went, times } };
   },
   async 'splitting keeps the animation on the same moment of footage'() {
-    await animatedScale(); E().jump(4); await wait(150); const before = +$('#v15-scale').value;
+    await animatedScale(); await selectClip(0); E().jump(4); await wait(150); const before = +$('#v15-scale').value; // Phase 26: Split cuts what is selected
     $$('#vv-editor button').find(b => /^Split$/.test(b.textContent.trim())).click(); await wait(300);
     const s = E().get(), second = s.clips.find(c => Math.abs(c.start - 4) < .05), at = window.keyframesV17.transformAt(second, 4).scale;
     return { pass: before === 125 && !!second && Math.abs(at - 125) < .01, detail: { before, secondStart: second?.start, at } };
@@ -1288,6 +1288,44 @@ Object.assign(checks, {
   async 'the zoom menu is narrow and the first tab is called Main'() {
     await freshEditor(); const w = $('#v16-zoom').getBoundingClientRect().width, t = $('.ed-tabs [data-panel=media]'), icon = t.querySelector('svg')?.getAttribute('class') || '';
     return { pass: w <= 80 && t.textContent.trim() === 'Main' && /layout-dashboard/.test(icon), detail: { w, text: t.textContent.trim(), icon } };
+  },
+});
+
+// Phase 26: Split cuts what is selected.
+async function withAudioAndLayer() {
+  await freshEditor(); const v = E().get().assets.find(x => x.kind === 'video').id;
+  E().patch({ overlays: [{ id: 'L1', asset: v, name: 'Layer', start: 1, end: 9, sourceIn: 0, x: 60, y: 60, scale: 30, fadeIn: 1 }], audioClips: [{ id: 'A2', asset: v, name: 'Voice take 2', start: 2, end: 10, sourceIn: 1, volume: 100, fadeIn: 1, fadeOut: 1 }, { id: 'LA', asset: v, name: 'Layer sound', start: 1, end: 9, sourceIn: 0, volume: 100, linkOverlay: 'L1' }] });
+  await wait(300); E().open('audio'); await wait(300);
+}
+const pickBlock = async (type, id, add) => { const b = block(type, id), r = b.getBoundingClientRect(); pointer(b, r.left + 6, r.top + r.height / 2, r.left + 6, r.top + r.height / 2, add ? { shiftKey: true } : {}); await wait(250); };
+Object.assign(checks, {
+  async 'Split with nothing selected cuts nothing'() {
+    await freshEditor(); E().jump(5); await wait(150); const before = E().get().clips.length;
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 's', bubbles: true })); await wait(200);
+    return { pass: E().get().clips.length === before && /Select the clip to split/.test($('#ed-status').textContent), detail: { clips: E().get().clips.length, msg: $('#ed-status').textContent } };
+  },
+  async 'a selected audio clip splits on its own; the main video is left whole'() {
+    await withAudioAndLayer(); await pickBlock('audioClip', 'A2'); E().jump(5); await wait(150); const clips = E().get().clips.length;
+    $('#ed-split').click(); await wait(300);
+    const s = E().get(), pieces = s.audioClips.filter(a => a.name === 'Voice take 2').map(a => [a.start, a.end, a.sourceIn, a.fadeIn || 0, a.fadeOut || 0]), selected = $$('#vt-tracks .vt-block.selected').map(b => b.dataset.v7Id);
+    return { pass: s.clips.length === clips && JSON.stringify(pieces) === '[[2,5,1,1,0],[5,10,4,0,1]]' && selected.length === 1 && selected[0] !== 'A2', detail: { clips: s.clips.length, pieces, selected } };
+  },
+  async 'a video layer and its own sound split together and stay linked'() {
+    await withAudioAndLayer(); E().open('media'); await wait(250); await pickBlock('overlay', 'L1'); E().jump(4); await wait(150);
+    $('#ed-split').click(); await wait(300);
+    const s = E().get(), layers = s.overlays.map(o => [o.start, o.end, o.sourceIn ?? 0, o.fadeIn || 0]), sound = s.audioClips.filter(a => a.linkOverlay).map(a => [a.start, a.end, a.linkOverlay === s.overlays[0].id ? 'first' : a.linkOverlay === s.overlays[1].id ? 'second' : 'none']);
+    return { pass: JSON.stringify(layers) === '[[1,4,0,1],[4,9,3,0]]' && JSON.stringify(sound) === '[[1,4,"first"],[4,9,"second"]]', detail: { layers, sound } };
+  },
+  async 'several selected items split at once; one the playhead is not over is left as is'() {
+    await withAudioAndLayer(); await pickBlock('audioClip', 'A2'); await pickBlock('video', E().get().clips[0].id, true);
+    E().jump(1.5); await wait(150); $('#ed-split').click(); await wait(300); const msg = $('#ed-status').textContent, s = E().get();
+    return { pass: s.clips.length === 3 && s.audioClips.filter(a => a.name === 'Voice take 2').length === 1 && /1 selected item was left as is/.test(msg), detail: { clips: s.clips.length, audio: s.audioClips.length, msg } };
+  },
+  async 'right-click on an audio clip offers Split at playhead'() {
+    await withAudioAndLayer(); await pickBlock('audioClip', 'A2'); E().jump(6); await wait(150);
+    const b = block('audioClip', 'A2'), r = b.getBoundingClientRect(); b.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 10, clientY: r.top + 5 })); await wait(200);
+    const item = $$('#v7-context button').find(x => x.textContent === 'Split at playhead'); item?.click(); await wait(300);
+    return { pass: !!item && E().get().audioClips.filter(a => a.name === 'Voice take 2').length === 2 && E().get().clips.length === 2, detail: { offered: !!item, audio: E().get().audioClips.length, clips: E().get().clips.length } };
   },
 });
 

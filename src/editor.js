@@ -771,7 +771,7 @@ window.addEventListener('blur',()=>liveGestureV8?.finish());
 let lastPanelV10=null,previewMutedV10=false;
 const typingV10=ev=>['INPUT','TEXTAREA','SELECT'].includes(ev.target.tagName)||ev.target.isContentEditable;
 function shortcutsV10(){
- const rows=[['Space or K','Play / pause'],['← →','Previous / next frame (hold Shift for 10)'],['J · K · L','Play backwards / stop / play (press J or L again to go faster)'],['I · O · X','Mark In / Out at the playhead · clear them'],['⇧⌫','Cut the In–Out range (the gap closes)'],['M','Add a marker at the playhead'],['⌥⌫','Delete and leave a gap'],['⌘A','Select everything on the timeline'],['Home · End','Start / end of the video'],['S','Split at the playhead'],['Delete','Delete the selection'],['⌘Z · ⇧⌘Z','Undo / redo'],['⌘C · ⌘V','Copy / paste the selection'],['⌥⌘C · ⌥⌘V','Copy a clip’s or layer’s settings · paste them onto the selection (choose which)'],['+ · −','Zoom the timeline in / out'],['Esc','Clear the selection or leave large preview'],['?','Show this list']];
+ const rows=[['Space or K','Play / pause'],['← →','Previous / next frame (hold Shift for 10)'],['J · K · L','Play backwards / stop / play (press J or L again to go faster)'],['I · O · X','Mark In / Out at the playhead · clear them'],['⇧⌫','Cut the In–Out range (the gap closes)'],['M','Add a marker at the playhead'],['⌥⌫','Delete and leave a gap'],['⌘A','Select everything on the timeline'],['Home · End','Start / end of the video'],['S','Split the selected items at the playhead'],['Delete','Delete the selection'],['⌘Z · ⇧⌘Z','Undo / redo'],['⌘C · ⌘V','Copy / paste the selection'],['⌥⌘C · ⌥⌘V','Copy a clip’s or layer’s settings · paste them onto the selection (choose which)'],['+ · −','Zoom the timeline in / out'],['Esc','Clear the selection or leave large preview'],['?','Show this list']];
  window.nativeShell?.modal('Keyboard shortcuts','<table class="v10-keys">'+rows.map(([k,d])=>'<tr><th>'+k+'</th><td>'+d+'</td></tr>').join('')+'</table><p class="v-small v-muted">Shortcuts are off while you type in a field. Double-click a title on the video to edit its text.</p>');
 }
 function largePreviewV10(on){
@@ -1744,6 +1744,56 @@ panel=function(){panelBeforeV25();syncBoxSelV25();if(state.panel==='element'){co
 // New boxes start a little smaller than the old label boxes, in the middle of the frame.
 const addElementBeforeV25=addElement;
 addElement=function(kind){const before=state.elements.at(-1)?.id,r=addElementBeforeV25(kind);if(['blur','cover'].includes(kind)){const e=state.elements.at(-1);if(e?.kind===kind&&e.id!==before){e.w=30;e.h=22;e.width=30;delete e.text;delete e.font;delete e.size;delete e.colour;e.animation='none';layers();paint();panel();commit();}}return r;};
+// ---------- 0.15 (Phase 26): Split cuts what is selected ----------
+// Split (the button, S, right-click) cuts every selected item under the playhead: a main clip (its sound with it), a
+// video layer and its linked sound, an audio clip, a title or icon, a blur or cover, a zoom, or a caption. With
+// nothing selected nothing is cut (it used to cut the main video wherever the playhead was). Items the playhead is not
+// over, items on locked tracks and kinds that cannot be split are left alone, and the message says why.
+const SPLIT_WHY_V26={outside:'Move the playhead over the selected item, at least '+MIN_CLIP_V15+' s from its ends.',locked:'Unlock the track to split it.',camera:'A linked camera follows the screen recording: split the screen recording instead.',tracking:'A tracking blur can’t be split. Trim it instead.',short:'That caption is a single word, so it can’t be split.',kind:'Music and narration can’t be split. Trim them instead.',max:'200 clips maximum.'};
+function splitPlanV26(){cleanSelectionV7();const t=state.time,MIN=MIN_CLIP_V15,plan=[],why=[],seen=new Set(),src=source();
+ const add=(type,id)=>{const k=type+':'+id;if(seen.has(k))return;seen.add(k);plan.push({type,id});};
+ for(const ref of selectionV7){
+  if(lockedV7(ref)){why.push('locked');continue;}
+  if(ref.type==='video'){const i=state.clips.findIndex(c=>c.id===ref.id),c=state.clips[i];if(!c||c.gap){why.push('outside');continue;}
+   if(trackLockedV15('video-main')){why.push('locked');continue;}const w=t-clipOffsetV17(i);if(w<MIN||(c.end-c.start)-w<MIN){why.push('outside');continue;}add('video',c.id);continue;}
+  if(ref.type==='caption'){const l=state.transcript.find(x=>x.id===ref.id);if(!l||src.clip.asset!==l.asset||src.t-l.start<.05||l.end-src.t<.05){why.push('outside');continue;}if(l.text.trim().split(/\s+/).length<2){why.push('short');continue;}add('caption',l.id);continue;}
+  if(!['overlay','audioClip','element','zoom'].includes(ref.type)){why.push('kind');continue;}
+  const it=itemV7(ref);if(!it){continue;}
+  if(ref.type==='overlay'&&it.linkId){why.push('camera');continue;}if(ref.type==='element'&&it.tracking){why.push('tracking');continue;}
+  if(t-it.start<MIN||it.end-t<MIN){why.push('outside');continue;}
+  add(ref.type,it.id);
+  // a layer and its own sound are cut together
+  if(ref.type==='overlay')for(const a of state.audioClips||[])if(a.linkOverlay===it.id&&t-a.start>=MIN&&a.end-t>=MIN)add('audioClip',a.id);
+  if(ref.type==='audioClip'&&it.linkOverlay){const o=(state.overlays||[]).find(o=>o.id===it.linkOverlay);if(o&&!o.linkId&&t-o.start>=MIN&&o.end-t>=MIN)add('overlay',o.id);}
+ }
+ if(plan.filter(p=>p.type==='video').length+state.clips.length>200){plan.length=0;why.push('max');}
+ return{plan,why};}
+// Two pieces of a timed item (titles, layers, audio clips, zooms): the second starts at t and plays on from there.
+function cutItemV26(it,t){const a={...it,end:t},b={...it,id:uidV15(),start:t};delete a.fadeOut;delete b.fadeIn;if('sourceIn' in it||it.asset)b.sourceIn=(+it.sourceIn||0)+(t-it.start);return[a,b];}
+function splitSelectedV26(){
+ if(!selectionV7.length){cleanSelectionV7();}
+ if(!selectionV7.length)return notice('Select the clip to split, then press Split (S).');
+ const {plan,why}=splitPlanV26();
+ if(!plan.length)return notice(SPLIT_WHY_V26[['max','locked','camera','tracking','short','kind','outside'].find(k=>why.includes(k))||'outside']);
+ const t=state.time,next=[],newOverlay={};let count=0;
+ transaction(()=>{
+  for(const p of plan.filter(p=>p.type==='overlay')){const list=state.overlays,i=list.findIndex(o=>o.id===p.id);if(i<0)continue;const [a,b]=cutItemV26(list[i],t);list.splice(i,1,a,b);newOverlay[p.id]=b.id;next.push({type:'overlay',id:b.id});count++;}
+  for(const p of plan.filter(p=>p.type==='audioClip')){const list=state.audioClips,i=list.findIndex(o=>o.id===p.id);if(i<0)continue;const [a,b]=cutItemV26(list[i],t);if(b.linkOverlay&&newOverlay[b.linkOverlay])b.linkOverlay=newOverlay[b.linkOverlay];list.splice(i,1,a,b);next.push({type:'audioClip',id:b.id});count++;}
+  for(const p of plan.filter(p=>p.type==='element'||p.type==='zoom')){const key=p.type==='element'?'elements':'zooms',list=state[key],i=list.findIndex(o=>o.id===p.id);if(i<0)continue;const [a,b]=cutItemV26(list[i],t);delete b.sourceIn;list.splice(i,1,a,b);next.push({type:p.type,id:b.id});count++;}
+  for(const p of plan.filter(p=>p.type==='caption')){const i=state.transcript.findIndex(l=>l.id===p.id),l=state.transcript[i],src=source();if(!l)continue;const words=l.text.trim().split(/\s+/),cut=Math.max(1,Math.min(words.length-1,Math.round(words.length*(src.t-l.start)/(l.end-l.start)))),b={...l,id:uidV15(),start:src.t,text:words.slice(cut).join(' '),words:undefined};state.transcript.splice(i,1,{...l,end:src.t,text:words.slice(0,cut).join(' '),words:undefined},b);next.push({type:'caption',id:b.id});count++;}
+  for(const p of plan.filter(p=>p.type==='video')){const i=state.clips.findIndex(c=>c.id===p.id),c=state.clips[i];if(!c)continue;const at=c.start+(t-clipOffsetV17(i)),a={...c,end:at},b={...c,id:uidV15(),start:at,transitionIn:undefined};delete a.fadeOut;delete a.audioFadeOut;delete b.fadeIn;delete b.audioFadeIn;state.clips.splice(i,1,a,b);state.selected=i+1;next.push({type:'video',id:b.id});count++;}
+ });
+ // the pieces after the cut stay selected, so pressing S again further on keeps cutting the same item
+ selectionV7=next;timelineSelection=next[0]?{...next[0]}:null;markSelectionV7();
+ const left=why.length?' '+why.length+' selected item'+(why.length>1?'s were':' was')+' left as is.':'';
+ notice((count===1?'Split at ':'Split '+count+' items at ')+V7.formatTime(t/state.speed)+'.'+left);
+}
+q('#ed-split').onclick=splitSelectedV26;
+const tracksBeforeV26=tracks;tracks=function(){tracksBeforeV26();const b=q('#ed-split');if(b&&b.onclick!==splitSelectedV26)b.onclick=splitSelectedV26;};
+// Right-click offers Split for any selection that can be cut (it used to be offered for main clips only).
+const contextBeforeV26=contextV7;
+contextV7=function(x,y){contextBeforeV26(x,y);const menu=q('#v7-context');if(!menu||[...menu.children].some(b=>b.textContent==='Split at playhead'))return;
+ if(!splitPlanV26().plan.length)return;const b=document.createElement('button');b.textContent='Split at playhead';b.setAttribute('role','menuitem');b.onclick=()=>{menu.remove();splitSelectedV26();};menu.prepend(b);menu.firstElementChild?.focus();};
 wireV4();wireV5();wireV7();wireV10();wireV11();
 globalThis.visorEditor={blank:()=>clone(initial),explainer:explainerV12,explainerDialog:explainerDialogV12,selectOverlay:selectOverlayV12,shortcuts:shortcutsV10,appendAsset,addElement,get:()=>clone(state),saveData:()=>withoutView(clone(state)),pause:stop,set:data=>{selectionV7=[];previewOriginal=false;previewEffect=null;stop();pendingUndoV15=null;lastTabV15='media';state={...clone(initial),...clone(data)};uniqueIdsV15(state);legacyZoomV15(state);captionLegacyV15(state);settleTracksV15();history=[];future=[];render(true);},reset:()=>{selectionV7=[];previewOriginal=false;previewEffect=null;stop();pendingUndoV15=null;state=clone(initial);settleTracksV15();history=[];future=[];render(true);},patch:data=>transaction(()=>Object.assign(state,clone(data))),open,undo,redo,applyStyle,importAssets,previewBefore:on=>{previewOriginal=on;paint();},previewEffect:id=>{previewEffect=id;paint();},jump:t=>{state.time=Math.max(0,Math.min(total(),t));paint();},removeSource:(a,b)=>transaction(()=>removeSource(a,b)),restoreRange:(a,b)=>{if(state.clips.length>=200)return notice('Remove a clip before restoring this range.');transaction(()=>{state.clips.push({id:uidV15(),asset:'walk',name:'Restored section',kind:'video',start:a,end:b,limit:32});state.clips.sort((x,y)=>x.asset==='walk'&&y.asset==='walk'?x.start-y.start:0);});},play,/* 0.15 (Phase 24) */copySettings:copySettingsV24,pasteSettings:pasteSettingsV24,moveLayer:moveLayerV24};render(true);
 })();
