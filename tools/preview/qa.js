@@ -1248,6 +1248,49 @@ Object.assign(checks, {
   },
 });
 
+// Phase 25: blur regions and solid covers are plain boxes; the zoom menu is narrow; the Media tab is called Main.
+const boxEl = id => $('.ed-layer[data-id="' + id + '"]');
+async function dragBox(target, dx, dy, id) {
+  const r = target.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, base = { bubbles: true, pointerId: 11, button: 0 };
+  target.dispatchEvent(new PointerEvent('pointerdown', { ...base, clientX: x, clientY: y }));
+  for (let i = 1; i <= 5; i++) boxEl(id).dispatchEvent(new PointerEvent('pointermove', { ...base, clientX: x + dx * i / 5, clientY: y + dy * i / 5 }));
+  boxEl(id).dispatchEvent(new PointerEvent('pointerup', { ...base, clientX: x + dx, clientY: y + dy })); await wait(250);
+}
+async function newBox(kind) { await freshEditor(); tab('effects').click(); await wait(200); panelButton(kind === 'blur' ? /Blur region/ : /Solid cover/).click(); await wait(350); return E().get().elements.at(-1).id; }
+Object.assign(checks, {
+  async 'a blur region is a box with no text, eight handles and a tag only while selected'() {
+    const id = await newBox('blur'), e = E().get().elements[0], el = boxEl(id), c = $('#ed-canvas').getBoundingClientRect(), r = el.getBoundingClientRect();
+    const size = [+(r.width / c.width * 100).toFixed(0), +(r.height / c.height * 100).toFixed(0)], handles = el.querySelectorAll('.v25-handle').length, tag = el.querySelector('.v25-tag')?.textContent;
+    const ownText = [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('');
+    E().open('media'); await wait(300); const shown = n => !!n && getComputedStyle(n).display !== 'none', after = { tag: shown(boxEl(id).querySelector('.v25-tag')), handles: [...boxEl(id).querySelectorAll('.v25-handle')].filter(shown).length };
+    return { pass: e.w === 30 && e.h === 22 && e.text === undefined && JSON.stringify(size) === '[30,22]' && handles === 8 && tag === 'Blur' && !ownText && !after.tag && !after.handles, detail: { e: { w: e.w, h: e.h, text: e.text }, size, handles, tag, ownText, after } };
+  },
+  async 'a box resizes from its edges and corners, and a click does not move it'() {
+    const id = await newBox('cover'), c = $('#ed-canvas').getBoundingClientRect();
+    await dragBox(boxEl(id), 0, 0, id); const click = E().get().elements[0];
+    await dragBox(boxEl(id).querySelector('.v25-handle[data-dir=s]'), 0, c.height * .1, id); const s = E().get().elements[0];
+    await dragBox(boxEl(id).querySelector('.v25-handle[data-dir=nw]'), -c.width * .1, -c.height * .1, id); const nw = E().get().elements[0];
+    return { pass: click.x === 50 && click.y === 50 && s.h === 32 && s.w === 30 && s.y === 55 && nw.w === 40 && nw.h === 42 && nw.x === 45 && nw.y === 50, detail: { click: [click.x, click.y], s: [s.w, s.h, s.y], nw: [nw.w, nw.h, nw.x, nw.y] } };
+  },
+  async 'a box moves from where it is grabbed, right up to the frame edge, and the panel follows'() {
+    const id = await newBox('blur'), c = $('#ed-canvas').getBoundingClientRect();
+    await dragBox(boxEl(id), -c.width, -c.height, id); const corner = E().get().elements[0];
+    await dragBox(boxEl(id), c.width * .03, 0, id); const nudge = E().get().elements[0];
+    return { pass: corner.x === 15 && corner.y === 11 && nudge.x === 18 && +$('#v25-x').value === 18 && +$('#v25-y').value === 11, detail: { corner: [corner.x, corner.y], nudge: [nudge.x, nudge.y], panel: [$('#v25-x').value, $('#v25-y').value] } };
+  },
+  async 'the box panel: position, size, strength and timing; old boxes keep their size'() {
+    await newBox('blur'); const labels = $$('#ed-panel label').map(l => l.textContent.trim().replace(/[\d.\s]+$/, '')), strength = +$('#v25-strength').value;
+    await setNum('Height', 50); const h = E().get().elements[0].h, noText = !$('#ed-text') && !$('#ed-font') && !$('#ed-animation');
+    await freshEditor(); E().patch({ elements: [{ id: 'legacy', kind: 'cover', text: 'Hidden detail', font: 'Graphik', size: 20, colour: '#fff', x: 50, y: 50, width: 40, start: 0, end: 5, animation: 'fade' }] }); await wait(300);
+    const old = E().get().elements[0], r = boxEl('legacy').getBoundingClientRect(), c = $('#ed-canvas').getBoundingClientRect();
+    return { pass: ['Position X %', 'Position Y %', 'Width %', 'Height %', 'Strength', 'Start (s)', 'End (s)'].every(l => labels.includes(l)) && strength === 1.5 && h === 50 && noText && old.w === 40 && Math.abs(old.h - 13.1) < .2 && Math.abs(r.height / c.height * 100 - old.h) < .5 && !old.text && old.animation === 'none', detail: { labels, strength, h, noText, old: { w: old.w, h: old.h, text: old.text, animation: old.animation } } };
+  },
+  async 'the zoom menu is narrow and the first tab is called Main'() {
+    await freshEditor(); const w = $('#v16-zoom').getBoundingClientRect().width, t = $('.ed-tabs [data-panel=media]'), icon = t.querySelector('svg')?.getAttribute('class') || '';
+    return { pass: w <= 80 && t.textContent.trim() === 'Main' && /layout-dashboard/.test(icon), detail: { w, text: t.textContent.trim(), icon } };
+  },
+});
+
 export const count = () => Object.keys(checks).length;
 export async function run(only) {
   const results = [];

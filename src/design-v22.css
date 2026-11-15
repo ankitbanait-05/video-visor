@@ -277,3 +277,24 @@
 .vt-block .v24-vol.quiet::before{background:var(--v-sub)}
 .vt-block .v24-vol:hover::before,.vt-block .v24-vol.drag::before,.vt-block .v24-vol:focus-visible::before{height:3px;top:3.5px;opacity:1}
 .vt-block .v24-vol:focus-visible{box-shadow:0 0 0 2px var(--focus);border-radius:3px}
+
+/* ---------- 0.15 (Phase 25): blur regions and solid covers are plain boxes ---------- */
+#visor-app #vv-editor .ed-layer.v25-box{box-sizing:border-box;padding:0!important;font-size:0!important;line-height:0;border-radius:2px;overflow:visible;cursor:move;min-width:0;min-height:0;white-space:normal}
+#visor-app #vv-editor .ed-layer.v25-box[data-kind=blur]{background:rgb(255 255 255 / 8%);border:1px dashed rgb(255 255 255 / 70%)}
+#visor-app #vv-editor .ed-layer.v25-box[data-kind=cover]{border:0}
+#visor-app #vv-editor .ed-layer.v25-box.selected{outline:2px solid var(--primary);outline-offset:0}
+.export-view #visor-app #vv-editor .ed-layer.v25-box{border:0!important;outline:0!important}
+.export-view #visor-app #vv-editor .ed-layer.v25-box[data-kind=blur]{background:transparent!important}
+#vv-editor .v25-tag{position:absolute;left:-2px;bottom:100%;margin-bottom:4px;padding:2px 7px;border-radius:4px;background:var(--primary);color:#fff;font:600 11px/1.4 Graphik,-apple-system,system-ui,sans-serif;white-space:nowrap;pointer-events:none;letter-spacing:.01em}
+#vv-editor .v25-handle{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;background:#fff;border:1.5px solid var(--primary);border-radius:2px;box-shadow:0 1px 3px rgb(0 0 0 / 30%);z-index:2}
+#vv-editor .v25-handle[data-dir=nw]{left:0;top:0;cursor:nwse-resize}#vv-editor .v25-handle[data-dir=n]{left:50%;top:0;cursor:ns-resize}
+#vv-editor .v25-handle[data-dir=ne]{left:100%;top:0;cursor:nesw-resize}#vv-editor .v25-handle[data-dir=e]{left:100%;top:50%;cursor:ew-resize}
+#vv-editor .v25-handle[data-dir=se]{left:100%;top:100%;cursor:nwse-resize}#vv-editor .v25-handle[data-dir=s]{left:50%;top:100%;cursor:ns-resize}
+#vv-editor .v25-handle[data-dir=sw]{left:0;top:100%;cursor:nesw-resize}#vv-editor .v25-handle[data-dir=w]{left:0;top:50%;cursor:ew-resize}
+#vv-editor .v25-hint{margin:2px 0 10px;font-size:var(--fs-12,12px);color:var(--v-sub)}
+#vv-editor .v25-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 8px}
+#vv-editor .v25-actions button{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+
+/* 0.15 (Phase 25): the preview zoom menu is only as wide as its value (Fit, 100 %) */
+#visor-app #vv-editor #v16-zoom{width:76px;min-width:0;flex:none;text-overflow:ellipsis}
+#vv-editor .ed-layer.v25-box:not(.v25-on) > .v25-handle,#vv-editor .ed-layer.v25-box:not(.v25-on) > .v25-tag{display:none}

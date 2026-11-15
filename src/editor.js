@@ -193,7 +193,7 @@ function decorateTracksV5(){
 function paintV5(src){
  const fade=q('#ed-fade'),tr=V5.transition(state,state.time);fade.style.opacity=tr&&['black','white'].includes(tr.type)?1-Math.abs(tr.p*2-1):0;fade.style.background=tr?.type==='white'?'#fff':'#000';const a=src.clip.adjustments||state.adjustments||{},screen=q('#ed-screen');screen.style.filter='none';for(const media of screen.querySelectorAll('video,img'))media.style.filter=previewOriginal?'none':'brightness('+((state.colour?1.08:1)*(1+(a.exposure||0)/100))+') contrast('+(1+(a.contrast||0)/100)+') saturate('+((state.colour?1.06:1)*(1+(a.saturation||0)/100))+') sepia('+Math.abs(a.temperature||0)/200+') hue-rotate('+((a.temperature||0)<0?180:0)+'deg)';screen.style.visibility=state.hiddenTracks?.video?'hidden':'';if(state.hiddenTracks?.effects&&!previewOriginal)screen.style.transform='none';q('#v5-ratio').textContent=ratioLabelV9(state.ratio)+' · '+(state.fit==='cover'?'Fill':'Fit');
 }
-function wireV5(){const nav=q('.ed-tabs');nav.innerHTML=[['media','folder','Media'],['elements','type','Text & graphics'],['captions','captions','Captions'],['audio','audio-lines','Audio'],['effects','sparkles','Effects'],['transitions','between-horizontal-start','Transitions'],['adjustments','sliders-horizontal','Adjustments'],['style','palette','Style']].map(([k,i,n])=>'<button data-panel="'+k+'">'+icon(i)+'<span>'+n+'</span></button>').join('');nav.querySelectorAll('button').forEach(b=>b.onclick=()=>open(b.dataset.panel));layoutV5();const timeline=q('.ed-timeline'),handle=document.createElement('div');handle.className='v5-resize';handle.title='Drag to resize timeline';// 0.10: both dividers can be dragged, and their positions are remembered between sessions.
+function wireV5(){const nav=q('.ed-tabs');nav.innerHTML=[/* 0.15 (Phase 25): the Media tab is called Main */['media','layout-dashboard','Main'],['elements','type','Text & graphics'],['captions','captions','Captions'],['audio','audio-lines','Audio'],['effects','sparkles','Effects'],['transitions','between-horizontal-start','Transitions'],['adjustments','sliders-horizontal','Adjustments'],['style','palette','Style']].map(([k,i,n])=>'<button data-panel="'+k+'">'+icon(i)+'<span>'+n+'</span></button>').join('');nav.querySelectorAll('button').forEach(b=>b.onclick=()=>open(b.dataset.panel));layoutV5();const timeline=q('.ed-timeline'),handle=document.createElement('div');handle.className='v5-resize';handle.title='Drag to resize timeline';// 0.10: both dividers can be dragged, and their positions are remembered between sessions.
  const grid=q('.ed-layout'),saved=(()=>{try{return JSON.parse(localStorage.getItem('vv-editor-layout'))||{};}catch{return{};}})(),remember=()=>{try{localStorage.setItem('vv-editor-layout',JSON.stringify(saved));}catch{}};
  const applyLayout=()=>{const box=grid.getBoundingClientRect();if(saved.timeline&&box.height)grid.style.setProperty('--v10-timeline-h',Math.max(170,Math.min(box.height-230,saved.timeline))+'px');if(saved.panel&&box.width)grid.style.setProperty('--v10-panel-w',Math.max(230,Math.min(Math.max(230,box.width-420),saved.panel))+'px');};
  handle.onpointerdown=e=>{const y=e.clientY,h=timeline.getBoundingClientRect().height;handle.setPointerCapture(e.pointerId);handle.onpointermove=v=>{saved.timeline=h+y-v.clientY;applyLayout();};handle.onpointerup=()=>{handle.onpointermove=null;remember();};};handle.ondblclick=()=>{delete saved.timeline;grid.style.removeProperty('--v10-timeline-h');remember();};timeline.prepend(handle);
@@ -1183,7 +1183,7 @@ function compactHeaderV15(p){
  p.querySelectorAll('button').forEach(b=>{const t=b.textContent.trim();if(/^←\s*(Back|Browse.*)$/.test(t)||/^Browse elements$/.test(t)||['ed-elements-back','ed-transcript-back'].includes(b.id))b.remove();});
  const title=state.panel==='element'?elementTitleV15(state.elements.find(e=>e.id===state.active)):PANEL_TITLES_V15[state.panel];
  let h=p.querySelector('h3');if(!h){h=document.createElement('h3');p.prepend(h);}if(title)h.textContent=title;
- const head=document.createElement('div');head.className='v15-head';const back=document.createElement('button');back.type='button';back.className='v15-back';const to=parentTabV15();const label={clip:'Clip',media:'Media',elements:'Text & graphics',captions:'Captions',audio:'Audio',effects:'Effects',transitions:'Transitions',adjustments:'Adjustments',style:'Style'}[to];back.innerHTML=icon('arrow-left');back.title='Back to '+label;back.setAttribute('aria-label',back.title);back.onclick=()=>{if(to!=='clip'){selectionV7=[];timelineSelection=null;markSelectionV7();}open(to);};
+ const head=document.createElement('div');head.className='v15-head';const back=document.createElement('button');back.type='button';back.className='v15-back';const to=parentTabV15();const label={clip:'Clip',media:'Main',elements:'Text & graphics',captions:'Captions',audio:'Audio',effects:'Effects',transitions:'Transitions',adjustments:'Adjustments',style:'Style'}[to];back.innerHTML=icon('arrow-left');back.title='Back to '+label;back.setAttribute('aria-label',back.title);back.onclick=()=>{if(to!=='clip'){selectionV7=[];timelineSelection=null;markSelectionV7();}open(to);};
  h.replaceWith(head);head.append(back,h);
 }
 // A number box beside every slider (typing a value is often easier than dragging).
@@ -1674,6 +1674,76 @@ panel=function(){panelBeforeV24();const p=q('#ed-panel');
  if(state.panel==='clip'&&realClipV24(state.clips[state.selected])){const reset=q('#v15-reset-video');if(reset&&!p.querySelector('.v24-copy-row')){copyRowV24(p,'clip');const row=p.querySelector('.v24-copy-row');reset.after(row);}}
  if(state.panel==='overlay'){const o=layerNowV24();if(o&&!p.querySelector('.v24-layer-values')){layerPanelV24(p,o);copyRowV24(p,'layer');}}
  icons();};
+// ---------- 0.15 (Phase 25): blur regions and solid covers are plain boxes ----------
+// A box is x / y (its centre), w (width) and h (height), all in percent of the frame. It has no text: the label used
+// to sit inside it (and decided its height). Eight handles resize it (a corner both ways, Shift keeps the shape; an
+// edge one way), dragging moves it from where it was grabbed, and a click only selects it. While selected, a small
+// tag outside its top-left corner says what it is; the tag never shows unselected or in the export.
+const isBoxV25=e=>!!e&&!e.tracking&&['blur','cover'].includes(e.kind);
+const ratioV25=()=>{const [a,b]=String(state.ratio||'16/9').split('/').map(Number);return a>0&&b>0?a/b:16/9;};
+// Older boxes were sized by their label: 1.2 × the font size (size/6 % of the width) plus about 6 % of the height
+// of padding. They open at the size they had.
+function boxOfV25(e){if(e.h==null)e.h=Math.round(Math.min(90,Math.max(4,1.2*(e.size||20)/6*ratioV25()+6))*10)/10;if(e.w==null)e.w=e.width||40;
+ if(e.text!==undefined){delete e.text;delete e.font;delete e.size;delete e.colour;delete e.weight;delete e.align;}e.animation='none';e.width=e.w;return e;}
+const clampBoxV25=e=>{e.w=Math.max(3,Math.min(100,e.w));e.h=Math.max(3,Math.min(100,e.h));e.x=Math.max(e.w/2,Math.min(100-e.w/2,e.x));e.y=Math.max(e.h/2,Math.min(100-e.h/2,e.y));e.width=e.w;};
+const BOX_HANDLES_V25=['nw','n','ne','e','se','s','sw','w'];
+function drawBoxV25(el,e){
+ el.textContent='';el.classList.add('v25-box');el.removeAttribute('title');
+ Object.assign(el.style,{left:e.x+'%',top:e.y+'%',width:e.w+'%',height:e.h+'%',padding:'0',fontSize:'0'});
+ if(e.kind==='blur'){const s=(e.strength??1.5)+'cqw';el.style.backdropFilter=el.style.webkitBackdropFilter='blur('+s+')';}
+ el.setAttribute('aria-label',(e.kind==='blur'?'Blur region':'Solid cover')+', drag to move');
+ if(!window.exporting){const tag=document.createElement('span');tag.className='v25-tag';tag.textContent=e.kind==='blur'?'Blur':'Cover';el.append(tag);
+  for(const d of BOX_HANDLES_V25){const h=document.createElement('span');h.className='v25-handle';h.dataset.dir=d;h.setAttribute('aria-hidden','true');el.append(h);}}
+ el.onclick=el.ondblclick=null;
+ el.onpointerdown=ev=>{if(ev.button!==0)return;ev.preventDefault();ev.stopPropagation();
+  if(lockedV7({type:'element',id:e.id}))return notice('Unlock this track to move it.');stop();
+  const dir=ev.target.dataset?.dir||null,canvas=q('#ed-canvas').getBoundingClientRect(),x0=ev.clientX,y0=ev.clientY,s={x:e.x,y:e.y,w:e.w,h:e.h},keep=s.w/s.h;let moved=false;
+  try{el.setPointerCapture(ev.pointerId);}catch{}
+  const gx=q('.ed-guide-x'),gy=q('.ed-guide-y');
+  el.onpointermove=v=>{const dx=(v.clientX-x0)/canvas.width*100,dy=(v.clientY-y0)/canvas.height*100;if(!moved&&Math.hypot(v.clientX-x0,v.clientY-y0)<3)return;if(!moved){moved=true;snapshot();}
+   if(!dir){e.x=s.x+dx;e.y=s.y+dy;clampBoxV25(e);
+    // snaps to the middle and to the frame edges
+    const near=(a,b)=>Math.abs(a-b)<1.2;if(near(e.x,50))e.x=50;if(near(e.y,50))e.y=50;if(near(e.x-e.w/2,0))e.x=e.w/2;if(near(e.x+e.w/2,100))e.x=100-e.w/2;if(near(e.y-e.h/2,0))e.y=e.h/2;if(near(e.y+e.h/2,100))e.y=100-e.h/2;
+    if(gx)gx.hidden=e.x!==50;if(gy)gy.hidden=e.y!==50;}
+   else{let l=s.x-s.w/2,r=s.x+s.w/2,t=s.y-s.h/2,b=s.y+s.h/2;
+    if(dir.includes('w'))l=Math.min(r-3,Math.max(0,l+dx));if(dir.includes('e'))r=Math.max(l+3,Math.min(100,r+dx));
+    if(dir.includes('n'))t=Math.min(b-3,Math.max(0,t+dy));if(dir.includes('s'))b=Math.max(t+3,Math.min(100,b+dy));
+    if(v.shiftKey&&dir.length===2){const r2=ratioV25(),w=r-l,h=(w/keep);if(dir.includes('n'))t=Math.max(0,b-h);else b=Math.min(100,t+h);void r2;}
+    e.x=(l+r)/2;e.y=(t+b)/2;e.w=r-l;e.h=b-t;clampBoxV25(e);}
+   el.style.left=e.x+'%';el.style.top=e.y+'%';el.style.width=e.w+'%';el.style.height=e.h+'%';syncBoxPanelV25(e);};
+  el.onpointerup=el.onpointercancel=()=>{el.onpointermove=el.onpointerup=el.onpointercancel=null;if(gx)gx.hidden=true;if(gy)gy.hidden=true;
+   const was=state.active===e.id&&state.panel==='element';state.active=e.id;selectionV7=[{type:'element',id:e.id}];timelineSelection={type:'element',id:e.id};
+   if(moved){for(const k of ['x','y','w','h'])e[k]=Math.round(e[k]*10)/10;e.width=e.w;commit();if(was){layers();paint();tracks();}else open('element');}else if(!was)open('element');else{layers();paint();}timelineFocus();};};
+}
+const layersBeforeV25=layers;
+layers=function(){layersBeforeV25();for(const e of state.elements){if(!isBoxV25(e))continue;boxOfV25(e);const el=q('.ed-layer[data-id="'+e.id+'"]');if(el)drawBoxV25(el,e);}syncBoxSelV25();};
+// Handles and the tag show only while the box's own panel is open (switching tabs does not redraw the layers).
+function syncBoxSelV25(){root.querySelectorAll('.ed-layer.v25-box').forEach(el=>{const on=el.dataset.id===state.active&&state.panel==='element';el.classList.toggle('v25-on',on);el.classList.toggle('selected',on);});}
+// The panel: where the box is and how big, then its look, then when it shows.
+const r1V25=n=>Math.round(n*10)/10;
+function boxPanelV25(p,e){boxOfV25(e);const f=n=>Number((n/state.speed).toFixed(2));
+ p.innerHTML='<h3>'+(e.kind==='blur'?'Blur region':'Solid cover')+'</h3>'
+  +'<div class="v15-subhead">Position & size</div><div class="v15-grid2 v25-grid">'+range('v25-x','Position X %',r1V25(e.x),0,100)+range('v25-y','Position Y %',r1V25(e.y),0,100)+range('v25-w','Width %',r1V25(e.w),3,100)+range('v25-h','Height %',r1V25(e.h),3,100)+'</div>'
+  +'<p class="v15-hint v25-hint">Or drag the box on the video, and its corners and edges to resize it (Shift keeps the shape).</p>'
+  +(e.kind==='blur'?'<div class="v15-subhead">Blur</div>'+range('v25-strength','Strength',e.strength??1.5,.3,5):'<div class="v25-cover-slot"></div>')
+  +'<div class="v15-subhead">Timing</div><div class="v15-grid2"><label>Start (s)<input id="ed-elstart" type="number" min="0" step=".1" value="'+f(e.start)+'"></label><label>End (s)<input id="ed-elend" type="number" min="0" step=".1" value="'+f(e.end)+'"></label></div>'
+  +'<div class="ed-row v25-actions"><button type="button" id="v25-fill">'+icon('maximize')+'<span>Fill frame</span></button><button type="button" id="ed-center">'+icon('crosshair')+'<span>Centre</span></button></div><button type="button" id="ed-remove" class="ed-wide v10-danger">Remove</button>';
+ const live=k=>v=>{const x=state.elements.find(x=>x.id===e.id);if(!x)return;x[k]=+v;if(k==='w'||k==='h'){clampBoxV25(x);}else{x.x=Math.max(x.w/2,Math.min(100-x.w/2,x.x));x.y=Math.max(x.h/2,Math.min(100-x.h/2,x.y));}};
+ for(const [id,k] of [['v25-x','x'],['v25-y','y'],['v25-w','w'],['v25-h','h']])bind(id,live(k));
+ if(q('#v25-strength')){q('#v25-strength').step='.1';q('#v25-strength').value=e.strength??1.5;bind('v25-strength',v=>{const x=state.elements.find(x=>x.id===e.id);if(x)x.strength=+v;});}
+ for(const id of ['ed-elstart','ed-elend'])q('#'+id).onchange=()=>{const a=+q('#ed-elstart').value*state.speed,b=+q('#ed-elend').value*state.speed;if(!Number.isFinite(a)||!Number.isFinite(b)||a<0||b>total()+1e-6||b<=a){notice('The timing must fit inside your video.');panel();return;}transaction(()=>{e.start=a;e.end=b;});};
+ q('#ed-center').onclick=()=>transaction(()=>{e.x=50;e.y=50;});q('#v25-fill').onclick=()=>transaction(()=>{e.x=50;e.y=50;e.w=100;e.h=100;e.width=100;});
+ q('#ed-remove').onclick=()=>transaction(()=>{state.elements=state.elements.filter(x=>x.id!==e.id);state.panel='effects';selectionV7=[];timelineSelection=null;});
+ compactHeaderV15(p);
+ if(e.kind==='cover'){coverPanelV15(p);const c=p.querySelector('.v15-cover'),slot=p.querySelector('.v25-cover-slot');if(c&&slot)slot.replaceWith(c);}
+ numberBoxesV15(p);lockPanelV15(p);icons();}
+// Keeps the panel's numbers in step while the box is dragged on the video.
+function syncBoxPanelV25(e){if(state.panel!=='element'||state.active!==e.id)return;for(const [id,k] of [['v25-x','x'],['v25-y','y'],['v25-w','w'],['v25-h','h']]){const r=q('#'+id);if(!r)continue;const v=r1V25(e[k]);r.value=v;const l=r.closest('label'),o=l?.querySelector('output'),n=l?.querySelector('input[type=number]');if(o)o.textContent=v;if(n)n.value=v;}}
+const panelBeforeV25=panel;
+panel=function(){panelBeforeV25();syncBoxSelV25();if(state.panel==='element'){const e=state.elements.find(x=>x.id===state.active);if(isBoxV25(e))boxPanelV25(q('#ed-panel'),e);}};
+// New boxes start a little smaller than the old label boxes, in the middle of the frame.
+const addElementBeforeV25=addElement;
+addElement=function(kind){const before=state.elements.at(-1)?.id,r=addElementBeforeV25(kind);if(['blur','cover'].includes(kind)){const e=state.elements.at(-1);if(e?.kind===kind&&e.id!==before){e.w=30;e.h=22;e.width=30;delete e.text;delete e.font;delete e.size;delete e.colour;e.animation='none';layers();paint();panel();commit();}}return r;};
 wireV4();wireV5();wireV7();wireV10();wireV11();
 globalThis.visorEditor={blank:()=>clone(initial),explainer:explainerV12,explainerDialog:explainerDialogV12,selectOverlay:selectOverlayV12,shortcuts:shortcutsV10,appendAsset,addElement,get:()=>clone(state),saveData:()=>withoutView(clone(state)),pause:stop,set:data=>{selectionV7=[];previewOriginal=false;previewEffect=null;stop();pendingUndoV15=null;lastTabV15='media';state={...clone(initial),...clone(data)};uniqueIdsV15(state);legacyZoomV15(state);captionLegacyV15(state);settleTracksV15();history=[];future=[];render(true);},reset:()=>{selectionV7=[];previewOriginal=false;previewEffect=null;stop();pendingUndoV15=null;state=clone(initial);settleTracksV15();history=[];future=[];render(true);},patch:data=>transaction(()=>Object.assign(state,clone(data))),open,undo,redo,applyStyle,importAssets,previewBefore:on=>{previewOriginal=on;paint();},previewEffect:id=>{previewEffect=id;paint();},jump:t=>{state.time=Math.max(0,Math.min(total(),t));paint();},removeSource:(a,b)=>transaction(()=>removeSource(a,b)),restoreRange:(a,b)=>{if(state.clips.length>=200)return notice('Remove a clip before restoring this range.');transaction(()=>{state.clips.push({id:uidV15(),asset:'walk',name:'Restored section',kind:'video',start:a,end:b,limit:32});state.clips.sort((x,y)=>x.asset==='walk'&&y.asset==='walk'?x.start-y.start:0);});},play,/* 0.15 (Phase 24) */copySettings:copySettingsV24,pasteSettings:pasteSettingsV24,moveLayer:moveLayerV24};render(true);
 })();
