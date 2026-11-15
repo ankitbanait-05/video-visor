@@ -771,7 +771,7 @@ window.addEventListener('blur',()=>liveGestureV8?.finish());
 let lastPanelV10=null,previewMutedV10=false;
 const typingV10=ev=>['INPUT','TEXTAREA','SELECT'].includes(ev.target.tagName)||ev.target.isContentEditable;
 function shortcutsV10(){
- const rows=[['Space or K','Play / pause'],['← →','Previous / next frame (hold Shift for 10)'],['J · K · L','Play backwards / stop / play (press J or L again to go faster)'],['I · O · X','Mark In / Out at the playhead · clear them'],['⇧⌫','Cut the In–Out range (the gap closes)'],['M','Add a marker at the playhead'],['⌥⌫','Delete and leave a gap'],['⌘A','Select everything on the timeline'],['Home · End','Start / end of the video'],['S','Split at the playhead'],['Delete','Delete the selection'],['⌘Z · ⇧⌘Z','Undo / redo'],['⌘C · ⌘V','Copy / paste the selection'],['+ · −','Zoom the timeline in / out'],['Esc','Clear the selection or leave large preview'],['?','Show this list']];
+ const rows=[['Space or K','Play / pause'],['← →','Previous / next frame (hold Shift for 10)'],['J · K · L','Play backwards / stop / play (press J or L again to go faster)'],['I · O · X','Mark In / Out at the playhead · clear them'],['⇧⌫','Cut the In–Out range (the gap closes)'],['M','Add a marker at the playhead'],['⌥⌫','Delete and leave a gap'],['⌘A','Select everything on the timeline'],['Home · End','Start / end of the video'],['S','Split at the playhead'],['Delete','Delete the selection'],['⌘Z · ⇧⌘Z','Undo / redo'],['⌘C · ⌘V','Copy / paste the selection'],['⌥⌘C · ⌥⌘V','Copy a clip’s or layer’s settings · paste them onto the selection (choose which)'],['+ · −','Zoom the timeline in / out'],['Esc','Clear the selection or leave large preview'],['?','Show this list']];
  window.nativeShell?.modal('Keyboard shortcuts','<table class="v10-keys">'+rows.map(([k,d])=>'<tr><th>'+k+'</th><td>'+d+'</td></tr>').join('')+'</table><p class="v-small v-muted">Shortcuts are off while you type in a field. Double-click a title on the video to edit its text.</p>');
 }
 function largePreviewV10(on){
@@ -1496,6 +1496,184 @@ const paintBeforeV17=paint;paint=function(){/* 0.15 (Phase 21): sped-up clips fr
 const panelBeforeV15=panel;
 panel=function(){panelBeforeV15();const p=q('#ed-panel');if(state.panel==='clip')clipPanelV15(p);if(state.panel==='speed')speedPanelV15(p);/* 0.15 (Phase 16): Speed opens from the clip panel only */if(state.panel==='elements')brandEntryV16(p);if(state.panel==='captions')captionsPanelV15(p);if(state.panel==='media')missingMediaV15(p);if(state.panel==='media')queueMicrotask(()=>mediaMenusV16(p));if(state.panel==='style'){const f=q('#ed-style-font');if(f){f.innerHTML=fontOptionsV15();f.value=captionFontV15(state.style?.font);}}compactHeaderV15(p);coverPanelV15(p);choiceTilesV15(p);numberBoxesV15(p);highlightTabV15();lockPanelV15(p);icons();};
 
+// ---------- 0.15 (Phase 24): copy and paste settings ----------
+// Copy Settings (⌥⌘C, the Edit menu, right-click on the timeline, or the button in the panel) remembers the selected
+// clip's or video layer's settings. Paste Settings… (⌥⌘V) asks which of them to put onto the selected clips (or
+// layers). Clip settings paste onto clips and layer settings onto layers: their positions are measured differently.
+let copiedV24=null;
+const realClipV24=c=>!!c&&!c.gap&&c.asset!=='blank';
+const lookV24=o=>linkOfV12(o)||o;
+const r1V24=n=>Math.round(n*10)/10;
+const noneV24=v=>!v||!Object.values(v).some(x=>+x);
+const keyCountV24=kf=>Object.values(kf||{}).reduce((n,k)=>n+k.length,0);
+const fadesTextV24=(a,b)=>!a&&!b?'None':[a?'in '+r1V24(a)+' s':'',b?'out '+r1V24(b)+' s':''].filter(Boolean).join(' · ');
+const putObjV24=(item,key,v)=>{if(noneV24(v))delete item[key];else item[key]=v;};
+const isVideoClipV24=c=>state.assets.find(a=>a.id===c.asset)?.kind==='video'||!!c.speed;
+const hasSoundV24=c=>!!state.assets.find(a=>a.id===c.asset)?.hasAudio&&!c.muted;
+const CLIP_PARTS_V24=[
+ {key:'transform',label:'Position, scale, rotation and opacity',short:'position',get:c=>({...(c.transform||{})}),on:v=>(v.x||0)!==0||(v.y||0)!==0||(v.rotation||0)!==0||(v.scale??100)!==100||(v.opacity??100)!==100,
+  describe:v=>{const s=[(v.scale??100)!==100&&'scale '+r1V24(v.scale)+'%',(v.x||v.y)&&'moved',v.rotation&&'rotated '+r1V24(v.rotation)+'°',(v.opacity??100)!==100&&'opacity '+r1V24(v.opacity)+'%'].filter(Boolean);return s.length?s.join(' · '):'As recorded';},
+  put:(c,v)=>{const t={};for(const k of ['x','y','scale','rotation','opacity'])if(v[k]!=null)t[k]=v[k];if(Object.keys(t).length)c.transform=t;else delete c.transform;}},
+ {key:'crop',label:'Crop',short:'crop',get:c=>({...(c.crop||{})}),on:v=>!noneV24(v),describe:v=>noneV24(v)?'None':[['l','left'],['r','right'],['t','top'],['b','bottom']].filter(([k])=>+v[k]).map(([k,n])=>n+' '+r1V24(v[k])+'%').join(' · '),put:(c,v)=>putObjV24(c,'crop',v)},
+ {key:'colour',label:'Colour',short:'colour',get:c=>({...(c.adjustments||{})}),on:v=>!noneV24(v),describe:v=>noneV24(v)?'Original':Object.values(v).filter(x=>+x).length+' adjustment'+(Object.values(v).filter(x=>+x).length>1?'s':''),put:(c,v)=>putObjV24(c,'adjustments',v)},
+ {key:'speed',label:'Speed',short:'speed',when:isVideoClipV24,get:c=>c.speed?.preset||null,on:v=>!!v,describe:v=>window.speedModelV15?.label(v||{kind:'constant',value:1})||'Normal'},
+ {key:'fades',label:'Fades',short:'fades',get:c=>({fadeIn:c.fadeIn||0,fadeOut:c.fadeOut||0}),on:v=>!!(v.fadeIn||v.fadeOut),describe:v=>fadesTextV24(v.fadeIn,v.fadeOut),
+  put:(c,v)=>{const max=Math.max(.1,Math.min(5,(c.end-c.start)/2));for(const k of ['fadeIn','fadeOut']){const n=Math.min(max,v[k]||0);if(n)c[k]=n;else delete c[k];}}},
+ {key:'animation',label:'Animation (keyframes)',short:'animation',get:c=>c.keyframes?KF17().mapTimes(c.keyframes,t=>t-c.start):null,on:v=>!!v,describe:v=>v?keyCountV24(v)+' keyframe'+(keyCountV24(v)>1?'s':''):'None',
+  put:(c,v)=>{const r=KF17().shift(v,c.start,c.start,c.end);if(r.keyframes)c.keyframes=r.keyframes;else delete c.keyframes;return r.dropped;}},
+ {key:'audio',label:'Volume and sound fades',short:'sound',when:hasSoundV24,get:c=>({volume:c.volume??100,audioFadeIn:c.audioFadeIn||0,audioFadeOut:c.audioFadeOut||0}),on:v=>v.volume!==100||!!(v.audioFadeIn||v.audioFadeOut),
+  describe:v=>'Volume '+Math.round(v.volume)+'%'+(v.audioFadeIn||v.audioFadeOut?' · fades '+fadesTextV24(v.audioFadeIn,v.audioFadeOut):''),
+  put:(c,v)=>{if(v.volume===100)delete c.volume;else c.volume=v.volume;const max=Math.max(.1,Math.min(5,(c.end-c.start)/2));for(const k of ['audioFadeIn','audioFadeOut']){const n=Math.min(max,v[k]||0);if(n)c[k]=n;else delete c[k];}}},
+];
+const LAYER_LOOK_V24=['shape','border','borderColor','shadow','mirror','focusX','opacity'];
+const CORNER_NAMES_V24={tl:'Top left',tr:'Top right',bl:'Bottom left',br:'Bottom right'};
+const LAYER_PARTS_V24=[
+ {key:'place',label:'Position and size',short:'position',get:o=>{const t=lookV24(o);return{x:o.x??65,y:o.y??65,corner:t.corner||null,scale:t.scale||o.scale||35};},on:()=>true,
+  describe:v=>(v.corner?CORNER_NAMES_V24[v.corner]+' corner':'Centre at '+Math.round(v.x)+', '+Math.round(v.y))+' · size '+Math.round(v.scale)+'%',
+  put:(o,v)=>{const t=lookV24(o);t.scale=v.scale;if(v.corner)t.corner=v.corner;else{t.corner=null;t.x=v.x;t.y=v.y;}}},
+ {key:'look',label:'Shape, border, shadow and opacity',short:'look',get:o=>{const t=lookV24(o),v={};for(const k of LAYER_LOOK_V24)if(t[k]!==undefined)v[k]=t[k];return v;},on:()=>true,
+  describe:v=>[{circle:'Circle',rounded:'Rounded',rect:'Rectangle'}[v.shape||'rect'],v.border?'border '+v.border:'no border',v.shadow?'shadow':'',(v.opacity??100)!==100?'opacity '+Math.round(v.opacity)+'%':''].filter(Boolean).join(' · '),
+  put:(o,v)=>{const t=lookV24(o);for(const k of LAYER_LOOK_V24){if(v[k]===undefined)delete t[k];else t[k]=v[k];}}},
+ {key:'fades',label:'Fades',short:'fades',when:o=>!o.linkId,get:o=>({fadeIn:o.fadeIn||0,fadeOut:o.fadeOut||0}),on:v=>!!(v.fadeIn||v.fadeOut),describe:v=>fadesTextV24(v.fadeIn,v.fadeOut),
+  put:(o,v)=>{for(const k of ['fadeIn','fadeOut']){if(v[k])o[k]=Math.min(5,v[k]);else delete o[k];}}},
+ {key:'animation',label:'Animation (keyframes)',short:'animation',get:o=>{const kf=lookV24(o).keyframes,s=+o.sourceIn||0;return kf?KF17().mapTimes(kf,t=>t-s):null;},on:v=>!!v,describe:v=>v?keyCountV24(v)+' keyframe'+(keyCountV24(v)>1?'s':''):'None',
+  put:(o,v)=>{const t=lookV24(o),s=+o.sourceIn||0,r=KF17().shift(v,s,s,s+(o.end-o.start));if(r.keyframes){t.keyframes=r.keyframes;if(r.keyframes.x||r.keyframes.y){if(t.corner){t.x=o.x;t.y=o.y;}t.corner=null;}}else delete t.keyframes;return r.dropped;}},
+];
+const partsV24=kind=>kind==='clip'?CLIP_PARTS_V24:LAYER_PARTS_V24;
+const findLayerV24=id=>(state.overlays||[]).find(o=>o.id===id);
+// The one clip or layer whose settings are copied.
+function pickedV24(){cleanSelectionV7();const one=selectionV7.length===1?selectionV7[0]:null;
+ if(one?.type==='video'){const c=state.clips.find(c=>c.id===one.id);if(realClipV24(c))return{kind:'clip',item:c};}
+ if(one?.type==='overlay'){const o=findLayerV24(one.id);if(o)return{kind:'layer',item:o};}
+ if(state.panel==='overlay'&&findLayerV24(state.active))return{kind:'layer',item:findLayerV24(state.active)};
+ if(['clip','speed','adjustments'].includes(state.panel)&&realClipV24(state.clips[state.selected]))return{kind:'clip',item:state.clips[state.selected]};
+ return null;}
+// Where pasted settings go: the selected clips (or layers), else the one open in the panel. A linked camera counts once.
+function targetsV24(kind){cleanSelectionV7();const type=kind==='clip'?'video':'overlay';
+ let items=selectionV7.filter(s=>s.type===type&&!lockedV7(s)).map(s=>kind==='clip'?state.clips.find(c=>c.id===s.id):findLayerV24(s.id)).filter(x=>kind==='clip'?realClipV24(x):!!x);
+ if(!items.length){const p=pickedV24();if(p?.kind===kind&&!lockedV7({type,id:p.item.id}))items=[p.item];}
+ const seen=new Set();return items.filter(x=>{const k=x.linkId||x.id;if(seen.has(k))return false;seen.add(k);return true;});}
+function copySettingsV24(){const p=pickedV24();if(!p)return notice('Select a clip or a video layer to copy its settings.');
+ const parts=partsV24(p.kind).filter(d=>!d.when||d.when(p.item)).map(d=>{const v=d.get(p.item);return{key:d.key,value:v==null?null:clone(v),on:d.on(v)};});
+ copiedV24={kind:p.kind,name:p.item.name||(p.kind==='clip'?'Clip':'Layer'),parts};
+ notice('Settings copied from “'+copiedV24.name+'”. Select other '+(p.kind==='clip'?'clips':'video layers')+' and press ⌥⌘V to paste.');refreshCopyRowV24();}
+function pasteSettingsV24(){
+ if(!copiedV24)return notice('Copy the settings of a clip or video layer first (⌥⌘C).');
+ if(document.getElementById('v24-paste'))return;
+ const kind=copiedV24.kind,items=targetsV24(kind);
+ if(!items.length)return notice(kind==='clip'?'Select the clips to paste onto. Clip settings paste onto clips.':'Select the video layers to paste onto. Layer settings paste onto layers.');
+ const defs=partsV24(kind),shell=window.nativeShell;if(!shell)return;
+ const rows=copiedV24.parts.map(x=>{const d=defs.find(d=>d.key===x.key),usable=items.some(i=>!d.when||d.when(i));return '<label class="v24-part'+(usable?'':' v24-off')+'"><input type="checkbox" data-part="'+x.key+'"'+(x.on&&usable?' checked':'')+(usable?'':' disabled')+'><span><strong>'+esc(d.label)+'</strong><small>'+esc(usable?d.describe(x.value):x.key==='speed'?'Only for video clips':x.key==='audio'?(items.length>1?'These clips have no sound':'This clip has no sound'):x.key==='fades'?'A linked camera fades with the screen recording':'Not for '+(items.length>1?'these':'this')+' '+kind)+'</small></span></label>';}).join('');
+ const onto=items.length===1?'“'+esc(items[0].name||(kind==='clip'?'Clip':'Layer'))+'”':items.length+' '+(kind==='clip'?'clips':'layers');
+ shell.modal('Paste settings','<form id="v24-paste"><p class="v-muted">From “'+esc(copiedV24.name)+'” onto '+onto+'. Choose what to paste.</p><div class="v24-parts">'+rows+'</div><div class="v-row"><button class="v-button primary" type="submit" id="v24-apply">Paste</button><button class="v-button" type="button" id="v24-cancel">Cancel</button></div></form>');
+ const f=document.getElementById('v24-paste'),apply=f.querySelector('#v24-apply'),sync=()=>{apply.disabled=!f.querySelector('[data-part]:checked');};f.addEventListener('change',sync);sync();
+ f.querySelector('#v24-cancel').onclick=()=>shell.closeModal();
+ f.onsubmit=e=>{e.preventDefault();const keys=[...f.querySelectorAll('[data-part]:checked')].map(n=>n.dataset.part);shell.closeModal();applyPasteV24(keys,items.map(i=>i.id),kind);};
+ (apply.disabled?f.querySelector('[data-part]:not(:disabled)'):apply)?.focus();}
+async function applyPasteV24(keys,ids,kind){
+ const from=copiedV24,defs=partsV24(kind),now=keys.filter(k=>k!=='speed');let dropped=0,count=0;
+ const find=id=>kind==='clip'?state.clips.find(c=>c.id===id):findLayerV24(id);
+ if(now.length)transaction(()=>{for(const id of ids){const item=find(id);if(!item)continue;count++;for(const k of now){const d=defs.find(d=>d.key===k),part=from.parts.find(p=>p.key===k);if(!d||!part||(d.when&&!d.when(item)))continue;dropped+=d.put(item,part.value==null?part.value:clone(part.value))||0;}}});
+ const names=keys.map(k=>defs.find(d=>d.key===k)?.short).filter((n,i,a)=>n&&a.indexOf(n)===i),list=names.length>1?names.slice(0,-1).join(', ')+' and '+names.at(-1):names[0],n=ids.length;
+ notice('Pasted '+list+' onto '+(n===1?'1 '+(kind==='clip'?'clip':'layer'):n+' '+(kind==='clip'?'clips':'layers'))+'.'+(dropped?' '+(dropped>1?dropped+' keyframes':'1 keyframe')+' fell past the end of a shorter '+(kind==='clip'?'clip':'layer')+' and '+(dropped>1?'were':'was')+' left out.':''));
+ // Speed is rendered into a copy of each clip, one after another (each shows its own progress).
+ const speed=keys.includes('speed')&&from.parts.find(p=>p.key==='speed');
+ if(speed){const preset=speed.value||{kind:'constant',value:1},same=c=>JSON.stringify(c.speed?.preset||{kind:'constant',value:1})===JSON.stringify(preset);
+  for(const id of ids){const c=state.clips.find(c=>c.id===id);if(!c||!isVideoClipV24(c)||same(c))continue;await applySpeedV15(id,preset);}}
+}
+// Copy / Paste buttons at the foot of the clip and layer panels.
+function copyRowV24(p,kind){if(p.querySelector('.v24-copy-row'))return;const row=document.createElement('div');row.className='ed-row v24-copy-row';
+ row.innerHTML='<button type="button" id="v24-copy" title="Copy this '+(kind==='clip'?'clip':'layer')+'’s settings (⌥⌘C)">'+icon('copy')+'<span>Copy settings</span></button><button type="button" id="v24-paste-btn" title="Paste settings onto this '+(kind==='clip'?'clip':'layer')+' (⌥⌘V)">'+icon('clipboard-paste')+'<span>Paste settings…</span></button>';
+ const danger=p.querySelector('#v12-remove');if(danger)danger.before(row);else p.append(row);
+ row.querySelector('#v24-copy').onclick=copySettingsV24;row.querySelector('#v24-paste-btn').onclick=pasteSettingsV24;refreshCopyRowV24();}
+function refreshCopyRowV24(){const b=q('#v24-paste-btn');if(!b)return;const kind=state.panel==='overlay'?'layer':'clip',ok=copiedV24?.kind===kind;b.disabled=!ok;b.title=ok?'Paste settings from “'+copiedV24.name+'” (⌥⌘V)':copiedV24?'Copied settings are from a '+(copiedV24.kind==='clip'?'clip':'video layer')+'; they paste onto '+(copiedV24.kind==='clip'?'clips':'layers'):'Copy a '+kind+'’s settings first (⌥⌘C)';}
+onKeyV9(ev=>{if(typingV10(ev)||!(ev.metaKey||ev.ctrlKey)||!ev.altKey||ev.shiftKey)return;if(ev.code==='KeyC'){ev.preventDefault();copySettingsV24();}else if(ev.code==='KeyV'){ev.preventDefault();pasteSettingsV24();}});
+const contextBeforeV24=contextV7;
+contextV7=function(x,y){contextBeforeV24(x,y);const menu=q('#v7-context');if(!menu)return;
+ const at=[...menu.children].find(b=>/^Delete/.test(b.textContent))||null,add=(text,fn)=>{const b=document.createElement('button');b.textContent=text;b.setAttribute('role','menuitem');b.onclick=()=>{menu.remove();fn();};menu.insertBefore(b,at);};
+ if(pickedV24()&&selectionV7.length<=1)add('Copy settings',copySettingsV24);
+ if(copiedV24&&targetsV24(copiedV24.kind).length)add('Paste settings…',pasteSettingsV24);
+ menu.style.top=Math.min(parseFloat(menu.style.top)||0,innerHeight-menu.offsetHeight-8)+'px';};
+
+// ---------- 0.15 (Phase 24): keyframes for video layers ----------
+// The camera bubble and other video layers get Position X / Y, Size and Opacity with the same diamonds as clips.
+// The values live on the layer, or on the camera link for a linked camera (copied to every piece by relink()).
+const LAYER_LABELS_V24={x:'Position X',y:'Position Y',scale:'Size',opacity:'Opacity'};
+const LAYER_INPUTS_V24={x:'v24-x',y:'v24-y',scale:'v12-size',opacity:'v24-opacity'};
+const layerNowV24=()=>state.panel==='overlay'?findLayerV24(state.active):null;
+const insideLayerV24=o=>state.time>=o.start-1e-6&&state.time<o.end;
+// Sets a layer value at the playhead: a keyframe when that value is animated, else the fixed value.
+// Moving a layer that is pinned to a corner unpins it where it is.
+function setLayerValueV24(o,k,v){const K=KF17(),t=lookV24(o);if((k==='x'||k==='y')&&t.corner){t.x=o.x;t.y=o.y;t.corner=null;}
+ const c=K.layerClip(o,t);if(K.animated(c,k))t.keyframes=K.setKey(c,k,K.layerTime(o,state.time),v);else t[k]=+v;}
+function moveLayerV24(id,p){const o=findLayerV24(id);if(!o)return;if(lockedV7({type:'overlay',id}))return notice('Unlock this track to edit it.');
+ transaction(()=>{const x=findLayerV24(id);if(!x)return;setLayerValueV24(x,'x',p.x);setLayerValueV24(x,'y',p.y);});}
+function layerPanelV24(p,o){const K=KF17(),v=K.layerAt(o,state.time,lookV24(o)),size=q('#v12-size')?.closest('label');if(!size)return;
+ const box=document.createElement('div');box.className='v24-layer-values';box.innerHTML=range('v24-x','Position X',r1V24(v.x),0,100)+range('v24-y','Position Y',r1V24(v.y),0,100)+range('v24-opacity','Opacity %',r1V24(v.opacity),0,100);
+ size.after(box);numberBoxesV15(p);
+ for(const k of K.LAYER_PROPS)bind(LAYER_INPUTS_V24[k],val=>{const x=findLayerV24(o.id);if(x)setLayerValueV24(x,k,+val);});
+ for(const k of K.LAYER_PROPS){const label=q('#'+LAYER_INPUTS_V24[k])?.closest('label');if(!label||label.querySelector('.v17-keys'))continue;
+  const keys=document.createElement('span');keys.className='v17-keys';keys.innerHTML='<button type="button" class="v17-prev" aria-label="Previous '+LAYER_LABELS_V24[k]+' keyframe">‹</button><button type="button" class="v17-diamond" data-prop="'+k+'"></button><button type="button" class="v17-next" aria-label="Next '+LAYER_LABELS_V24[k]+' keyframe">›</button>';label.prepend(keys);
+  const d=keys.querySelector('.v17-diamond');
+  d.onclick=e=>{e.preventDefault();transaction(()=>{const x=findLayerV24(o.id);if(!x)return;const t=lookV24(x);if((k==='x'||k==='y')&&t.corner){t.x=x.x;t.y=x.y;t.corner=null;}const c=K.layerClip(x,t),at=K.layerTime(x,state.time);
+   const kf=!K.animated(c,k)?K.startAnimating(c,k,at):K.keyAt(c,k,at)?K.removeKey(c,k,at):K.setKey(c,k,at,K.transformAt(c,at)[k]);if(kf)t.keyframes=kf;else delete t.keyframes;});};
+  d.oncontextmenu=e=>{e.preventDefault();layerEaseMenuV24(d,o.id,k);};
+  const jump=dir=>{const x=findLayerV24(o.id);if(!x)return;const c=K.layerClip(x,lookV24(x)),at=K.layerTime(x,state.time),t=dir<0?K.previous(c,at,k):K.next(c,at,k);if(t==null)return;stop();state.time=Math.min(total(),x.start+(t-(+x.sourceIn||0))+1e-4);paint();};
+  keys.querySelector('.v17-prev').onclick=e=>{e.preventDefault();jump(-1);};keys.querySelector('.v17-next').onclick=e=>{e.preventDefault();jump(1);};}
+ // A corner pins the layer, so choosing one ends a position animation.
+ p.querySelectorAll('[data-v12-corner]').forEach(b=>b.onclick=()=>{const x=findLayerV24(o.id),t=x&&lookV24(x),had=!!(t?.keyframes?.x||t?.keyframes?.y);transaction(()=>{const y=findLayerV24(o.id),t=lookV24(y);t.corner=b.dataset.v12Corner;if(t.keyframes){const kf={...t.keyframes};delete kf.x;delete kf.y;if(Object.keys(kf).length)t.keyframes=kf;else delete t.keyframes;}});if(had)notice('Pinned to the corner. Its position is no longer animated.');});
+ if(lockedV7({type:'overlay',id:o.id}))p.querySelectorAll('.v24-layer-values input,.v17-keys button').forEach(n=>{n.disabled=true;});
+ syncLayerKeysV24();}
+function layerEaseMenuV24(d,id,k){const K=KF17(),o=findLayerV24(id);document.querySelector('.v17-ease')?.remove();if(!o)return;const c=K.layerClip(o,lookV24(o)),at=K.layerTime(o,state.time),key=K.keyAt(c,k,at);if(!K.animated(c,k))return;
+ const m=document.createElement('div');m.className='v17-ease';m.setAttribute('role','menu');
+ m.innerHTML=(key?'<div class="v17-ease-title">Easing from this keyframe</div>'+Object.entries(K.EASE_NAMES).map(([e,n])=>'<button type="button" role="menuitemradio" aria-checked="'+(key.ease===e)+'" data-ease="'+e+'">'+n+'</button>').join(''):'')+'<button type="button" data-stop="1">Stop animating '+LAYER_LABELS_V24[k]+'</button>';
+ d.closest('.v17-keys').append(m);const close=()=>{m.remove();removeEventListener('pointerdown',out,true);},out=e=>{if(!m.contains(e.target))close();};addEventListener('pointerdown',out,true);
+ m.onclick=e=>{const b=e.target.closest('button');if(!b)return;transaction(()=>{const x=findLayerV24(id);if(!x)return;const t=lookV24(x),c=K.layerClip(x,t);
+  if(b.dataset.ease){t.keyframes=K.setEase(c,k,at,b.dataset.ease);}else{const r=K.stopAnimating(c,k,at);if(r.keyframes)t.keyframes=r.keyframes;else delete t.keyframes;t[k]=r.value;}});close();};}
+// Keeps the layer's diamonds and sliders in step with the playhead.
+function syncLayerKeysV24(){const o=layerNowV24();if(!o)return;const K=KF17(),t=lookV24(o),c=K.layerClip(o,t),at=K.layerTime(o,state.time),v=K.transformAt(c,at),inside=insideLayerV24(o);
+ for(const k of K.LAYER_PROPS){const input=q('#'+LAYER_INPUTS_V24[k]),label=input?.closest('label');if(!label)continue;const d=label.querySelector('.v17-diamond');if(!d)continue;const anim=K.animated(c,k),here=anim&&!!K.keyAt(c,k,at);
+  d.dataset.state=!anim?'off':here?'on':'between';d.disabled=!inside||lockedV7({type:'overlay',id:o.id});
+  d.setAttribute('aria-label',!inside?'Move the playhead over this layer to animate '+LAYER_LABELS_V24[k]:!anim?'Animate '+LAYER_LABELS_V24[k]+' from here':here?'Remove this '+LAYER_LABELS_V24[k]+' keyframe':'Add a '+LAYER_LABELS_V24[k]+' keyframe here');d.title=d.getAttribute('aria-label')+(anim&&inside?' (right-click for easing)':'');
+  label.classList.toggle('v17-animated',anim);label.querySelector('.v17-prev').disabled=!anim||K.previous(c,at,k)==null;label.querySelector('.v17-next').disabled=!anim||K.next(c,at,k)==null;
+  if(document.activeElement!==input&&liveGestureV8?.el!==input){const val=r1V24(v[k]);if(+input.value!==val){input.value=val;const out=label.querySelector('output');if(out)out.textContent=val;const num=label.querySelector('input[type=number]');if(num&&document.activeElement!==num)num.value=val;}}}}
+// Keyframes of the selected layer on its timeline block: click one to go to it, drag it to move it in time.
+function layerTimelineKeysV24(){root.querySelectorAll('.v24-lane').forEach(n=>n.remove());const o=layerNowV24();if(!o)return;const K=KF17(),c=K.layerClip(o,lookV24(o));if(!K.animated(c))return;
+ const b=root.querySelector('#vt-tracks .vt-block[data-v7-type="overlay"][data-v7-id="'+CSS.escape(o.id)+'"]');if(!b)return;
+ const lane=document.createElement('div');lane.className='v17-lane v24-lane';const len=c.end-c.start||1,s=c.start;
+ for(const t of K.times(c)){if(t<s-1e-6||t>c.end+1e-6)continue;const k=document.createElement('button');k.type='button';k.className='v17-tlkey';k.style.left=((t-s)/len*100)+'%';k.title='Keyframe at '+(window.timelineModelV7?.formatTime?.(o.start+t-s)||'');k.setAttribute('aria-label',k.title);
+  const go=at=>{stop();state.time=Math.min(total(),o.start+(at-s)+1e-4);paint();};
+  k.onpointerdown=e=>{e.preventDefault();e.stopPropagation();if(lockedV7({type:'overlay',id:o.id}))return notice('Unlock this track to edit it.');const r=b.getBoundingClientRect(),x0=e.clientX;let moved=false,to=t;k.setPointerCapture(e.pointerId);snapshot();
+   k.onpointermove=v=>{const dx=v.clientX-x0;if(Math.abs(dx)>3)moved=true;if(!moved)return;to=Math.max(s,Math.min(c.end,t+dx/r.width*len));k.style.left=((to-s)/len*100)+'%';};
+   k.onpointerup=()=>{k.onpointermove=null;if(moved){const x=findLayerV24(o.id),look=lookV24(x);look.keyframes=K.moveKeys(K.layerClip(x,look),t,to);if(!look.keyframes)delete look.keyframes;X12.relink(state);commit();go(to);tracks();panel();}else go(t);};};
+  lane.append(k);}
+ b.append(lane);}
+
+// ---------- 0.15 (Phase 24): a volume line on audio blocks ----------
+// Each block on an audio track (a clip's own sound or an audio clip) shows its volume as a line: drag it up or down
+// (0–150 %), double-click it for 100 %, or focus it and use the arrow keys.
+const VOL_MAX_V24=150;
+function volumeLinesV24(){const host=q('#vt-tracks');if(!host||window.exporting)return;const list=[];
+ host.querySelectorAll('.vt-item-source[data-source-clip]').forEach(b=>{const c=state.clips.find(x=>x.id===b.dataset.sourceClip);if(c&&!c.muted)list.push({b,id:c.id,ref:{type:'video',id:c.id},find:()=>state.clips.find(x=>x.id===c.id)});});
+ host.querySelectorAll('.vt-block[data-v7-type="audioClip"]').forEach(b=>{const id=b.dataset.v7Id;if(itemV7({type:'audioClip',id}))list.push({b,id,ref:{type:'audioClip',id},find:()=>itemV7({type:'audioClip',id})});});
+ for(const {b,ref,find} of list){b.querySelector('.v24-vol')?.remove();const line=document.createElement('span'),vol=()=>find()?.volume??100;line.className='v24-vol';line.tabIndex=0;line.setAttribute('role','slider');line.setAttribute('aria-valuemin','0');line.setAttribute('aria-valuemax',String(VOL_MAX_V24));
+  const draw=v=>{line.style.setProperty('--v24-level',(1-v/VOL_MAX_V24).toFixed(4));line.classList.toggle('loud',v>100);line.classList.toggle('quiet',v===0);line.setAttribute('aria-valuenow',String(Math.round(v)));line.setAttribute('aria-label','Volume '+Math.round(v)+'%');line.title='Volume '+Math.round(v)+'% · drag up or down, double-click for 100%';};draw(vol());
+  const set=v=>{const it=find();if(!it)return;v=Math.round(Math.max(0,Math.min(VOL_MAX_V24,v)));if(v===100&&ref.type==='video')delete it.volume;else it.volume=v;draw(v);};
+  const tip=(e,v)=>{let t=document.getElementById('v15-tip');if(!e){t?.remove();return;}if(!t){t=document.createElement('div');t.id='v15-tip';document.body.append(t);}t.textContent=Math.round(v)+'%';t.style.left=(e.clientX+14)+'px';t.style.top=(e.clientY-30)+'px';};
+  line.onpointerdown=ev=>{if(ev.button!==0)return;ev.stopPropagation();ev.preventDefault();if(lockedV7(ref))return notice('Unlock this track to edit it.');stop();snapshot();const y0=ev.clientY,v0=vol(),h=Math.max(12,b.clientHeight-8);try{line.setPointerCapture(ev.pointerId);}catch{}line.classList.add('drag');
+   line.onpointermove=e=>{set(v0-(e.clientY-y0)/h*VOL_MAX_V24);tip(e,vol());paint();};
+   line.onpointerup=line.onpointercancel=()=>{line.onpointermove=line.onpointerup=line.onpointercancel=null;line.classList.remove('drag');tip(null);if(vol()!==v0){panel();commit();}else pendingUndoV15=null;};};
+  line.ondblclick=ev=>{ev.stopPropagation();ev.preventDefault();if(lockedV7(ref))return;transaction(()=>set(100));};
+  line.onkeydown=ev=>{const step={ArrowUp:5,ArrowDown:-5,PageUp:25,PageDown:-25}[ev.key];if(!step&&ev.key!=='Home')return;ev.preventDefault();ev.stopPropagation();if(lockedV7(ref))return;transaction(()=>set(ev.key==='Home'?100:vol()+step));requestAnimationFrame(()=>q('#vt-tracks .vt-block[data-v7-id="'+CSS.escape(ref.id)+'"] .v24-vol, #vt-tracks .vt-item-source[data-source-clip="'+CSS.escape(ref.id)+'"] .v24-vol')?.focus());};
+  line.onclick=ev=>ev.stopPropagation();
+  b.append(line);}}
+const tracksBeforeV24=tracks;tracks=function(){tracksBeforeV24();layerTimelineKeysV24();volumeLinesV24();};
+const paintBeforeV24=paint;paint=function(){paintBeforeV24();syncLayerKeysV24();};
+const panelBeforeV24=panel;
+panel=function(){panelBeforeV24();const p=q('#ed-panel');
+ if(state.panel==='clip'&&realClipV24(state.clips[state.selected])){const reset=q('#v15-reset-video');if(reset&&!p.querySelector('.v24-copy-row')){copyRowV24(p,'clip');const row=p.querySelector('.v24-copy-row');reset.after(row);}}
+ if(state.panel==='overlay'){const o=layerNowV24();if(o&&!p.querySelector('.v24-layer-values')){layerPanelV24(p,o);copyRowV24(p,'layer');}}
+ icons();};
 wireV4();wireV5();wireV7();wireV10();wireV11();
-globalThis.visorEditor={blank:()=>clone(initial),explainer:explainerV12,explainerDialog:explainerDialogV12,selectOverlay:selectOverlayV12,shortcuts:shortcutsV10,appendAsset,addElement,get:()=>clone(state),saveData:()=>withoutView(clone(state)),pause:stop,set:data=>{selectionV7=[];previewOriginal=false;previewEffect=null;stop();pendingUndoV15=null;lastTabV15='media';state={...clone(initial),...clone(data)};uniqueIdsV15(state);legacyZoomV15(state);captionLegacyV15(state);settleTracksV15();history=[];future=[];render(true);},reset:()=>{selectionV7=[];previewOriginal=false;previewEffect=null;stop();pendingUndoV15=null;state=clone(initial);settleTracksV15();history=[];future=[];render(true);},patch:data=>transaction(()=>Object.assign(state,clone(data))),open,undo,redo,applyStyle,importAssets,previewBefore:on=>{previewOriginal=on;paint();},previewEffect:id=>{previewEffect=id;paint();},jump:t=>{state.time=Math.max(0,Math.min(total(),t));paint();},removeSource:(a,b)=>transaction(()=>removeSource(a,b)),restoreRange:(a,b)=>{if(state.clips.length>=200)return notice('Remove a clip before restoring this range.');transaction(()=>{state.clips.push({id:uidV15(),asset:'walk',name:'Restored section',kind:'video',start:a,end:b,limit:32});state.clips.sort((x,y)=>x.asset==='walk'&&y.asset==='walk'?x.start-y.start:0);});},play};render(true);
+globalThis.visorEditor={blank:()=>clone(initial),explainer:explainerV12,explainerDialog:explainerDialogV12,selectOverlay:selectOverlayV12,shortcuts:shortcutsV10,appendAsset,addElement,get:()=>clone(state),saveData:()=>withoutView(clone(state)),pause:stop,set:data=>{selectionV7=[];previewOriginal=false;previewEffect=null;stop();pendingUndoV15=null;lastTabV15='media';state={...clone(initial),...clone(data)};uniqueIdsV15(state);legacyZoomV15(state);captionLegacyV15(state);settleTracksV15();history=[];future=[];render(true);},reset:()=>{selectionV7=[];previewOriginal=false;previewEffect=null;stop();pendingUndoV15=null;state=clone(initial);settleTracksV15();history=[];future=[];render(true);},patch:data=>transaction(()=>Object.assign(state,clone(data))),open,undo,redo,applyStyle,importAssets,previewBefore:on=>{previewOriginal=on;paint();},previewEffect:id=>{previewEffect=id;paint();},jump:t=>{state.time=Math.max(0,Math.min(total(),t));paint();},removeSource:(a,b)=>transaction(()=>removeSource(a,b)),restoreRange:(a,b)=>{if(state.clips.length>=200)return notice('Remove a clip before restoring this range.');transaction(()=>{state.clips.push({id:uidV15(),asset:'walk',name:'Restored section',kind:'video',start:a,end:b,limit:32});state.clips.sort((x,y)=>x.asset==='walk'&&y.asset==='walk'?x.start-y.start:0);});},play,/* 0.15 (Phase 24) */copySettings:copySettingsV24,pasteSettings:pasteSettingsV24,moveLayer:moveLayerV24};render(true);
 })();

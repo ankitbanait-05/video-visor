@@ -11,7 +11,7 @@ const shapes=[['circle','Circle'],['rounded','Rounded'],['rect','Rectangle']];
 const corners=[['tl','Top left'],['tr','Top right'],['bl','Bottom left'],['br','Bottom right']];
 const MARGIN=3; // gap to the frame edge, as a percentage of the frame width
 const HOLD=.25; // seconds of start/end mismatch between camera and screen recording that are bridged
-const LOOK=['scale','shape','border','borderColor','shadow','mirror','focusX'];
+const LOOK=['scale','shape','border','borderColor','shadow','mirror','focusX','opacity','keyframes']; // 0.15 (Phase 24): opacity and keyframes too
 function ratioOf(ratio){const [a,b]=String(ratio||'16/9').split('/').map(Number);return a>0&&b>0?a/b:16/9;}
 function aspectOf(asset){return asset?.width>0&&asset?.height>0?asset.width/asset.height:16/9;}
 function defaults(ratio){return{shape:'circle',corner:'br',scale:ratioOf(ratio)>=1?20:34,border:4,borderColor:'#ffffff',shadow:true,mirror:false,focusX:50};}

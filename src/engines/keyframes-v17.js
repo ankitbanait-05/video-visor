@@ -100,6 +100,33 @@ function preset(clip, name, at) {
   return Object.keys(kf).length ? kf : undefined;
 }
 
-const api = { PROPS, DEFAULTS, LIMITS, EASES, EASE_NAMES, PRESETS, animated, valueAt, transformAt, keyAt, setKey, removeKey, startAnimating, stopAnimating, setEase, times, previous, next, moveKeys, mapTimes, preset };
+// 0.15 (Phase 24): copying a clip's animation onto another clip. Times are moved by `delta` (target start − source
+// start); keyframes that land past the end of the target are left out, and the result says how many.
+function shift(keyframes, delta, start, end) {
+  if (!keyframes) return { keyframes: undefined, dropped: 0 };
+  const out = {}; let dropped = 0;
+  for (const [p, keys] of Object.entries(keyframes)) {
+    const moved = keys.map(k => ({ ...k, t: +(k.t + delta).toFixed(4) })).filter(k => k.t >= start - SAME && k.t <= end + SAME);
+    dropped += keys.length - moved.length;
+    if (moved.length) out[p] = moved.map(k => ({ ...k, t: +Math.max(start, Math.min(end, k.t)).toFixed(4) }));
+  }
+  return { keyframes: Object.keys(out).length ? out : undefined, dropped };
+}
+
+// 0.15 (Phase 24): video layers (camera bubble, picture-in-picture) use the same keyframes for position, size and
+// opacity. A layer's x / y are the centre in percent of the frame (default 65), scale is its width in percent (35).
+// Its keyframes are in the layer's own source time (sourceIn + time since the layer starts), so cutting the screen
+// recording under a linked camera keeps each keyframe on the same moment of the camera video.
+// `look` is where the values live: the layer itself, or the camera link a linked piece belongs to.
+const LAYER_PROPS = ['x', 'y', 'scale', 'opacity'];
+function layerClip(layer, look = layer) {
+  const s = +layer.sourceIn || 0;
+  return { start: s, end: s + Math.max(0, layer.end - layer.start), keyframes: look.keyframes,
+    transform: { x: look.x ?? layer.x ?? 65, y: look.y ?? layer.y ?? 65, scale: look.scale || layer.scale || 35, opacity: look.opacity ?? 100 } };
+}
+const layerTime = (layer, time) => (+layer.sourceIn || 0) + time - layer.start;
+function layerAt(layer, time, look = layer) { const v = transformAt(layerClip(layer, look), layerTime(layer, time)); return { x: v.x, y: v.y, scale: v.scale, opacity: v.opacity }; }
+
+const api = { PROPS, DEFAULTS, LIMITS, EASES, EASE_NAMES, PRESETS, animated, valueAt, transformAt, keyAt, setKey, removeKey, startAnimating, stopAnimating, setEase, times, previous, next, moveKeys, mapTimes, preset, shift, LAYER_PROPS, layerClip, layerTime, layerAt };
 if (typeof module === 'object' && module.exports) module.exports = api; else root.keyframesV17 = api;
 })(typeof self !== 'undefined' ? self : this);

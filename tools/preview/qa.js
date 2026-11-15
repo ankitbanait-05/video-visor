@@ -1175,6 +1175,79 @@ Object.assign(checks, {
   },
 });
 
+// Phase 24: copy / paste settings, keyframes for video layers, the volume line on audio blocks.
+const altKey = code => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: code === 'KeyC' ? 'ç' : '√', code, metaKey: true, altKey: true, bubbles: true }));
+const partsShown = () => $$('#v24-paste [data-part]').map(n => n.dataset.part + (n.checked ? '+' : '') + (n.disabled ? '!' : ''));
+const tick = (part, on) => { const n = $('#v24-paste [data-part=' + part + ']'); if (n.checked !== on) n.click(); };
+async function withLayers() {
+  await freshEditor();
+  const v = E().get().assets.find(x => x.kind === 'video').id;
+  E().patch({ overlays: [{ id: 'L1', asset: v, name: 'Layer one', start: 1, end: 9, sourceIn: 0, x: 50, y: 50, scale: 30 }, { id: 'L2', asset: v, name: 'Layer two', start: 10, end: 14, sourceIn: 3, x: 20, y: 20, scale: 50, shape: 'circle' }] });
+  await wait(250); E().selectOverlay('L1'); await wait(250);
+}
+const layerDiamond = p => $('#ed-panel .v17-diamond[data-prop=' + p + ']');
+Object.assign(checks, {
+  async '⌥⌘C / ⌥⌘V copy a clip’s settings and paste the chosen ones onto another clip'() {
+    await freshEditor(); await selectClip(0); await setRange('v15-scale', 120); await setRange('v15-crop-l', 10);
+    altKey('KeyC'); await wait(150); await selectClip(1); altKey('KeyV'); await wait(250);
+    const shown = partsShown(); tick('crop', false); $('#v24-apply').click(); await wait(300);
+    const c = E().get().clips[1], msg = $('#ed-status').textContent;
+    return { pass: shown.includes('transform+') && shown.includes('crop+') && shown.includes('speed!') && shown.includes('audio!') && c.transform?.scale === 120 && !c.crop && /Pasted position onto 1 clip/.test(msg), detail: { shown, transform: c.transform, crop: c.crop, msg } };
+  },
+  async 'pasted keyframes start where the other clip starts; ones past its end are left out'() {
+    await animatedScale(); await selectClip(0); E().copySettings(); await selectClip(1); E().pasteSettings(); await wait(250);
+    for (const n of $$('#v24-paste [data-part]')) if (!n.disabled && n.checked !== (n.dataset.part === 'animation')) n.click();
+    $('#v24-apply').click(); await wait(300);
+    const keys = (E().get().clips[1].keyframes?.scale || []).map(k => [k.t, k.v]), msg = $('#ed-status').textContent;
+    return { pass: JSON.stringify(keys) === '[[2,100]]' && /1 keyframe fell past the end of a shorter clip and was left out/.test(msg), detail: { keys, msg } };
+  },
+  async 'right-click and the panel offer Copy settings and Paste settings'() {
+    await withLayers(); E().copySettings(); await selectClip(0); const panelRow = !!$('#ed-panel .v24-copy-row #v24-copy'), pasteOff = $('#v24-paste-btn')?.disabled; // layer settings don't paste onto a clip
+    E().copySettings(); await selectClip(1); const pasteOn = $('#v24-paste-btn')?.disabled === false;
+    const b = block('video', E().get().clips[1].id), r = b.getBoundingClientRect(); b.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 10, clientY: r.top + 10 })); await wait(200);
+    const menu = $$('#v7-context button').map(x => x.textContent); $('#v7-context')?.remove();
+    E().shortcuts(); await wait(150); const keys = $('#v-dialog-body').textContent.includes('⌥⌘C'); await closeDialog();
+    return { pass: panelRow && pasteOff && pasteOn && menu.includes('Copy settings') && menu.includes('Paste settings…') && keys, detail: { panelRow, pasteOff, pasteOn, menu, keys } };
+  },
+  async 'a video layer animates its position, size and opacity with the same diamonds'() {
+    await withLayers(); const labels = ['x', 'y', 'scale', 'opacity'].map(p => !!layerDiamond(p));
+    E().jump(2); await wait(120); const off = layerDiamond('x').dataset.state; layerDiamond('x').click(); await wait(200);
+    E().jump(6); await wait(150); await setRange('v24-x', 80); E().jump(4); await wait(200);
+    const o = E().get().overlays.find(x => x.id === 'L1'), keys = (o.keyframes?.x || []).map(k => [k.t, k.v]), left = $('.v6-overlay[data-track="L1"]').style.left, lane = $$('.v24-lane .v17-tlkey').length;
+    E().jump(0.5); await wait(150); const outside = layerDiamond('scale').disabled;
+    return { pass: labels.every(Boolean) && off === 'off' && JSON.stringify(keys) === '[[1,50],[5,80]]' && left === '65%' && lane === 2 && outside, detail: { labels, off, keys, left, lane, outside } };
+  },
+  async 'dragging an animated layer sets a keyframe; choosing a corner ends the position animation'() {
+    await withLayers(); E().jump(2); await wait(120); layerDiamond('x').click(); await wait(200);
+    E().jump(6); await wait(150); E().moveLayer('L1', { x: 70, y: 40 }); await wait(200);
+    const o = E().get().overlays.find(x => x.id === 'L1'), keys = o.keyframes.x.map(k => [k.t, k.v]), y = o.y;
+    $$('#ed-panel [data-v12-corner]').find(b => b.dataset.v12Corner === 'tl').click(); await wait(250);
+    const p = E().get().overlays.find(x => x.id === 'L1');
+    return { pass: JSON.stringify(keys) === '[[1,50],[5,70]]' && y === 40 && p.corner === 'tl' && !p.keyframes?.x && /no longer animated/.test($('#ed-status').textContent), detail: { keys, y, corner: p.corner, after: p.keyframes } };
+  },
+  async 'layer settings paste onto layers, and not onto clips'() {
+    await withLayers(); E().copySettings(); E().selectOverlay('L2'); await wait(250); E().pasteSettings(); await wait(250);
+    const shown = partsShown(); $('#v24-apply').click(); await wait(300);
+    const l2 = E().get().overlays.find(x => x.id === 'L2');
+    await selectClip(0); E().pasteSettings(); await wait(200); const refused = !$('#v24-paste') && /Layer settings paste onto layers/.test($('#ed-status').textContent);
+    return { pass: shown.includes('place+') && shown.includes('look+') && l2.scale === 30 && l2.x === 50 && !l2.shape && refused, detail: { shown, l2: { scale: l2.scale, x: l2.x, shape: l2.shape }, refused } };
+  },
+  async 'the volume line on an audio block: drag to set the volume, double-click for 100%, undo'() {
+    await freshEditor(); await wait(200);
+    const line = $('.vt-item-source .v24-vol'), b = line.closest('.vt-block'), r = line.getBoundingClientRect(), x = r.left + 30, y = r.top + r.height / 2, h = b.clientHeight - 8;
+    const at = (r.top + r.height / 2 - b.getBoundingClientRect().top) / b.clientHeight;
+    line.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: x, clientY: y, button: 0, pointerId: 5 }));
+    line.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: x, clientY: y + h / 150 * 40, pointerId: 5 }));
+    line.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: x, clientY: y, pointerId: 5 })); await wait(250);
+    const dragged = E().get().clips[0].volume, label = $('.vt-item-source .v24-vol')?.getAttribute('aria-label');
+    E().undo(); await wait(200); const undone = E().get().clips[0].volume ?? 100;
+    $('.vt-item-source .v24-vol').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); await wait(200);
+    $('.vt-item-source .v24-vol').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })); await wait(200);
+    const keyed = E().get().clips[0].volume;
+    return { pass: Math.abs(at - .36) < .1 && dragged === 60 && label === 'Volume 60%' && undone === 100 && keyed === 105, detail: { at, dragged, label, undone, keyed } };
+  },
+});
+
 export const count = () => Object.keys(checks).length;
 export async function run(only) {
   const results = [];

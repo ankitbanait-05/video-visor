@@ -112,7 +112,7 @@ How: build the tokens and components first, then go screen by screen, with befor
 | 21 | *Done.* Fixes from your testing: cursor zoom (A1), Brand style button (A2), drop onto V3 (A3.1), Add to video / Add as layer (A3.2), the ⋯ icon (A3.3), the Home duplicate, prototype leftovers, benchmark data folder and clean-up, message position, Snap state, narrow windows, the drawing-mode check | M |
 | 22 | *Done.* Visual pass I: tokens, buttons, sliders, panels, type, motion (C1–C4, C8–C10) | L |
 | 23 | *Done.* Visual pass II: media grid, timeline, playback bar, Home, dark mode (C5–C7, C11–C12) | L |
-| 24 | Copy / paste clip settings, then layer keyframes, then the clip volume line (D) | M |
+| 24 | *Done.* Copy / paste clip settings, then layer keyframes, then the clip volume line (D) | M |
 
 ## F. Decisions (your answers, 14 Nov)
 
@@ -169,6 +169,15 @@ How: build the tokens and components first, then go screen by screen, with befor
 | C11 Dark mode | Done. An audit of every screen found one black edge: the sticky main-video row had a black line and a heavy shadow. It now uses a hairline and a soft edge, as everywhere else. No pure-black surfaces remain (the one black box found is a caption style preview, which is content). |
 | C12 Home | Done. The hero is about 190 px tall instead of 295 (the headline fits on one line), and the three start cards sit in one row of three (there was an empty fourth slot), with the icon beside the text. Recent projects now show without scrolling at 1440 × 900. |
 | Also | The app was 2 px wider than the window (its border was added to its width), so the window could scroll sideways a little. Fixed. |
+
+## Phase 24 status
+
+| Item | Status |
+|---|---|
+| Copy and paste settings | Done. ⌥⌘C copies the selected clip's settings; ⌥⌘V opens a short list to choose what to paste onto the selected clips: position / scale / rotation / opacity, crop, colour, speed, fades, animation, and volume with sound fades. Each line shows the copied value, and the ones the clip actually changed start ticked. Also in the Edit menu, on right-click on the timeline, and as two buttons at the foot of the clip panel. An animation starts at the same point in the other clip; keyframes past the end of a shorter clip are left out, and the message says how many. Speed is applied clip by clip (each shows its own progress). The same works for video layers: position and size, shape / border / shadow / opacity, fades and animation. Clip settings paste onto clips and layer settings onto layers, because the two measure position differently. |
+| Layer keyframes | Done. A video layer (including the camera bubble) has Position X, Position Y, Size and Opacity with the same diamonds, ‹ › arrows and easing menu as clips, and its keyframes show on its timeline block (click to go there, drag to move). Dragging the layer on the preview while its position is animated adds a keyframe at the playhead. A camera's keyframes follow the camera video, so cutting the screen recording keeps each one on the same moment. Choosing a corner pins the layer and ends the position animation (the message says so). The preview and the export draw layers the same way. |
+| Volume line | Done. Every audio block (a clip's own sound and audio clips) has a level line: drag it up or down (0–150 %, 100 % sits a third of the way down), double-click for 100 %, or use the arrow keys. The line turns red above 100 % and grey at 0. Volume that changes within a clip (volume keyframes) is not part of this. |
+| Also | The message pill at the bottom caught clicks while it showed (since Phase 22), so in some window sizes a clip dropped onto V1 under it landed on the message instead. Clicks now pass through it; only its Undo button takes them. The Edit menu lists Copy Settings (⌥⌘C) and Paste Settings… (⌥⌘V), and the shortcuts list mentions them. |
 
 ## (Original questions)
 

@@ -36,4 +36,12 @@ eq('Slow zoom: across the whole clip', [K.transformAt(kb, 10).scale, near(K.tran
 const zi = { ...clip, keyframes: K.preset(clip, 'zoom-in', 15) };
 eq('Zoom in here: from the playhead', [K.transformAt(zi, 14).scale, near(K.transformAt(zi, 16).scale, 192)], [120, true]);
 eq('animated()', [K.animated(clip), K.animated(c), K.animated(c, 'y')], [false, true, false]);
+// Phase 24: pasting an animation onto another clip, and layers.
+const sh = K.shift({ x: [{ t: 10, v: 0, ease: 'smooth' }, { t: 14, v: 20, ease: 'smooth' }] }, -8, 2, 5);
+eq('shift moves keys and drops the ones past the end', [sh.keyframes.x.map(k => k.t), sh.dropped], [[2], 1]);
+eq('shift with nothing left', K.shift({ x: [{ t: 10, v: 0 }] }, 100, 0, 5).keyframes, undefined);
+const layer = { start: 4, end: 8, sourceIn: 1, x: 70, y: 30, scale: 20, keyframes: { scale: [{ t: 1, v: 20, ease: 'linear' }, { t: 5, v: 40, ease: 'linear' }] } };
+eq('a layer without keyframes keeps its values', K.layerAt({ start: 0, end: 5, x: 10, y: 20, scale: 30 }, 2), { x: 10, y: 20, scale: 30, opacity: 100 });
+eq('a layer animates in its own time', [K.layerAt(layer, 4).scale, K.layerAt(layer, 6).scale, K.layerAt(layer, 8).scale, K.layerAt(layer, 6).x], [20, 30, 40, 70]);
+eq('a linked piece takes its keyframes from the link', K.layerAt({ start: 0, end: 4, sourceIn: 3 }, 0, { x: 5, keyframes: { opacity: [{ t: 3, v: 50 }] } }), { x: 5, y: 65, scale: 35, opacity: 50 });
 process.exit(bad ? 1 : 0);
