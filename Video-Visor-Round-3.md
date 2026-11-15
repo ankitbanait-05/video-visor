@@ -63,7 +63,7 @@ The button crawler clicked every button on every screen and editor panel. Nothin
 |---|---|---|
 | 25 | *Done.* Blur and solid cover as real boxes (A1–A4); zoom menu width and the Main tab (A8, A9) | M |
 | 26 | *Done.* Split acts on the selection (A5) | S–M |
-| 27 | Premiere-style timeline: no group rows, hide / mute per track, order and spacing (A6, A7) | L |
+| 27 | *Done.* Premiere-style timeline: no group rows, hide / mute per track, order and spacing (A6, A7) | L |
 | 28 | Rigorous test and UI pass, including the real-app export checks | M |
 
 ---
@@ -91,3 +91,14 @@ The button crawler clicked every button on every screen and editor panel. Nothin
 |---|---|
 | A5 Split | Done. Split (button, S, right-click) cuts every selected item under the playhead: a main clip (with its sound), a video layer together with its own sound (they stay linked), an audio clip, a title or icon, a blur or cover, a zoom, or a caption. The second piece plays on from the right point of its source; a fade in stays on the first piece and a fade out on the second. The pieces after the cut stay selected, so pressing S again further on keeps cutting the same item. With nothing selected nothing is cut ("Select the clip to split"). Selected items the playhead isn't over are left as is, and the message says how many. Right-click offers Split at playhead for any item that can be cut, not only main clips. |
 | Not split | Music and narration (each is a single item; trim them instead), a camera linked to a screen recording (it follows the recording, so split that), and a tracking blur. The message says which. |
+
+## Phase 27 status
+
+| Item | Status |
+|---|---|
+| A7 No group rows | Done. The "Video 1", "Audio 3" header rows are gone. Each track has one header: an icon, its name (V1, V2, A1, A2, Text, Effects, Captions), an eye or speaker, and its lock. The header column is 148 px wide (it was 128) so all of that fits. |
+| A6 Hide / mute per track | Done. The eye hides a picture track (V1, V2, text, effects, captions) and the speaker mutes a sound track (A1, A2 …). A hidden or muted track's blocks are dimmed on the timeline, and its button turns red. The preview and the export (picture and sound, and the audio preview) leave those tracks out; the project itself keeps everything. A1 holds the main clips' own sound, so muting A1 silences the main video. Older projects that hid or muted a whole group open with each track of that group hidden or muted. |
+| Order and spacing | Done. Top to bottom: captions, text, effects, V3, V2, V1, then A1, A2 …. Where the kind of track changes there is a 10 px gap with a thin line, instead of a header row. |
+| Always visible | Done (your decision 1, as suggested). Every track with something on it is always shown, plus V1 and A1, and the empty track of the tab you are in (as somewhere to drop). "Show all tracks" is gone. |
+| Adding and removing tracks | Done. A "+" (Add track) above the timeline offers Video, Audio, Text and Effects tracks. Right-click on a track header: Hide / Mute, Lock, Add track, and Delete track (only for an empty track that isn't V1 or A1). |
+| Changed from the plan | "Add track above / below" became a single "Add track": a new video track always goes above the others and a new audio track below, so the position choice added nothing. |

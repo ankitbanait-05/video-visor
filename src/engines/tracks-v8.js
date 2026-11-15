@@ -53,5 +53,20 @@ function place(s,refs,targetId,delta=0){
  for(const e of entries(s).filter(e=>refs.some(r=>r.type===e.type&&r.id===e.id))){e.item[e.field]=targetId;if(!e.item.tracking){e.item.start=(e.item.start||0)+delta;if(Number.isFinite(e.item.end))e.item.end+=delta;}}
  return true;
 }
-const api={groups,labels,entries,normalize,overlaps,canPlace,place,duration};if(typeof module==='object')module.exports=api;else root.trackModelV8=api;
+// 0.15 (Phase 27): each track can be hidden (picture tracks) or muted (sound tracks). visible(s) is the project as it
+// plays and exports: items on such a track are left out, a muted main-clip sound is silenced and a hidden V1 is not
+// drawn. It returns s itself when nothing is hidden, and never changes s.
+const trackOff=t=>!!(t&&(t.hidden||t.muted));
+function visible(s){
+ const off=new Set((s.timelineTracks||[]).filter(trackOff).map(t=>t.id));
+ if(!off.size)return s;
+ const v={...s,hiddenTracks:{...(s.hiddenTracks||{})}};
+ if(off.has('video-main'))v.hiddenTracks.video=true;
+ v.clips=(s.clips||[]).map(c=>!c.muted&&off.has(c.audioTrackId||'audio-1')?{...c,muted:true}:c);
+ for(const key of ['overlays','audioClips','elements','zooms'])if(Array.isArray(s[key]))v[key]=s[key].filter(i=>!off.has(i.trackId));
+ for(const key of ['music','voiceover'])if(s[key]&&off.has(s[key].trackId))v[key]=null;
+ if(Array.isArray(s.transcript)){const t=s.transcript.filter(l=>!off.has(l.trackId));if(t.length<s.transcript.length){v.transcript=t;if(!t.length)v.hiddenTracks.captions=true;}}
+ return v;
+}
+const api={groups,labels,entries,normalize,overlaps,canPlace,place,duration,visible,trackOff};if(typeof module==='object')module.exports=api;else root.trackModelV8=api;
 })(globalThis);

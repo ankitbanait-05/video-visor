@@ -35,8 +35,8 @@ const checks = {
   },
   async 'new project does not inherit tracks from the previous one'() {
     await freshEditor();
-    $('#vt-tracks [aria-label="Add Video track"]').click(); await wait(300);
-    $('#vt-tracks [aria-label="Add Audio track"]').click(); await wait(300);
+    $('#vv-editor [aria-label="Add Video track"]').click(); await wait(300);
+    $('#vv-editor [aria-label="Add Audio track"]').click(); await wait(300);
     const before = rows();
     $('.v-nav [data-route=home]').click(); await wait(200);
     $$('#v-content button').find(b => /New video|Create a video/.test(b.textContent)).click(); await wait(900);
@@ -45,21 +45,23 @@ const checks = {
   },
   async 'a new video track appears above the main video'() {
     await freshEditor();
-    $('#vt-tracks [aria-label="Add Video track"]').click(); await wait(300);
+    $('#vv-editor [aria-label="Add Video track"]').click(); await wait(300);
     const r = rows();
     return { pass: r.indexOf('video-1') > -1 && r.indexOf('video-1') < r.indexOf('video-main'), detail: r };
   },
-  async 'adding a track keeps the focused view'() {
-    await freshEditor();
-    $('#vt-tracks [aria-label="Add Video track"]').click(); await wait(300);
-    return { pass: E().get().timelineView !== 'all', detail: E().get().timelineView };
+  async 'adding a track keeps the open tab'() { // Phase 27: every track is always shown, so there is no focused view to keep
+    await freshEditor(); tab('elements').click(); await wait(250);
+    $('#vv-editor [aria-label="Add Video track"]').click(); await wait(300);
+    return { pass: activeTab() === 'elements' && rows().includes('video-1'), detail: { tab: activeTab(), rows: rows() } };
   },
   async 'each tab shows video + audio + its own layer'() {
     await freshEditor();
     const out = {};
     for (const t of ['elements', 'captions', 'effects', 'audio', 'media']) { tab(t).click(); await wait(250); out[t] = rows(); }
+    // Phase 27: picture tracks (text, captions, effects) sit above the video, so the tab's own empty track comes first
     const ok = out.elements.includes('placeholder:graphics') && out.captions.includes('placeholder:captions') && out.effects.includes('placeholder:effects')
       && JSON.stringify(out.audio) === '["video-main","audio-1"]' && JSON.stringify(out.media) === '["video-main","audio-1"]'
+      && ['elements', 'captions', 'effects'].every(t => out[t].indexOf('video-main') > 0)
       && ['elements', 'captions', 'effects'].every(t => out[t].includes('video-main') && out[t].includes('audio-1'));
     return { pass: ok, detail: out };
   },
@@ -215,7 +217,7 @@ Object.assign(checks, {
   },
   async 'a main clip moves up to V2 and back'() {
     await freshEditor();
-    $('#vt-tracks [aria-label="Add Video track"]').click(); await wait(300);
+    $('#vv-editor [aria-label="Add Video track"]').click(); await wait(300);
     const c = E().get().clips[0], b = block('video', c.id), [x, y] = centre(b);
     const v2 = $('#vt-tracks .vt-lane[data-track-id="video-1"]'), [, y2] = centre(v2);
     pointer(b, x, y, x, y2); await wait(400);
@@ -230,7 +232,7 @@ Object.assign(checks, {
   },
   async 'a locked track refuses edits'() {
     await freshEditor();
-    $('#vt-tracks .vt-row[data-track-id="video-main"] .vt-label button').click(); await wait(200);
+    $('#vt-tracks .vt-row[data-track-id="video-main"] .vt-label button[aria-label^="Lock"]').click(); await wait(200);
     await setTime(6); const n = E().get().clips.length; $('#ed-split').click(); await wait(200);
     const st = E().get(); st.clips[0] = { ...st.clips[0], end: st.clips[0].end - 2 }; E().patch({ clips: st.clips }); await wait(200);
     return { pass: E().get().clips.length === n && E().get().clips[0].end === st.clips[0].end + 2, detail: { clips: E().get().clips.length, end: E().get().clips[0].end } };
@@ -287,13 +289,13 @@ Object.assign(checks, {
     await freshEditor(); await addTitle('Callouts', 0); tab('elements').click(); await wait(200);
     const id = E().get().elements[0].id; { const b = block('element', id), [x, y] = centre(b); pointer(b, x, y, x, y); } await wait(250);
     const row = $$('#vt-tracks .vt-row').find(r => r.dataset.trackId?.startsWith('graphics-'));
-    row.querySelector('.vt-label button').click(); await wait(250);
+    row.querySelector('.vt-label button[aria-label^="Lock"]').click(); await wait(250);
     // A locked item can't be selected; the panel that was already open becomes read-only.
     const inputs = $$('#ed-panel input,#ed-panel select,#ed-panel textarea');
     return { pass: !!$('#ed-panel .v15-locked-note') && inputs.length > 0 && inputs.every(i => i.disabled), detail: { note: !!$('#ed-panel .v15-locked-note'), inputs: inputs.length, disabled: inputs.filter(i => i.disabled).length } };
   },
   async 'tracks have short names (V1, V2, A1)'() {
-    await freshEditor(); $('#vt-tracks [aria-label="Add Video track"]').click(); await wait(300);
+    await freshEditor(); $('#vv-editor [aria-label="Add Video track"]').click(); await wait(300);
     const names = $$('#vt-tracks .vt-row').filter(r => r.dataset.trackId && !r.hidden).map(r => r.querySelector('.vt-label span')?.textContent);
     return { pass: JSON.stringify(names) === '["V2","V1","A1"]', detail: names };
   },
@@ -856,8 +858,8 @@ Object.assign(checks, {
     return { pass: visible[0] === 'Add' && /More ways to add/.test(visible[1]) && drawn && JSON.stringify(items) === '["Add to video","Add as a layer","Delete from project"]' && layers === before + 1 && closed, detail: { visible, drawn, items, layers: [before, layers], closed } };
   },
   async 'timeline view buttons are icons with names'() {
-    await freshEditor(); const v = $('#v8-show-tracks'), f = $('#v5-fit-timeline');
-    return { pass: !v.textContent.trim() && v.getAttribute('aria-label') === 'Show all tracks' && !f.textContent.trim() && f.title === 'Fit timeline', detail: { view: v.getAttribute('aria-label'), fit: f.title } };
+    await freshEditor(); const v = $('#v27-add-track'), f = $('#v5-fit-timeline'); // Phase 27: "Show all tracks" is gone (every track shows)
+    return { pass: !v.textContent.trim() && v.getAttribute('aria-label') === 'Add track' && !f.textContent.trim() && f.title === 'Fit timeline' && (!$('#v8-show-tracks') || $('#v8-show-tracks').hidden), detail: { add: v.getAttribute('aria-label'), fit: f.title } };
   },
   async 'changing speed does not block: no dialog, the tile shows progress'() {
     await freshEditor(); E().open('clip'); await wait(250); $('#v15-open-speed').click(); await wait(250);
@@ -1089,7 +1091,7 @@ Object.assign(checks, {
     await freshEditor(); return { pass: !$('.tracking-select'), detail: !!$('.tracking-select') };
   },
   async 'dropping a file the project no longer has explains why'() {
-    await freshEditor(); $('#vt-tracks [aria-label="Add Video track"]').click(); await wait(300);
+    await freshEditor(); $('#vv-editor [aria-label="Add Video track"]').click(); await wait(300);
     const row = $$('#vt-tracks .vt-row').find(r => /^video-\d/.test(r.dataset.trackId || '')), lane = row.querySelector('.vt-lane'), dt = new DataTransfer(); dt.setData('application/x-video-visor-media', 'missing-id');
     const rr = lane.getBoundingClientRect(); lane.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: rr.left + 40, clientY: rr.top + 5 })); await wait(200);
     return { pass: /no longer in this project/.test($('#ed-status').textContent), detail: $('#ed-status').textContent };
@@ -1326,6 +1328,52 @@ Object.assign(checks, {
     const b = block('audioClip', 'A2'), r = b.getBoundingClientRect(); b.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 10, clientY: r.top + 5 })); await wait(200);
     const item = $$('#v7-context button').find(x => x.textContent === 'Split at playhead'); item?.click(); await wait(300);
     return { pass: !!item && E().get().audioClips.filter(a => a.name === 'Voice take 2').length === 2 && E().get().clips.length === 2, detail: { offered: !!item, audio: E().get().audioClips.length, clips: E().get().clips.length } };
+  },
+});
+
+// Phase 27: a Premiere-style timeline.
+const eye = label => $('#vt-tracks .v27-eye[aria-label="' + label + '"]');
+Object.assign(checks, {
+  async 'no group header rows; each track has its name, an eye or speaker, and its lock'() {
+    await withAudioAndLayer(); E().open('media'); await wait(300);
+    const heads = $$('.v8-track-group').length, rowsNow = $$('#vt-tracks .vt-row[data-track-id]').filter(r => r.offsetParent).map(r => [r.dataset.trackId, [...r.querySelectorAll('.vt-label button')].map(b => b.getAttribute('aria-label')).join(' / ')]);
+    const ok = rowsNow.every(([id, b]) => (id.startsWith('audio') ? /^Mute A\d \/ Lock A\d$/ : /^Hide \S+ \/ Lock \S+$/).test(b));
+    return { pass: heads === 0 && ok && rowsNow.length >= 4, detail: { heads, rows: rowsNow } };
+  },
+  async 'picture tracks sit above V1 and sound below, with a gap where the kind changes'() {
+    await withAudioAndLayer(); E().open('effects'); await wait(250); panelButton(/Blur region/).click(); await wait(350); E().open('media'); await wait(300);
+    const order = rows(), gaps = $$('#vt-tracks .vt-row.v27-kind-start').map(r => r.dataset.trackId), gap = parseFloat(getComputedStyle($('#vt-tracks .vt-row.v27-kind-start')).marginTop);
+    const iv1 = order.indexOf('video-main');
+    return { pass: order[0].startsWith('effects') && order.indexOf('video-1') < iv1 && order.slice(iv1 + 1).every(id => id.startsWith('audio')) && gaps.includes('audio-1') && gap >= 8, detail: { order, gaps, gap } };
+  },
+  async 'hiding a video track hides its layer in the preview; the project keeps it'() {
+    await withAudioAndLayer(); E().open('media'); await wait(250); E().jump(3); await wait(200); const before = !!$('.v6-overlay[data-track="L1"]');
+    eye('Hide V2').click(); await wait(300); E().jump(3.2); await wait(250);
+    const s = E().get(), after = !!$('.v6-overlay[data-track="L1"]'), dimmed = $('#vt-tracks .vt-row[data-track-id="video-1"]').classList.contains('v27-off');
+    return { pass: before && !after && dimmed && s.overlays.length === 1 && s.timelineTracks.find(t => t.id === 'video-1').hidden === true && !!eye('Show V2'), detail: { before, after, dimmed, overlays: s.overlays.length } };
+  },
+  async 'muting A1 silences the main video; hiding an effects track hides its boxes'() {
+    await newBox('blur'); E().open('media'); await wait(250); E().jump(1); await wait(200);
+    eye('Mute A1').click(); await wait(300); eye('Hide Effects').click(); await wait(300); E().jump(1.2); await wait(250);
+    const v = $('#native-video'), box = $('.ed-layer[data-kind=blur]'), s = E().get();
+    return { pass: v.muted && getComputedStyle(box).display === 'none' && !s.clips[0].muted && s.elements.length === 1, detail: { muted: v.muted, box: getComputedStyle(box).display, saved: !!s.clips[0].muted } };
+  },
+  async 'what is exported leaves out hidden and muted tracks'() {
+    await withAudioAndLayer(); E().open('media'); await wait(250); eye('Hide V2').click(); await wait(250); eye('Mute A2').click(); await wait(250);
+    const v = window.trackModelV8.visible(E().get());
+    return { pass: v.overlays.length === 0 && !v.audioClips.some(a => a.name === 'Voice take 2') && v.audioClips.some(a => a.name === 'Layer sound') /* a layer's own sound is on its own audio track */ && E().get().overlays.length === 1, detail: { overlays: v.overlays.length, audio: v.audioClips.map(a => a.name) } };
+  },
+  async 'tracks are added from Add track or by right-clicking a track header'() {
+    await freshEditor(); const b = $('#v27-add-track'); b.click(); await wait(150); const items = $$('.v27-add-menu button').filter(x => x.offsetParent).map(x => x.textContent);
+    $$('.v27-add-menu button').find(x => x.textContent === 'Audio track').click(); await wait(300); const added = rows().includes('audio-2');
+    const label = $('#vt-tracks .vt-row[data-track-id="audio-2"] .vt-label'), r = label.getBoundingClientRect(); label.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 10, clientY: r.top + 5 })); await wait(200);
+    const menu = $$('#v7-context button').map(x => x.textContent + (x.disabled ? ' (off)' : '')); $$('#v7-context button').find(x => x.textContent === 'Delete track').click(); await wait(300);
+    return { pass: JSON.stringify(items) === '["Video track","Audio track","Text track","Effects track"]' && added && menu.includes('Mute A2') && menu.includes('Delete track') && !rows().includes('audio-2'), detail: { items, added, menu, after: rows() } };
+  },
+  async 'an old project with a hidden group opens with those tracks hidden'() {
+    await withAudioAndLayer(); const s = E().get(); s.hiddenTracks = { overlay: true, audio: true }; E().set(s); await wait(400);
+    const t = E().get(), v2 = t.timelineTracks.find(x => x.id === 'video-1'), a1 = t.timelineTracks.find(x => x.id === 'audio-1');
+    return { pass: v2?.hidden === true && a1?.muted === true && !Object.values(t.hiddenTracks || {}).some(Boolean) && !!eye('Show V2') && !!eye('Unmute A1'), detail: { v2, a1, hidden: t.hiddenTracks } };
   },
 });
 

@@ -298,3 +298,19 @@
 /* 0.15 (Phase 25): the preview zoom menu is only as wide as its value (Fit, 100 %) */
 #visor-app #vv-editor #v16-zoom{width:76px;min-width:0;flex:none;text-overflow:ellipsis}
 #vv-editor .ed-layer.v25-box:not(.v25-on) > .v25-handle,#vv-editor .ed-layer.v25-box:not(.v25-on) > .v25-tag{display:none}
+
+/* ---------- 0.15 (Phase 27): Premiere-style track headers ---------- */
+#visor-app #vv-editor #vt-tracks .vt-row.v27-kind-start{margin-top:10px}
+#visor-app #vv-editor #vt-tracks .vt-row.v27-kind-start::before{content:"";position:absolute;left:0;right:0;top:-6px;height:1px;background:var(--line);pointer-events:none}
+#visor-app #vv-editor #vt-tracks .vt-row{position:relative}
+#visor-app #vv-editor #vt-tracks .vt-label .v27-eye{flex:none;width:24px;height:24px;padding:0;display:inline-grid;place-items:center;border:0;background:transparent;color:var(--v-sub);border-radius:var(--r-sm);cursor:pointer}
+#visor-app #vv-editor #vt-tracks .vt-label .v27-eye:hover{background:var(--hover);color:var(--v-ink)}
+#visor-app #vv-editor #vt-tracks .vt-label .v27-eye[aria-pressed=true]{color:#e5484d}
+#visor-app #vv-editor #vt-tracks .vt-label .v27-eye svg{width:15px;height:15px}
+#visor-app #vv-editor #vt-tracks .vt-row.v27-off .vt-lane > .vt-block{opacity:.38;filter:saturate(.4)}
+#visor-app #vv-editor .ed-layer.v27-off{display:none!important}
+#vv-editor .v27-add-wrap{position:relative;display:inline-flex}
+#visor-app #vv-editor .v27-add-menu{position:fixed;z-index:60;min-width:160px;bottom:auto;right:auto}
+#vv-editor .v27-add-menu[hidden]{display:none}
+/* the track header column is a little wider: name, eye or speaker, and lock side by side */
+#visor-app #vv-editor #vt-tracks .vt-row{grid-template-columns:148px 1fr}

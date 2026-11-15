@@ -8,7 +8,8 @@ function hardwareEncoderV15(ffmpeg){if(!hardwareV15)hardwareV15=new Promise(reso
 // Keeps render-cache/ under `limit` bytes, removing the least recently used pieces first.
 async function pruneRenderCacheV18(dir,limit){const files=[];for(const f of await fs.readdir(dir).catch(()=>[])){if(!f.endsWith('.ts'))continue;const st=await fs.stat(path.join(dir,f)).catch(()=>null);if(st)files.push({f,size:st.size,t:st.mtimeMs});}files.sort((a,b)=>b.t-a.t);let total=0;for(const x of files){total+=x.size;if(total>limit)await fs.unlink(path.join(dir,x.f)).catch(()=>{});}}
 async function exportProject(ctx){
- const {state,cfg,asset,run,ffmpeg,root,saveDialog,progress,cancelled,BrowserWindow}=ctx;
+ /* 0.15 (Phase 27): hidden and muted tracks are left out of the export */const state=require('./tracks-v8.js').visible(ctx.state);
+ const {cfg,asset,run,ffmpeg,root,saveDialog,progress,cancelled,BrowserWindow}=ctx;
  if(!state.clips?.length||state.clips.length>200)throw Error('Add footage before exporting.');const speed=+state.speed||1;if(speed<.25||speed>4)throw Error('Invalid playback speed.');
  for(const c of state.clips){const a=asset(c.asset);await fs.access(a.path).catch(()=>{throw Error('“'+a.name+'” can’t be found. It may have been moved, renamed or deleted. In the editor, open Media and choose Relink to point to it again.');});if(!Number.isFinite(c.start)||!Number.isFinite(c.end)||c.start<0||c.end<=c.start||c.end>a.duration+.1)throw Error('Invalid clip range: '+a.name);}
  const duration=state.clips.reduce((n,c)=>n+c.end-c.start,0)/speed;if(!Number.isFinite(duration)||duration>14400)throw Error('Export supports projects up to four hours.');

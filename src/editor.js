@@ -1794,6 +1794,64 @@ const tracksBeforeV26=tracks;tracks=function(){tracksBeforeV26();const b=q('#ed-
 const contextBeforeV26=contextV7;
 contextV7=function(x,y){contextBeforeV26(x,y);const menu=q('#v7-context');if(!menu||[...menu.children].some(b=>b.textContent==='Split at playhead'))return;
  if(!splitPlanV26().plan.length)return;const b=document.createElement('button');b.textContent='Split at playhead';b.setAttribute('role','menuitem');b.onclick=()=>{menu.remove();splitSelectedV26();};menu.prepend(b);menu.firstElementChild?.focus();};
+// ---------- 0.15 (Phase 27): a Premiere-style timeline ----------
+// No group header rows: every track has one header with its name, an eye (picture tracks) or speaker (sound tracks)
+// and its lock. Hidden and muted tracks are left out of the preview and the export (trackModelV8.visible). Picture
+// tracks sit above the main video and sound below; where the kind of track changes there is a wider gap instead of a
+// header row. Every track with something on it is always shown (plus V1 and A1, and the empty track of the tab you
+// are in, as somewhere to drop). Tracks are added from "Add track" above the timeline or by right-clicking a track.
+GROUP_ORDER_V15.splice(0,GROUP_ORDER_V15.length,'captions','graphics','effects','video','audio');
+const GROUP_KIND_V27={video:'Video',audio:'Audio',graphics:'Text',captions:'Captions',effects:'Effects'};
+shownGroupsV15=function(focus,items){const shown=new Set(['video','audio']);for(const e of items)shown.add(e.group);if(['graphics','captions','effects'].includes(focus))shown.add(focus);return shown;};
+// Older projects hid or muted whole groups; those become the same setting on each track of the group.
+function legacyHiddenV27(){const h=state.hiddenTracks;if(!h||!Object.values(h).some(Boolean))return false;
+ for(const t of state.timelineTracks||[]){const g=t.group;
+  if(g==='video'&&(t.id==='video-main'?h.video:h.overlay||h.video))t.hidden=true;
+  else if(g==='audio'&&(h.audio||(h.music&&state.music?.trackId===t.id)))t.muted=true;
+  else if(['graphics','captions','effects'].includes(g)&&h[g])t.hidden=true;}
+ state.hiddenTracks={};return true;}
+function addTrackV27(group,silent){let id=null;transaction(()=>{let i=1;while(state.timelineTracks.some(t=>t.id===group+'-'+i))i++;id=group+'-'+i;state.timelineTracks.push({id,group,name:T8.labels[group]+' '+i,manual:true});});if(!silent)notice(GROUP_KIND_V27[group]+' track added.');return id;}
+function trackEmptyV27(id){return !T8.entries(state).some(e=>e.item[e.field]===id);}
+function trackMenuV27(track,x,y){q('#v7-context')?.remove();const menu=document.createElement('div');menu.id='v7-context';menu.setAttribute('role','menu');root.append(menu);
+ const item=(text,fn,off)=>{const b=document.createElement('button');b.textContent=text;b.setAttribute('role','menuitem');b.disabled=!!off;b.onclick=()=>{menu.remove();fn();};menu.append(b);};
+ const sound=track.group==='audio',name=track.id==='video-main'?'V1':trackLabelV15(track,track.group);
+ item((sound?(track.muted?'Unmute ':'Mute '):(track.hidden?'Show ':'Hide '))+name,()=>toggleTrackV27(track.id));
+ item((track.locked?'Unlock ':'Lock ')+name,()=>transaction(()=>{const t=state.timelineTracks.find(t=>t.id===track.id);if(t)t.locked=!t.locked;}));
+ if(track.group!=='captions')item('Add '+GROUP_KIND_V27[track.group].toLowerCase()+' track',()=>addTrackV27(track.group));
+ const permanent=['video-main','audio-1'].includes(track.id);
+ item('Delete track',()=>transaction(()=>{state.timelineTracks=state.timelineTracks.filter(t=>t.id!==track.id);}),permanent||!trackEmptyV27(track.id));
+ Object.assign(menu.style,{left:Math.min(x,innerWidth-230)+'px',top:Math.min(y,innerHeight-menu.offsetHeight-8)+'px'});menu.firstElementChild?.focus();
+ const outside=e=>{if(!menu.contains(e.target)){menu.remove();document.removeEventListener('pointerdown',outside);}};setTimeout(()=>document.addEventListener('pointerdown',outside),0);menu.onkeydown=e=>{if(e.key==='Escape'){menu.remove();timelineFocus();}};}
+function toggleTrackV27(id){transaction(()=>{const t=state.timelineTracks.find(t=>t.id===id);if(!t)return;if(t.group==='audio'){t.muted=!t.muted;if(!t.muted)delete t.muted;}else{t.hidden=!t.hidden;if(!t.hidden)delete t.hidden;}});}
+function trackHeadersV27(){const host=q('#vt-tracks');if(!host)return;
+ host.querySelectorAll('.v8-track-group').forEach(n=>n.remove());
+ let lastGroup=null;
+ host.querySelectorAll('.vt-surface > .vt-row').forEach(row=>{const group=row.querySelector('.vt-lane')?.dataset.group||row.dataset.group;if(!group||row.querySelector('.vt-ruler'))return;
+  row.classList.toggle('v27-kind-start',lastGroup!==null&&group!==lastGroup);lastGroup=group;
+  const track=state.timelineTracks.find(t=>t.id===row.dataset.trackId);if(!track)return;
+  const label=row.querySelector('.vt-label'),lock=[...label.querySelectorAll(':scope > button')].find(b=>/lock/i.test(b.title));if(!label||label.querySelector('.v27-eye'))return;
+  const sound=group==='audio',off=!!(sound?track.muted:track.hidden),name=track.id==='video-main'?'V1':trackLabelV15(track,group);
+  const b=document.createElement('button');b.type='button';b.className='v27-eye';b.innerHTML=icon(sound?(off?'volume-x':'volume-2'):(off?'eye-off':'eye'));
+  b.title=(sound?(off?'Unmute ':'Mute '):(off?'Show ':'Hide '))+name;b.setAttribute('aria-label',b.title);b.setAttribute('aria-pressed',String(off));b.onclick=e=>{e.stopPropagation();toggleTrackV27(track.id);};
+  if(lock){lock.before(b);lock.title=(track.locked?'Unlock ':'Lock ')+name;lock.setAttribute('aria-label',lock.title);}else label.append(b);row.classList.toggle('v27-off',off);
+  label.oncontextmenu=e=>{e.preventDefault();trackMenuV27(track,e.clientX,e.clientY);};});
+ icons();}
+// "Add track" above the timeline: a menu of the kinds of track.
+function addTrackButtonV27(){const top=q('.ed-timeline-top');if(!top||q('#v27-add-track'))return;
+ const wrap=document.createElement('div');wrap.className='v27-add-wrap';const b=document.createElement('button');b.id='v27-add-track';b.type='button';b.className='v16-icon';b.innerHTML=icon('plus');b.title='Add track';b.setAttribute('aria-label','Add track');b.setAttribute('aria-haspopup','menu');b.setAttribute('aria-expanded','false');
+ const menu=document.createElement('div');menu.className='v16-menu v27-add-menu';menu.setAttribute('role','menu');menu.hidden=true;
+ for(const g of ['video','audio','graphics','effects']){const m=document.createElement('button');m.type='button';m.setAttribute('role','menuitem');m.textContent=GROUP_KIND_V27[g]+' track';m.setAttribute('aria-label','Add '+T8.labels[g]+' track');m.onclick=()=>{close();addTrackV27(g);};menu.append(m);}
+ const close=()=>{menu.hidden=true;b.setAttribute('aria-expanded','false');document.removeEventListener('pointerdown',out,true);},out=e=>{if(!wrap.contains(e.target))close();};
+ b.onclick=()=>{if(!menu.hidden)return close();menu.hidden=false;b.setAttribute('aria-expanded','true');const r=b.getBoundingClientRect();menu.style.left=Math.max(8,Math.min(innerWidth-menu.offsetWidth-8,r.right-menu.offsetWidth))+'px';menu.style.top=(r.bottom+4)+'px';document.addEventListener('pointerdown',out,true);menu.querySelector('button')?.focus();};
+ menu.onkeydown=e=>{if(e.key==='Escape'){close();b.focus();}};wrap.append(b,menu);
+ const view=q('#v8-timeline-view');if(view)view.prepend(wrap);else top.append(wrap);}
+const tracksBeforeV27=tracks;
+tracks=function(){if(legacyHiddenV27())commit();state.timelineView='auto';state.collapsedTrackGroups={};tracksBeforeV27();trackHeadersV27();addTrackButtonV27();const v=q('#v8-show-tracks');if(v)v.hidden=true;};
+// The preview draws the project as it plays: hidden and muted tracks left out (the export does the same).
+const paintBeforeV27=paint;
+paint=function(){const real=state,view=T8.visible(real);if(view===real){paintBeforeV27();root.querySelectorAll('.ed-layer.v27-off').forEach(n=>n.classList.remove('v27-off'));return;}
+ /* elements stay in (the drawing code looks each one up); those on hidden tracks are hidden after drawing */const shown=new Set((view.elements||[]).map(e=>e.id));state={...view,elements:real.elements};try{paintBeforeV27();}finally{state=real;}
+ root.querySelectorAll('.ed-layer[data-id]').forEach(n=>n.classList.toggle('v27-off',!shown.has(n.dataset.id)));};
 wireV4();wireV5();wireV7();wireV10();wireV11();
 globalThis.visorEditor={blank:()=>clone(initial),explainer:explainerV12,explainerDialog:explainerDialogV12,selectOverlay:selectOverlayV12,shortcuts:shortcutsV10,appendAsset,addElement,get:()=>clone(state),saveData:()=>withoutView(clone(state)),pause:stop,set:data=>{selectionV7=[];previewOriginal=false;previewEffect=null;stop();pendingUndoV15=null;lastTabV15='media';state={...clone(initial),...clone(data)};uniqueIdsV15(state);legacyZoomV15(state);captionLegacyV15(state);settleTracksV15();history=[];future=[];render(true);},reset:()=>{selectionV7=[];previewOriginal=false;previewEffect=null;stop();pendingUndoV15=null;state=clone(initial);settleTracksV15();history=[];future=[];render(true);},patch:data=>transaction(()=>Object.assign(state,clone(data))),open,undo,redo,applyStyle,importAssets,previewBefore:on=>{previewOriginal=on;paint();},previewEffect:id=>{previewEffect=id;paint();},jump:t=>{state.time=Math.max(0,Math.min(total(),t));paint();},removeSource:(a,b)=>transaction(()=>removeSource(a,b)),restoreRange:(a,b)=>{if(state.clips.length>=200)return notice('Remove a clip before restoring this range.');transaction(()=>{state.clips.push({id:uidV15(),asset:'walk',name:'Restored section',kind:'video',start:a,end:b,limit:32});state.clips.sort((x,y)=>x.asset==='walk'&&y.asset==='walk'?x.start-y.start:0);});},play,/* 0.15 (Phase 24) */copySettings:copySettingsV24,pasteSettings:pasteSettingsV24,moveLayer:moveLayerV24};render(true);
 })();
