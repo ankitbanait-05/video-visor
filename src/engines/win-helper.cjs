@@ -88,7 +88,11 @@ async function removeBackground(input, dest, ctx) {
   const mean = [0.5, 0.5, 0.5], tensor = new Float32Array(3 * S * S);
   for (let i = 0; i < S * S; i++) for (let c = 0; c < 3; c++) tensor[c * S * S + i] = data[i * 3 + c] / max - mean[c];
   const feeds = { [bgSession.inputNames[0]]: new ort.Tensor('float32', tensor, [1, 3, S, S]) };
-  const pred = (await bgSession.run(feeds))[bgSession.outputNames[0]].data;
+  // the model has 12 outputs (the mask plus inner layers); ask for the mask by name, never by position
+  const key = bgSession.outputNames.includes('output_image') ? 'output_image' : bgSession.outputNames[0];
+  const result = (await bgSession.run(feeds, [key]))[key];
+  if (result.dims.join() !== [1, 1, S, S].join()) throw Error('The cut-out model gave an unexpected result (' + key + ' ' + result.dims.join('×') + ').');
+  const pred = result.data;
   let lo = Infinity, hi = -Infinity; for (let i = 0; i < S * S; i++) { lo = Math.min(lo, pred[i]); hi = Math.max(hi, pred[i]); }
   const mask = Buffer.alloc(S * S); for (let i = 0; i < S * S; i++) mask[i] = Math.round((pred[i] - lo) / ((hi - lo) || 1) * 255);
   const alpha = await sharp(mask, { raw: { width: S, height: S, channels: 1 } }).resize(W, H, { fit: 'fill' }).raw().toBuffer();
