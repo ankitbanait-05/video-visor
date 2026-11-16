@@ -57,7 +57,9 @@ const attempt = async (name, fn) => { try { await fn(); } catch (e) { failed++; 
     let opaque = 0, x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
     for (let y = 0; y < info.height; y++) for (let x = 0; x < info.width; x++) if (a(x, y) > 128) { opaque++; x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
     if (process.env.VV_TEST_OUT) { await fs.mkdir(process.env.VV_TEST_OUT, { recursive: true }); for (const f of [img, out]) await fs.copyFile(f, path.join(process.env.VV_TEST_OUT, path.basename(f))); }
-    check('background removal: background clear, subject kept', info.channels === 4 && a(20, 20) < 60 && a(780, 40) < 60 && a(400, 330) > 190, { channels: info.channels, corner: a(20, 20), centre: a(400, 330), opaqueShare: +(opaque / (info.width * info.height)).toFixed(3), keptBox: [x0, y0, x1, y1] });
+    const art = async (file, on) => { const { data: d, info: n } = await sharp(file).resize(40, 15, { fit: 'fill' }).raw().toBuffer({ resolveWithObject: true }); const rows = []; for (let y = 0; y < 15; y++) { let r = ''; for (let x = 0; x < 40; x++) r += on(d, (y * 40 + x) * n.channels, n.channels) ? '#' : '.'; rows.push(r); } return rows.join('/'); };
+    const inputArt = await art(img, (d, i) => 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2] < 170), maskArt = await art(out, (d, i, c) => d[i + c - 1] > 128);
+    check('background removal: background clear, subject kept', info.channels === 4 && a(20, 20) < 60 && a(780, 40) < 60 && a(400, 330) > 190, { channels: info.channels, corner: a(20, 20), centre: a(400, 330), opaqueShare: +(opaque / (info.width * info.height)).toFixed(3), keptBox: [x0, y0, x1, y1], inputDark: inputArt, kept: maskArt });
   });
   await attempt('track', async () => {
     const video = path.join(dir, 'move.mp4');
