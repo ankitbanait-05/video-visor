@@ -95,7 +95,7 @@ async function removeBackground(input, dest, ctx) {
   const pred = result.data;
   let lo = Infinity, hi = -Infinity; for (let i = 0; i < S * S; i++) { lo = Math.min(lo, pred[i]); hi = Math.max(hi, pred[i]); }
   const mask = Buffer.alloc(S * S); for (let i = 0; i < S * S; i++) mask[i] = Math.round((pred[i] - lo) / ((hi - lo) || 1) * 255);
-  const alpha = await sharp(mask, { raw: { width: S, height: S, channels: 1 } }).resize(W, H, { fit: 'fill' }).raw().toBuffer();
+  const alpha = await sharp(mask, { raw: { width: S, height: S, channels: 1 } }).resize(W, H, { fit: 'fill' }).extractChannel(0).raw().toBuffer();   // one channel: sharp otherwise returns the grey mask as RGB
   // (a fresh pipeline: removeAlpha() on the same one would drop the new alpha channel again)
   const rgb = await base.clone().raw().toBuffer();
   await sharp(rgb, { raw: { width: W, height: H, channels: 3 } }).joinChannel(alpha, { raw: { width: W, height: H, channels: 1 } }).png().toFile(dest);
