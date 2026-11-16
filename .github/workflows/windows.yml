@@ -67,8 +67,8 @@ jobs:
         with:
           name: Video-Visor-windows
           path: |
-            dist-win/*.exe
-            dist-win/*.zip
+            dist-win/Video-Visor-*.exe
+            dist-win/Video-Visor-*.zip
             smoke/
           if-no-files-found: warn
 
@@ -82,4 +82,4 @@ jobs:
           Copy-Item smoke/screenshot.png "dist-win/Video-Visor-windows-start-up.png"
           gh release view $tag --repo ${{ github.repository }} | Out-Null
           if ($LASTEXITCODE -ne 0) { throw "Release $tag does not exist yet: publish it first, then run this again" }
-          gh release upload $tag (Get-ChildItem dist-win/*.exe, dist-win/*.zip, dist-win/Video-Visor-windows-start-up.png).FullName --clobber --repo ${{ github.repository }}
+          gh release upload $tag (Get-ChildItem dist-win/Video-Visor-*.exe, dist-win/Video-Visor-*.zip, dist-win/Video-Visor-windows-start-up.png).FullName --clobber --repo ${{ github.repository }}
