@@ -25,8 +25,8 @@ Local desktop video editor, screen recorder and file tools for macOS (Electron 4
 
 Download **Video-Visor-…-win-x64-setup.exe** from [Releases](https://github.com/ankitbanait-05/video-visor/releases/latest) (or the portable **…-win-x64.zip**) and run it. The installer is not code-signed yet, so Windows SmartScreen may say "Windows protected your PC": click **More info → Run anyway**.
 
-Windows 10 or 11, 64-bit. The editor, recording, export, captions and most file tools work as on the Mac. Not on Windows yet (they use a macOS-only helper): background removal, text from images (OCR), PDF to image, PDF compress / protect / unlock / repair, PDF summary / compare / markdown, Screenshot and tracking blur.
-Everything runs on your Mac: recordings, edits and file tools stay local.
+Windows 10 or 11, 64-bit. Every tool is on Windows too: the editor, recording, Screenshot, export, captions and all file tools. Background removal, text from images (OCR), PDF to image, PDF compress / protect / unlock / repair, PDF summary / compare / markdown and tracking blur use Windows versions (pdf.js, Tesseract, qpdf, an IS-Net cut-out model) in place of the macOS helper, so results can differ slightly from the Mac.
+Everything runs on your computer: recordings, edits and file tools stay local.
 
 ---
 
