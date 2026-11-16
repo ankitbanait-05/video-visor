@@ -133,3 +133,15 @@ The button crawler clicked every button on every screen and editor panel. Nothin
 | Before | Now |
 |---|---|
 | "Where is your video going?" with four cards (Presentation, Email or chat, High quality, Custom), a size line, a sentence about the save dialog, More settings, a note about 4K, and a large second button for other shapes | **Export**: three quality choices named by their result (720p "Smaller file", 1080p "Recommended", 4K "Sharpest, largest file"); one line saying what you will get and how big it is (for example "MP4 · 1920 × 1080 · 29.0 s … ~46 MB"); More settings folded (Format, Frame rate, Captions, and GIF width or Audio format only when that format is chosen); one Export button whose label follows the format (Export video / Export GIF / Export audio); "Next, choose where to save it" under it; other shapes as a quiet link. The note about 4K moved into the 4K choice's tooltip. Warnings (long GIF, very wide canvas at 4K) still appear under the summary. |
+
+## Phase 31: final clean-up for 0.15.0
+
+Five reviews read every source file; each finding was checked against the code before anything changed.
+
+| Area | Change |
+|---|---|
+| Speed | The editor no longer copies the whole project every frame to look up the cursor (only when focus follows the cursor, and without a copy). Scrubbing no longer redraws every icon on each move. A repair meant for project open no longer runs every frame. The hide / mute check does nothing while no track is hidden. A page-wide watcher runs once per batch of changes instead of on every change. |
+| Fixes | Jobs-list "open" only opens media and documents. Developer export settings are ignored outside the Dev benchmark. Re-importing the same file (and the music library on every launch) reuses its entry. A failed write while recording is reported instead of silently losing the rest. An unreadable video layer fails an export at once instead of after 15 s. Undo after slider drags follows the same rules as other edits. |
+| Removed | Prototype leftovers (a simulated recorder, a "preview a suggestion" demo, a design-tweak hook), old handlers always replaced at load, unused helpers and one unused IPC handler, 165 style rules (16.5 KB) for screens that no longer exist. |
+| Not changed | Deeper restructuring (old layered editor panels, caption caching) — too much code to touch right before a release. |
+| Release | Version 0.15.0. `dist/Video Visor-0.15.0-arm64.dmg`, ad-hoc signed (no Developer ID yet), Apple silicon only. 177 checks, the real-app export check, the alignment audit and the crawler all pass on this code. |

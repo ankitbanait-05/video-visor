@@ -4,7 +4,7 @@ const fs=require('node:fs/promises'),path=require('node:path');
 const {normalizeArea,cursorPoint,RecordingClock}=require('./geometry.js');
 class RecorderController {
   constructor(ctx){
-    this.ctx=ctx;this.panel=null;this.overlay=null;this.sources=[];this.phase='idle';this.clock=new RecordingClock();this.cursor=[];this.write=Promise.resolve();this.config={kind:'video'};this.area=null;this.tray=null;this.hotkeys=[];
+    this.ctx=ctx;this.panel=null;this.overlay=null;this.sources=[];this.phase='idle';this.clock=new RecordingClock();this.cursor=[];this.write=Promise.resolve();this.writeError=null;this.config={kind:'video'};this.area=null;this.tray=null;this.hotkeys=[];
     const route=(name,fn,overlay=false)=>ipcMain.handle('recorder:'+name,(event,...args)=>{
       const host=overlay?this.overlay:this.panel;
       if(!host||host.isDestroyed()||event.sender!==host.webContents||event.senderFrame!==host.webContents.mainFrame)throw Error('Invalid recorder request');
@@ -102,7 +102,7 @@ class RecorderController {
     callback({video:this.source,...(this.config.systemAudio?{audio:'loopback'}:{})});
   }
   async begin(){
-    const stamp=Date.now();this.file=path.join(this.ctx.root,'Recording-'+stamp+'.webm');await fs.writeFile(this.file,'',{flag:'wx'});this.cameraFile=null;this.cameraDelay=0;if(this.config.camera){this.cameraFile=path.join(this.ctx.root,'Recording-'+stamp+'-camera.webm');await fs.writeFile(this.cameraFile,'',{flag:'wx'});}this.write=Promise.resolve();this.cursor=[];this.clock.start();this.phase='recording';
+    const stamp=Date.now();this.file=path.join(this.ctx.root,'Recording-'+stamp+'.webm');await fs.writeFile(this.file,'',{flag:'wx'});this.cameraFile=null;this.cameraDelay=0;if(this.config.camera){this.cameraFile=path.join(this.ctx.root,'Recording-'+stamp+'-camera.webm');await fs.writeFile(this.cameraFile,'',{flag:'wx'});}this.write=Promise.resolve();this.writeError=null;this.cursor=[];this.clock.start();this.phase='recording';
     this.timer=setInterval(()=>{if(this.phase==='recording'&&this.display)this.cursor.push({t:this.clock.seconds(),...cursorPoint(screen.getCursorScreenPoint(),this.display.bounds,this.area)});},100);
     this.panel.setContentProtection(true);this.panel.setSize(440,150);
     const work=screen.getPrimaryDisplay().workArea;this.panel.setPosition(work.x+Math.round((work.width-440)/2),work.y+work.height-180);
@@ -113,7 +113,7 @@ class RecorderController {
     if(!this.file||!['recording','paused','processing'].includes(this.phase))throw Error('Recording is not active.');
     const bytes=Buffer.from(buffer);if(bytes.length>32*1024*1024)throw Error('Recording chunk is too large.');
     const file=stream==='camera'?this.cameraFile:this.file;if(!file)throw Error('The camera is not being recorded.');
-    this.write=this.write.then(()=>fs.appendFile(file,bytes));return this.write;
+    /* 0.15: one failed write is remembered and reported, instead of rejecting every later chunk */this.write=this.write.then(()=>fs.appendFile(file,bytes)).catch(e=>{this.writeError=this.writeError||e;});return this.write;
   }
   createControls(){
     for(const [key,action]of [['CommandOrControl+Shift+2','stop'],['CommandOrControl+Shift+9','pause']])if(globalShortcut.register(key,()=>this.command(action)))this.hotkeys.push(key);
@@ -135,7 +135,7 @@ class RecorderController {
     if(Number.isFinite(info?.cameraDelay))this.cameraDelay=Math.max(-2,Math.min(2,info.cameraDelay));
     const output=this.file.replace(/\.webm$/,this.config.kind==='voice'?'.m4a':'.mp4');
     try{
-      await this.write;
+      await this.write;if(this.writeError){const e=this.writeError;this.writeError=null;throw Error('Part of the recording could not be written to disk ('+(e.code||e.message)+'). Check that the disk has space.');}
       // 0.15: the recording is already H.264 / VP9 with a keyframe every second, so it is only repackaged into MP4
       // (about 0.2 s for 20 s instead of a full re-encode). Screen and camera are saved in the same job, so another
       // task can no longer take over in between and lose the camera. A re-encode is the fallback if repackaging fails.

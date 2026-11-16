@@ -41,10 +41,5 @@ function remove(state,ids,keepGap=false){
  next.selected=Math.max(0,Math.min(state.selected,clips.length-1));next.time=Math.min(state.time,duration(clips));next.panel='media';return next;
 }
 function formatTime(t){t=Math.max(0,Number(t)||0);const tenths=Math.floor((t+1e-6)*10),minutes=Math.floor(tenths/600);return String(minutes).padStart(2,'0')+':'+String(Math.floor(tenths/10)%60).padStart(2,'0')+'.'+tenths%10;}
-function captionWords(line,time,max=3){
- const words=line.text.trim().split(/\s+/).filter(Boolean);max=+max===4?4:3;
- const current=line.words?.length===words.length?Math.max(0,line.words.findLastIndex(w=>time>=w.start)):Math.min(words.length-1,Math.floor((time-line.start)/Math.max(.001,line.end-line.start)*words.length));
- const from=Math.floor(Math.max(0,current)/max)*max;return{words,current,from,to:from+max};
-}
-const api={insert,reorder,remove,boundary,duration,formatTime,captionWords};if(typeof module==='object')module.exports=api;else root.timelineModelV7=api;
+const api={insert,reorder,remove,boundary,duration,formatTime};if(typeof module==='object')module.exports=api;else root.timelineModelV7=api;
 })(globalThis);

@@ -3,9 +3,9 @@
 #visor-app .v-pill{font-size:12px}
 #visor-app .v-small{font-size:12px}
 #visor-app .v-footer{font-size:12px}
-#visor-app .v-paper{font-size:12px}
-#visor-app .v-pdf-toolbar .v-button{font-size:12px}
-#visor-app #vv-editor .fakecontent{font-size:12px}
+
+
+
 @media(max-width:600px){#visor-app .v-nav .v-button{font-size:12px}}
 #vv-editor .ed-small{font-size:12px}
 #vv-editor .ed-frame-label{font-size:12px}
@@ -20,16 +20,16 @@
 #vv-editor .ed-asset span{font-size:12px}
 @media(max-width:500px){#vv-editor .ed-timeline-top button{font-size:12px}}
 #visor-app .v-nav small{font-size:12px}
-#visor-app #vv-editor .template-list small{font-size:12px}
+
 #visor-app .v-nav small{font-size:12px}
-#visor-app .flow-steps{font-size:12px}
-#visor-app .flow-suggestion small{font-size:12px}
-#visor-app .flow-suggestion button{font-size:12px}
-#visor-app .flow-section-label{font-size:12px}
+
+
+
+
 #visor-app .flow-purpose p{font-size:12px}
 #visor-app .flow-reviewbar{font-size:12px}
 #visor-app .flow-reviewbar .v-button{font-size:12px}
-#visor-app .flow-frame-columns span{font-size:12px}
+
 @media(max-width:600px){#visor-app .v-nav .v-button,#visor-app.editor-mode .v-nav .v-button{font-size:12px}#visor-app .flow-start p{font-size:12px}}
 #visor-app #vv-editor .ed-ruler,#visor-app #vv-editor .ed-clip button,#visor-app #vv-editor .ed-track button,#visor-app #vv-editor .ed-preset small{font-size:12px}
 #visor-app .v-nav small{font-size:12px}

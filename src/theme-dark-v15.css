@@ -14,10 +14,10 @@
 #visor-app:where([data-theme=dark]) button:focus-visible,#visor-app:where([data-theme=dark]) input:focus-visible,#visor-app:where([data-theme=dark]) select:focus-visible{outline:3px solid #a99aee}
 #visor-app:where([data-theme=dark]) .v-pill{background:var(--v-soft);color:var(--v-sub)}
 #visor-app:where([data-theme=dark]) .v-muted{color:var(--v-sub)}
-#visor-app:where([data-theme=dark]) .v-hero{background:linear-gradient(115deg,light-dark(#ece8ff,#30294b),light-dark(#f6f3ff,#282638));border:1px solid light-dark(#e0daf8,#403856)}
-#visor-app:where([data-theme=dark]) .v-hero-art{border:1px solid light-dark(#d6ceee,#514465);background:var(--v-panel);box-shadow:8px 12px 0 light-dark(#dcd4f3,#3e3354)}
-#visor-app:where([data-theme=dark]) .v-hero-art .v-play-disc{background:var(--v-purple)}
-#visor-app:where([data-theme=dark]) .v-art-track{background:linear-gradient(to right,#ae9ae5 60%,#261e32 60%)}
+
+
+
+
 #visor-app:where([data-theme=dark]) .v-card{background:var(--v-panel);border:1px solid var(--v-border)}
 #visor-app:where([data-theme=dark]) button.v-card{color:var(--v-ink)}
 #visor-app:where([data-theme=dark]) button.v-card:hover{border-color:#b7a8ed;box-shadow:0 3px 12px #71618b0b}
@@ -41,24 +41,24 @@
 #visor-app:where([data-theme=dark]) .v-check{color:var(--v-ink)!important}
 #visor-app:where([data-theme=dark]) .v-banner{background:var(--v-tint);color:var(--v-ink)}
 #visor-app:where([data-theme=dark]) .v-empty{color:var(--v-sub)}
-#visor-app:where([data-theme=dark]) .v-monitor{background:linear-gradient(120deg,#262e35,#2c2635);border:9px solid light-dark(#33394a,#485165)}
-#visor-app:where([data-theme=dark]) .v-monitor:after{background:var(--v-sub)}
-#visor-app:where([data-theme=dark]) .v-screen-window{background:var(--v-panel);box-shadow:0 5px 25px #0002}
-#visor-app:where([data-theme=dark]) .v-screen-window div{background:var(--v-soft)}
-#visor-app:where([data-theme=dark]) .v-paper{background:light-dark(#fff,#eceef2);color:#bec2ca;border:1px solid #24262a;box-shadow:0 2px 5px #0001}
-#visor-app:where([data-theme=dark]) .v-paperlines{background:repeating-linear-gradient(#24272a 0 3px,transparent 3px 10px)}
-#visor-app:where([data-theme=dark]) .v-pdf-item.selected .v-paper{outline:2px solid var(--v-purple)}
-#visor-app:where([data-theme=dark]) .v-progress{background:var(--v-soft)}
-#visor-app:where([data-theme=dark]) .v-progress span{background:var(--v-purple)}
+
+
+
+
+
+
+
+
+
 #visor-app:where([data-theme=dark]) .v-overlay{background:#15172388}
 #visor-app:where([data-theme=dark]) .v-dialog{background:var(--v-panel);border:1px solid var(--v-border);box-shadow:0 20px 60px #0003}
-#visor-app:where([data-theme=dark]) .v-success{background:light-dark(#edf7f0,#23392d)}
+
 #visor-app:where([data-theme=dark]) .v-notes{background:var(--v-soft)}
-#visor-app:where([data-theme=dark]) .v-title-edit{border:1px solid var(--v-border);background:var(--v-panel);color:var(--v-ink)}
+
 #visor-app:where([data-theme=dark]) .v-editor-extras{background:var(--v-panel);border-bottom:1px solid var(--v-border)}
 #visor-app:where([data-theme=dark]) .v-more{border-top:1px solid var(--v-border)}
 #visor-app:where([data-theme=dark]) .v-more summary{color:var(--v-sub)}
-@media(max-width:850px){#visor-app:where([data-theme=dark]) #vv-editor .inspector{border-top:1px solid var(--v-border)}}
+
 @media(max-width:600px){#visor-app:where([data-theme=dark]) .v-nav,#visor-app:where([data-theme=dark]).editor-mode .v-nav{border-bottom:1px solid var(--v-border)}}
 :where(:root[data-theme=dark]) #vv-editor{color:var(--v-ink);background:var(--v-bg)}
 :where(:root[data-theme=dark]) #vv-editor button,:where(:root[data-theme=dark]) #vv-editor select,:where(:root[data-theme=dark]) #vv-editor input,:where(:root[data-theme=dark]) #vv-editor textarea{color:var(--v-ink)}
@@ -116,9 +116,9 @@
 #visor-app:where([data-theme=dark]) .v-nav{background:var(--v-bg)}
 #visor-app:where([data-theme=dark]) .v-nav-end .v-notes{background:linear-gradient(150deg,var(--v-panel),var(--v-tint));border:1px solid var(--v-border)}
 #visor-app:where([data-theme=dark]) .v-button.primary{background:linear-gradient(#b98050,#995d32);border-color:#a46e43;box-shadow:inset 0 1px #ffffff38,0 2px 5px #3c261414}
-#visor-app:where([data-theme=dark]) .v-hero{background:radial-gradient(ellipse at 100% 100%,light-dark(#e9c49c,#5d3a1f),transparent 65%),var(--v-panel);border-color:var(--v-border)}
-#visor-app:where([data-theme=dark]) .v-hero-art{box-shadow:10px 13px 30px #55351f20;background:linear-gradient(150deg,var(--v-panel),var(--v-soft));border-color:var(--v-border)}
-#visor-app:where([data-theme=dark]) .v-art-track{background:linear-gradient(90deg,#b9855a 65%,#463b30 65%)}
+
+
+
 #visor-app:where([data-theme=dark]) .v-toolicon{background:var(--v-soft);color:var(--v-ink);border:1px solid var(--v-border)}
 #visor-app:where([data-theme=dark]) button.v-card:hover{border-color:var(--v-purple);box-shadow:0 5px 20px #432d1510}
 #visor-app:where([data-theme=dark]) .v-thumb{background:radial-gradient(ellipse at 90% 110%,#c39b73,transparent 70%),light-dark(#dfd8ce,#393b37)}
@@ -126,19 +126,19 @@
 #visor-app:where([data-theme=dark]) .v-button.selected{background:var(--v-tint);border-color:var(--v-purple)}
 #visor-app:where([data-theme=dark]) #vv-editor .stage{background:radial-gradient(ellipse at 50% 100%,light-dark(#dfd6c9,#30281f),transparent 80%)}
 #visor-app:where([data-theme=dark]) #vv-editor .canvas{background:radial-gradient(ellipse at 20% 110%,#c8a477,transparent 70%),linear-gradient(130deg,#555e59,#919386)}
-#visor-app:where([data-theme=dark]) #vv-editor .inspector{background:var(--v-panel)}
-#visor-app:where([data-theme=dark]) #vv-editor .studio-tabs{border-top:1px solid var(--v-border);background:var(--v-panel)}
-#visor-app:where([data-theme=dark]) #vv-editor .studio-tabs button{color:var(--v-sub)}
-#visor-app:where([data-theme=dark]) #vv-editor .studio-tabs button.on{background:var(--v-soft);color:var(--v-ink)}
+
+
+
+
 #visor-app:where([data-theme=dark]) #vv-editor button.on{border-color:var(--v-purple);background:var(--v-tint)}
-#visor-app:where([data-theme=dark]) #vv-editor .caption-preset small{color:var(--v-sub)}
-#visor-app:where([data-theme=dark]) #vv-editor .cap-art{background:light-dark(#e8e3da,#2c2d29)}
-#visor-app:where([data-theme=dark]) #vv-editor .cap-art.highlight em,#visor-app:where([data-theme=dark]) #vv-editor .cap-art.marker em{background:#d6b083;color:#292219}
-#visor-app:where([data-theme=dark]) #vv-editor .cap-art.karaoke em{color:light-dark(#8b5728,#e8b97f)}
-#visor-app:where([data-theme=dark]) #vv-editor .cap-art.boxed em{background:var(--v-ink);color:var(--v-panel)}
-#visor-app:where([data-theme=dark]) #vv-editor .template-art{background:var(--v-soft)}
-#visor-app:where([data-theme=dark]) #vv-editor .template-list small{color:var(--v-sub)}
-#visor-app:where([data-theme=dark]) #vv-editor .template-art.lower{border-left:3px solid var(--v-purple)}
+
+
+
+
+
+
+
+
 #visor-app:where([data-theme=dark]) #vv-editor .caption>span{background:#191b1ed9;color:#fff}
 #visor-app:where([data-theme=dark]) #vv-editor .caption[data-style=highlight] b.current,#visor-app:where([data-theme=dark]) #vv-editor .caption[data-style=marker] b.current{background:var(--caption-accent);color:#222}
 #visor-app:where([data-theme=dark]) #vv-editor .caption[data-style=karaoke] b.spoken{color:var(--caption-accent)}
@@ -149,31 +149,31 @@
 #visor-app:where([data-theme=dark]) #vv-editor .overlay.selected{outline:1px solid #edb77c}
 #visor-app:where([data-theme=dark]) #vv-editor .timeline{background:var(--v-panel)}
 #visor-app:where([data-theme=dark]) #vv-editor .clip{background:linear-gradient(130deg,light-dark(#b7c6bc,#405a49),light-dark(#d3ddd6,#496451)));border-color:light-dark(#9daf9e,#6b886f);color:var(--v-ink)}
-#visor-app:where([data-theme=dark]) #vv-editor .zoomblock,#visor-app:where([data-theme=dark]) #vv-editor .elblock{background:var(--v-tint);color:var(--v-ink)}
+
 #visor-app:where([data-theme=dark]) #vv-editor .field select,#visor-app:where([data-theme=dark]) #vv-editor .field input:not([type=range]):not([type=color]){border:1px solid var(--v-border);background:var(--v-bg);color:var(--v-ink)}
-#visor-app:where([data-theme=dark]) #vv-editor .panelgroup summary{color:var(--v-sub)}
+
 #visor-app:where([data-theme=dark]) .music-cover{background:linear-gradient(140deg,var(--v-soft),var(--v-tint));border:1px solid var(--v-border)}
 #visor-app:where([data-theme=dark]) #vv-editor .caption[data-style=marker] b.current{color:var(--caption-accent);box-shadow:inset 0 -3px var(--caption-accent)}
-#visor-app:where([data-theme=dark]) #vv-editor .element-custom{border-top:1px solid var(--v-border)}
+
 #visor-app:where([data-theme=dark]) .flow-start:first-child{background:radial-gradient(ellipse at 0 100%,var(--v-tint),transparent 85%),var(--v-panel)}
 #visor-app:where([data-theme=dark]) .flow-drop{border:1px dashed var(--v-sub);background:var(--v-panel)}
 #visor-app:where([data-theme=dark]) .flow-drop input{color:var(--v-sub)}
 #visor-app:where([data-theme=dark]) .flow-drop.dragging{background:var(--v-tint)}
-#visor-app:where([data-theme=dark]) .flow-steps{color:var(--v-sub)}
-#visor-app:where([data-theme=dark]) .flow-steps .active{color:var(--v-ink)}
+
+
 #visor-app:where([data-theme=dark]) .v-card.selected{background:var(--v-tint);border-color:var(--v-purple)}
-#visor-app:where([data-theme=dark]) .flow-suggestion{border-bottom:1px solid var(--v-border)}
-#visor-app:where([data-theme=dark]) .flow-suggestion small{color:var(--v-sub)}
-#visor-app:where([data-theme=dark]) .flow-section-label{color:var(--v-sub)}
+
+
+
 #visor-app:where([data-theme=dark]) .flow-export-estimate{background:var(--v-soft)}
 #visor-app:where([data-theme=dark]) .flow-reviewbar{border:1px solid var(--v-border);background:var(--v-tint)}
-#visor-app:where([data-theme=dark]) .flow-meter{background:var(--v-soft)}
-#visor-app:where([data-theme=dark]) .flow-meter span{background:var(--v-purple)}
-#visor-app:where([data-theme=dark]) .flow-frame-preview{background:var(--v-soft);border:1px solid var(--v-border)}
-#visor-app:where([data-theme=dark]) .flow-frame-columns span{background:var(--v-panel)}
-#visor-app:where([data-theme=dark]) .flow-mark{background:var(--v-purple);color:#fff}
-#visor-app:where([data-theme=dark]) .flow-mark.arrow{color:var(--v-ink)}
-#visor-app:where([data-theme=dark]) .flow-mark.blur{background:rgba(70,70,70,0.188);border:1px dashed var(--v-sub)}
+
+
+
+
+
+
+
 #visor-app:where([data-theme=dark]){background:radial-gradient(ellipse at 100% 0%,light-dark(#e5f2ff,#112c49),transparent 55%),var(--v-bg)}
 #visor-app:where([data-theme=dark]) .v-top{background:linear-gradient(110deg,var(--v-panel) 30%,light-dark(#eaf3ff,#182c48) 75%,light-dark(#dcefff,#153a57));border-bottom-color:var(--v-border)}
 #visor-app:where([data-theme=dark]) .v-logo{background:linear-gradient(145deg,#439df4,#1f7ae0 55%,#1854ac);box-shadow:inset 0 1px #ffffff66,0 4px 12px #1f7ae025}
@@ -190,7 +190,7 @@
 #visor-app:where([data-theme=dark]) .v-thumb.paper{background:var(--v-soft)}
 #visor-app:where([data-theme=dark]) .v-search{background:var(--v-panel)}
 #visor-app:where([data-theme=dark]) .v-dialog{box-shadow:0 18px 65px #071d3b45}
-#visor-app:where([data-theme=dark]) .v-monitor{background:linear-gradient(130deg,#182d3f,#719fe4);border-color:light-dark(#384d68,#304c6e)}
+
 #visor-app:where([data-theme=dark]) .v-card.selected,#visor-app:where([data-theme=dark]) .v-button.selected{border-color:#1f7ae0}
 #visor-app:where([data-theme=dark]) button:focus-visible,#visor-app:where([data-theme=dark]) input:focus-visible,#visor-app:where([data-theme=dark]) select:focus-visible{outline-color:#6cabef}
 #visor-app:where([data-theme=dark]) #vv-editor .ed-canvas{background:radial-gradient(ellipse at 10% 100%,#68c3ef,transparent 70%),linear-gradient(130deg,#1b3c6d,#719fe4);box-shadow:0 8px 25px #071d3b18}
@@ -232,14 +232,14 @@
 #visor-app:where([data-theme=dark]) .v-input,#visor-app:where([data-theme=dark]) .v-select{background:#141c22;border-color:#1b242a}
 #visor-app:where([data-theme=dark]) .v-banner{background:#152129;border:1px solid #172530;color:#a7b6c3}
 #visor-app:where([data-theme=dark]) .v-card.selected{background:#111f29;border-color:#80bbe3}
-#visor-app:where([data-theme=dark]) .v-monitor{background:linear-gradient(125deg,#172737,#85b7ef);border-color:#597b9c;box-shadow:0 15px 30px #34638b1c}
+
 #visor-app:where([data-theme=dark]) .office-hero{border:1px solid #0d2323;background:radial-gradient(ellipse at 90% 0%,#0e1825 0,transparent 60%),linear-gradient(115deg,#121f2f,#172536 52%,#9fc6f4);box-shadow:inset 0 1px #ffffffbb,0 12px 30px #487c9f10}
 #visor-app:where([data-theme=dark]) .office-eyebrow{color:#92b6dd}
 #visor-app:where([data-theme=dark]) .office-hero h1{color:#c3c7cb}
 #visor-app:where([data-theme=dark]) .office-hero p{color:#b1b4b7}
 #visor-app:where([data-theme=dark]) .office-ribbon{border:34px solid rgba(23,23,23,0.259);box-shadow:inset 3px 7px 12px #f5ffffc9,6px 10px 14px #4c8bb344,-2px -3px 3px #ffffffaa;background:linear-gradient(130deg,rgba(18,31,46,0.333),#1f7ae035)}
-#visor-app:where([data-theme=dark]) .office-float{background:linear-gradient(135deg,rgba(23,23,23,0.851),rgba(15,29,40,0.651));border:1px solid #171717;box-shadow:0 12px 25px #366c9b24;color:#82b5ee}
-#visor-app:where([data-theme=dark]) .office-float:after{background:linear-gradient(90deg,#1f7ae0 65%,#1b2730 65%)}
+
+
 #visor-app:where([data-theme=dark]) #vv-editor .ed-tabs button{color:#9aa3ac}
 #visor-app:where([data-theme=dark]) #vv-editor .ed-tabs button.active{background:#171717;border-color:#171717;box-shadow:0 2px 5px #476e8810;color:#82b5ee}
 #visor-app:where([data-theme=dark]) #vv-editor .ed-panel,#visor-app:where([data-theme=dark]) #vv-editor .ed-timeline{background:rgba(23,23,23,0.929);border:1px solid #171717;box-shadow:0 5px 20px #345a7808}
@@ -255,7 +255,7 @@
 #visor-app:where([data-theme=dark]) #vv-editor .ed-edge,#visor-app:where([data-theme=dark]) #vv-editor .ed-playline{background:#1f7ae0}
 #visor-app:where([data-theme=dark]) #vv-editor .ed-preset span{background:linear-gradient(130deg,#131f26,#18242b);color:#a5b5c3}
 #visor-app:where([data-theme=dark]) #vv-editor .ed-preset.active{border-color:#74b3df;background:#0e1c26}
-#visor-app:where([data-theme=dark]) .v-success{background:#192321;color:#b5c9c4}
+
 #visor-app:where([data-theme=dark]) #vv-editor .ed-captions .current{background:#1f7ae0;color:#fff}
 #visor-app:where([data-theme=dark]) #vv-editor .ed-captions[data-style=clean]>span{background:#172536ed}
 #visor-app:where([data-theme=dark]) #vv-editor .ed-captions[data-style=karaoke] .spoken:not(.current){color:#fff}
@@ -271,7 +271,7 @@
 #visor-app:where([data-theme=dark]) #vv-editor .ed-preset[data-cap=clean] em{color:#82b5ee}
 #visor-app:where([data-theme=dark]) #vv-editor .ed-preset[data-cap=highlight] span{background:#172536;color:#fff}
 #visor-app:where([data-theme=dark]) #vv-editor .ed-screen{background:#172536}
-:where(:root[data-theme=dark]) .recording-preview{background:#172536}
+
 :where(:root[data-theme=dark]) .native-pdf{border:1px solid #26272a}
 :where(:root[data-theme=dark]) #native-empty{color:#dce9f9;background:#172536}
 :where(:root[data-theme=dark]) #vt-tracks{border:1px solid #1d242b;background:#131820}

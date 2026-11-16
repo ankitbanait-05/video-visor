@@ -98,7 +98,10 @@
     box.append(undo, redo); title.classList.add('v16-titleblock'); title.prepend(box);
   }
   // The editor rebuilds parts of its layout; wire up whenever the preview appears.
-  new MutationObserver(() => { placeHistory(); tabTitles(); fillAll(); toastUndo(); if ($('.ed-main') && wired !== $('.ed-main')) wire(); else if ($('.v10-transport-left') && !$('#v16-zoom')) { wired = null; wire(); } })
+  // 0.15: runs once per batch of page changes (it used to run on every single change: clock ticks, timeline redraws…)
+  let queued = false;
+  const check = () => { queued = false; placeHistory(); tabTitles(); fillAll(); toastUndo(); if ($('.ed-main') && wired !== $('.ed-main')) wire(); else if ($('.v10-transport-left') && !$('#v16-zoom')) { wired = null; wire(); } };
+  new MutationObserver(() => { if (!queued) { queued = true; setTimeout(check, 0); } })
     .observe(document.body, { childList: true, subtree: true });
   // 0.15 (Phase 21): a half-finished "drag a box to blur" on the preview is cancelled when another project starts.
   const editor = window.visorEditor;

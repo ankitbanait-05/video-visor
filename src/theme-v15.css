@@ -181,8 +181,8 @@
 #visor-app #vv-editor .v16-brand{display:flex;align-items:center;gap:10px;text-align:left;margin:4px 0 12px}
 #visor-app #vv-editor .v16-brand span{display:flex;flex-direction:column}
 #visor-app #vv-editor .v16-brand small{color:var(--v-sub);font-weight:400}
-#visor-app #vv-editor .v16-more{position:relative;margin-left:auto}
-#visor-app #vv-editor .v16-more-toggle{width:32px;padding:0;display:grid;place-items:center}
+
+
 #visor-app #vv-editor .v16-menu{position:absolute;right:0;bottom:calc(100% + 4px);z-index:20;display:flex;flex-direction:column;min-width:150px;padding:4px;border:1px solid var(--v-border);border-radius:10px;background:var(--v-panel);box-shadow:0 8px 24px #0002}
 #visor-app #vv-editor .v16-menu[hidden]{display:none}
 #visor-app #vv-editor .v16-menu button{justify-content:flex-start;border:0;background:none;text-align:left;width:100%}

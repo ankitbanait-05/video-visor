@@ -180,6 +180,6 @@ async function exportProject(ctx){
   if(marks.length){if(marks[0].t>=1)marks.unshift({t:0,label:'Introduction'});const meta=path.join(dir,'chapters.txt');await fs.writeFile(meta,';FFMETADATA1\n'+marks.map((m,i)=>'[CHAPTER]\nTIMEBASE=1/1000\nSTART='+Math.round(m.t*1000)+'\nEND='+Math.round((marks[i+1]?.t??duration)*1000)+'\ntitle='+m.label+'\n').join(''));chapterArgs.push('-f','ffmetadata','-i',meta,'-map_chapters','2');}
   await run(ffmpeg,['-y','-i',videoFile,'-i',audio,...chapterArgs,'-map','0:v:0','-map','1:a:0',...codec,'-t',String(duration),output]);}
  check();await fs.copyFile(output,dest);let srt;if(cfg.captions?.startsWith('Separate')){srt=dest.replace(/\.[^.]+$/,'.srt');await ctx.validateOutput?.(srt);/* 0.15: ask before replacing a caption file that is already there */const there=await fs.access(srt).then(()=>true,()=>false);if(there&&ctx.confirmReplace&&!(await ctx.confirmReplace(srt)))srt=undefined;else await fs.writeFile(srt,subtitles(state));}progress(100,'Export complete');return {path:dest,srt,timing:ctx.timing};
- }finally{stopDirect();for(const r of extraRenderers)try{if(!r.isDestroyed())r.destroy();}catch{}renderer=null;if(encoding&&!encoding.killed)encoding.kill();await fs.rm(dir,{recursive:true,force:true});}
+ }finally{stopDirect();for(const r of extraRenderers)try{if(!r.isDestroyed())r.destroy();}catch{}renderer=null;if(encoding&&!encoding.killed)encoding.kill();await fs.rm(dir,{recursive:true,force:true}).catch(()=>{});}
 }
 module.exports={exportProject,subtitles,dimensions};

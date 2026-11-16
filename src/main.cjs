@@ -1,4 +1,4 @@
-const {app,BrowserWindow,ipcMain,dialog,protocol,net,session,desktopCapturer,screen,systemPreferences,shell,safeStorage,nativeTheme,Menu}=require('electron');
+const {app,BrowserWindow,ipcMain,dialog,protocol,net,session,screen,shell,safeStorage,nativeTheme,Menu}=require('electron');
 const fs=require('node:fs/promises'),path=require('node:path'),{pathToFileURL}=require('node:url'),{randomUUID}=require('node:crypto'),{spawn}=require('node:child_process');
 const ffmpeg=require('ffmpeg-static').replace('app.asar/','app.asar.unpacked/');
 /* 0.15 (Phase 21): the Dev build also honours a test data folder, so benchmarks never touch the Dev workspace you use */if(process.env.VIDEO_VISOR_TEST_HOME&&(!app.isPackaged||require('../package.json').name==='video-visor-dev'))app.setPath('userData',path.resolve(process.env.VIDEO_VISOR_TEST_HOME));
@@ -6,7 +6,7 @@ protocol.registerSchemesAsPrivileged([{scheme:'visor',privileges:{standard:true,
 let recorderController;let connector=null,connectionFile=null;let libraryCache;let win,root,storage,registry={},currentJob=null;let projectStore,closing=false,recoveryPrompt=false;
 const url=id=>'visor://media/'+id;
 // 0.15: jobRef lets the render queue run its own processes in a background slot (see backgroundJob).
-function run(bin,args,onData,input,onErrorData,jobRef){const J=jobRef||currentJob;return new Promise((resolve,reject)=>{if(J?.cancelled){reject(Error('Cancelled'));return;}const p=spawn(bin,args,{windowsHide:true}),chunks=[];p.stdin.on('error',()=>{});p.stdin.end(input||'');let err='';const timeout=null;if(J)J.child=p;p.stdout.on('data',d=>{chunks.push(d);onData?.(d);});p.stderr.on('data',d=>{err=(err+d).slice(-16000);onErrorData?.(d);});p.on('error',reject);p.on('close',code=>{clearTimeout(timeout);code===0&&!J?.cancelled?resolve(Buffer.concat(chunks)):reject(Error(J?.cancelled?'Cancelled':err||'Processing failed ('+code+')'));});});}
+function run(bin,args,onData,input,onErrorData,jobRef){const J=jobRef||currentJob;return new Promise((resolve,reject)=>{if(J?.cancelled){reject(Error('Cancelled'));return;}const p=spawn(bin,args,{windowsHide:true}),chunks=[];p.stdin.on('error',()=>{});p.stdin.end(input||'');let err='';if(J)J.child=p;p.stdout.on('data',d=>{chunks.push(d);onData?.(d);});p.stderr.on('data',d=>{err=(err+d).slice(-16000);onErrorData?.(d);});p.on('error',reject);p.on('close',code=>{code===0&&!J?.cancelled?resolve(Buffer.concat(chunks)):reject(Error(J?.cancelled?'Cancelled':err||'Processing failed ('+code+')'));});});}
 // 0.15: the render queue renders in its own slot, so captions, tools, Magic Edit, exports and recording keep working.
 let backgroundJob=null,quitDuringRenderV15=false;
 const runBg=(bin,args,onData,input,onErrorData)=>run(bin,args,onData,input,onErrorData,backgroundJob);
@@ -46,6 +46,7 @@ const SUPPORTED=/^\.(mp4|mov|m4v|webm|mkv|avi|mpg|mpeg|wmv|flv|3gp|mts|m2ts|ts|o
 let registryWriteV15=Promise.resolve();function saveRegistryV15(){const text=JSON.stringify(registry),target=path.join(root,'media.json'),temp=target+'.'+randomUUID()+'.tmp';registryWriteV15=registryWriteV15.catch(()=>{}).then(async()=>{try{await fs.writeFile(temp,text);await fs.rename(temp,target);}finally{await fs.unlink(temp).catch(()=>{});}});return registryWriteV15;}
 async function register(file,cursor){
  const stat=await fs.stat(file),ext=path.extname(file).toLowerCase(),id=randomUUID();
+ /* 0.15: the same unchanged file registered again (music library, re-import) reuses its entry */{const same=Object.values(registry).find(a=>a.path===file&&a.size===stat.size&&!a.speedKey&&!(cursor?.length));if(same){const {path:_,previewPath:__,...item}=same;return {...item,url:url(same.id),type:same.kind+'/local'};}}
  if(!SUPPORTED.test(ext))throw Error(ext?'Video Visor cannot open '+ext+' files. Use a video, audio, image or PDF file.':'This file has no extension, so its type is unknown. Use a video, audio, image or PDF file.');
  let kind=/\.(png|jpe?g|webp|gif|tiff?|avif|heic)$/.test(ext)?'image':ext==='.pdf'?'pdf':/\.(mp3|wav|m4a|aac|ogg|flac|aif|aiff|opus|wma)$/.test(ext)?'audio':'video';let meta={duration:5,width:0,height:0,hasAudio:false},previewPath;if(!stat.size)throw Error('The selected file is empty. Choose a complete media file.');
  let needsCopyV15=false;if(kind==='video'||kind==='audio'){const p=await probe(file).catch(e=>{logDiagnostic('import',path.basename(file)+': '+e.message);throw Error(/timed out/i.test(e.message)?e.message:'This file could not be read. It may be damaged, incomplete, or in a format Video Visor does not support.');}),v=p.streams.find(x=>x.codec_type==='video'&&!x.disposition?.attached_pic);if(!v)kind='audio';const duration=Number(p.format.duration),rate=(v?.avg_frame_rate||'30/1').split('/').map(Number);if(!Number.isFinite(duration)||duration<=0)throw Error('This file has no readable media duration. Choose a complete video or audio file.');meta={duration,...require('./engines/media-preview.cjs').orientation(v),fps:rate[0]/rate[1]||30,hasAudio:p.streams.some(x=>x.codec_type==='audio')};if(v&&(!['h264','vp8','vp9','av1'].includes(v.codec_name)||v.codec_name==='h264'&&!['yuv420p','yuvj420p','nv12'].includes(v.pix_fmt)||v.color_transfer)){const label='Preparing '+path.basename(file)+' for editing';progress(0,label);previewPath=path.join(root,'preview-'+id+'.mp4');await makeCopyV15(file,previewPath,meta,{label,blocking:true});}
@@ -53,6 +54,8 @@ async function register(file,cursor){
  if(kind==='image'){const sharp=require('sharp');if(['.tif','.tiff','.heic'].includes(ext)){previewPath=path.join(root,'preview-'+id+'.png');try{await sharp(file).rotate().png().toFile(previewPath);}catch{await run('/usr/bin/sips',['-s','format','png',file,'--out',previewPath]);}}const m=await sharp(previewPath||file).metadata();meta.width=m.autoOrient?.width||m.width;meta.height=m.autoOrient?.height||m.height;}
  registry[id]={id,path:file,previewPath,name:path.basename(file),kind,size:stat.size,...meta,cursor:cursor||[]};await saveRegistryV15();if(needsCopyV15)scheduleCopyV15(id);const {path:_,previewPath:__,...item}=registry[id];return {...item,url:url(id),type:kind+'/local'};
 }
+// 0.15: export tuning (debug dumps, engine switches) is for the developer benchmark only.
+function devTuningV15(cfg){if(!cfg||typeof cfg!=='object')return cfg;if(process.env.VV_BENCH&&require('../package.json').name==='video-visor-dev')return cfg;const {tuning,...rest}=cfg;return rest;}
 function asset(id){if(!registry[id])throw Error('Media missing. Import the original again.');return registry[id];}
 async function importMany(paths){const result=[],errors=[];for(let i=0;i<paths.length;i++){const file=paths[i];progress(i/paths.length*100,'Importing '+(i+1)+' / '+paths.length+' · '+path.basename(file));try{result.push(await register(file));}catch(e){errors.push(path.basename(file)+': '+e.message);}}if(errors.length)await dialog.showMessageBox(win,{type:'warning',message:'Some files could not be imported',detail:errors.join('\n')+'\n\n'+(result.length?'The other files were imported.':'Nothing was imported.')});return result;}
 async function pick(){const r=await dialog.showOpenDialog(win,{properties:['openFile','multiSelections']});return r.canceled?[]:importMany(r.filePaths);}
@@ -120,7 +123,7 @@ async function storageScanV15(used,only){
   if(['projects.json','projects-backup.json','media.json','diagnostics.log'].includes(name)||/^projects-(before-recovery|damaged)/.test(name))continue;
   const full=path.join(root,name),bytes=await size(full);out.total+=bytes;const o=owner[name],id=o?.id;
   if(onlySet){if(id&&onlySet.has(id)&&!used.has(id))out[o.copy?'cache':'media'].push({file:full,bytes,id});continue;}
-  if(/^(visual-|audio-previews|render-|bench$)|\.tmp$|^(speech\.wav|transcript\.json)$/.test(name)){out.cache.push({file:full,bytes});continue;}
+  if(/^(visual-|audio-previews|render-|sample-|bench$)|\.tmp$|^(speech\.wav|transcript\.json)$/.test(name)){out.cache.push({file:full,bytes});continue;}
   if(/^(preview|edit)-/.test(name)){if(!id||!used.has(id))out.cache.push({file:full,bytes,id});continue;}
   if(/^(Recording-|speed-)/.test(name)&&!/\.webm$/.test(name)){if(!id||!used.has(id))out.media.push({file:full,bytes,id});}
  }
@@ -146,7 +149,7 @@ event('storageClean',async(used,opts={})=>{
  }));
  // 0.9: the export dialog can reveal or play the finished file. Only files exported in this session are allowed.
  const exported=new Set();
- event('export',async(state,cfg)=>job(async()=>{await waitForCopiesV15(state);const result=await require('./engines/export.cjs').exportProject({state,cfg,asset,run,ffmpeg,root,saveDialog,validateOutput,confirmReplace:confirmReplaceV15,progress,cancelled:()=>currentJob.cancelled,BrowserWindow,appPath:__dirname});logExportV15(result,cfg,state);if(result?.path)exported.add(result.path);return result;}));
+ event('export',async(state,cfg)=>job(async()=>{cfg=devTuningV15(cfg);await waitForCopiesV15(state);const result=await require('./engines/export.cjs').exportProject({state,cfg,asset,run,ffmpeg,root,saveDialog,validateOutput,confirmReplace:confirmReplaceV15,progress,cancelled:()=>currentJob.cancelled,BrowserWindow,appPath:__dirname});logExportV15(result,cfg,state);if(result?.path)exported.add(result.path);return result;}));
  event('previewMute',muted=>{win.webContents.setAudioMuted(!!muted);return !!muted;}); // 0.10: mute button under the preview
  // 0.13 render queue: these renders are saved straight into the export folder, with no dialog.
  const queueFolder=()=>exportFolder||(process.env.VIDEO_VISOR_TEST_HOME&&!app.isPackaged?path.join(app.getPath('userData'),'exports'):path.join(app.getPath('videos'),'Video Visor'));
@@ -154,7 +157,7 @@ event('storageClean',async(used,opts={})=>{
  const logExportV15=(r,cfg,state)=>{const t=r?.timing;if(!t?.frames)return;const f=t.frames,sec=f/(Math.min(60,Math.max(12,+cfg.fps||30)));logDiagnostic('export-timing',{format:cfg.format,resolution:cfg.resolution,clips:state.clips?.length,seconds:Math.round(sec),renderMs:t.renderMs,realtime:t.renderMs?+(sec*1000/t.renderMs).toFixed(2):null,perFrameMs:{seek:+(t.seek/f).toFixed(1),wait:+(t.wait/f).toFixed(1),draw:+(t.draw/f).toFixed(1),capture:+(t.capture/f).toFixed(1),convert:+(t.convert/f).toFixed(1),pipe:+(t.pipe/f).toFixed(1)}});};
  const progressQueue=(percent,label)=>{if(!win.isDestroyed())win.webContents.send('progress',{percent,label,source:'queue'});};
  const runExport=async(state,cfg,destination,opts={})=>{const bg=!!opts.background,report=bg?progressQueue:progress;await waitForCopiesV15(state,report);return require('./engines/export.cjs').exportProject({state,cfg,asset,run:bg?runBg:run,ffmpeg,root,saveDialog,validateOutput,destination,progress:report,cancelled:()=>(bg?backgroundJob:currentJob).cancelled,BrowserWindow,appPath:__dirname});};
- event('exportQueued',async(state,cfg,name)=>backgroundJobRun(async()=>{
+ event('exportQueued',async(state,cfg,name)=>backgroundJobRun(async()=>{cfg=devTuningV15(cfg);
   if(!['MP4','MOV'].includes(cfg?.format))throw Error('The render queue makes MP4 or MOV files.');
   const folder=queueFolder();await fs.mkdir(folder,{recursive:true});
   const base=String(name||'').replace(/[\/\\:*?"<>|\u0000-\u001f]/g,' ').replace(/\s+/g,' ').trim().slice(0,80)||'Video Visor export';
@@ -188,7 +191,7 @@ event('storageClean',async(used,opts={})=>{
  event('aiSaveKey',(id,key,remember)=>aiHost.saveKey(id,key,remember));event('aiClearKey',id=>aiHost.clearKey(id));event('aiModels',id=>aiHost.models(id));
  event('aiPick',()=>aiHost.pick());event('aiPrepare',request=>aiHost.prepare(request));event('aiDiscard',id=>aiHost.discard(id));event('aiRun',id=>aiHost.run(id));event('aiCancel',()=>aiHost.cancel());
  // Files exported in this session, or listed under "Exports & conversions" in the saved workspace, may be opened or revealed.
- const knownExport=async file=>{if(typeof file!=='string'||!path.isAbsolute(file))throw Error('Unknown file.');if(!exported.has(file)){const saved=await projectStore.load().catch(()=>null);if(!(saved?.privateContent?.app?.jobs||[]).some(j=>j?.detail===file))throw Error('That file is not one of your exports.');}await fs.access(file).catch(()=>{throw Error('That file has been moved or deleted.');});return file;};
+ const knownExport=async file=>{if(typeof file!=='string'||!path.isAbsolute(file))throw Error('Unknown file.');if(!exported.has(file)){const saved=await projectStore.load().catch(()=>null);if(!(saved?.privateContent?.app?.jobs||[]).some(j=>j?.detail===file))throw Error('That file is not one of your exports.');}/* 0.15: only media and documents open from the Jobs list (a saved job could otherwise name an app or a script) */if(!/\.(mp4|mov|m4v|webm|gif|mp3|wav|m4a|aac|png|jpe?g|webp|heic|tiff?|pdf|srt|vtt|txt|md|zip)$/i.test(file))throw Error('That file is not one of your exports.');await fs.access(file).catch(()=>{throw Error('That file has been moved or deleted.');});return file;};
  event('reveal',async file=>{shell.showItemInFolder(await knownExport(file));return true;});
  event('openFile',async file=>{const problem=await shell.openPath(await knownExport(file));if(problem)throw Error(problem);return true;});
  event('chooseFolder',async()=>{const r=await dialog.showOpenDialog(win,{title:'Choose a folder for exports',properties:['openDirectory','createDirectory']});if(r.canceled||!r.filePaths[0])return null;exportFolder=r.filePaths[0];return exportFolder;});
@@ -228,7 +231,7 @@ event('storageClean',async(used,opts={})=>{
   if(backgroundJob&&!quitDuringRenderV15){e.preventDefault();dialog.showMessageBox(win,{type:'warning',message:'A render is still running',detail:'Quitting stops it, and renders waiting in the queue are not kept.',buttons:['Keep rendering','Quit anyway'],defaultId:0,cancelId:0}).then(r=>{if(r.response===1&&!win.isDestroyed()){quitDuringRenderV15=true;if(backgroundJob){backgroundJob.cancelled=true;backgroundJob.child?.kill('SIGTERM');}win.close();}});return;}if(!closing){e.preventDefault();closing=true;
   // 0.15: the editor saves 400 ms after the last change; ask it to save now so nothing is lost on quit.
   win.webContents.executeJavaScript('window.flushSaveV15?.()').catch(()=>{}).then(()=>projectStore.flush()).then(()=>win.close()).catch(err=>{closing=false;logDiagnostic('save',err.message);dialog.showMessageBox(win,{type:'error',message:'Your last change could not be saved',detail:err.message});});}});
- event('frame',async(data)=>{const p=await saveDialog('Video Visor frame.png');if(!p)return null;await fs.writeFile(p,Buffer.from(data.split(',')[1],'base64'));return p;});
+ 
  await win.loadURL('visor://app/');
  // 0.15 (DS-01): update check. package.json "updateFeed" is an https URL of a small JSON file
  // ({"version":"0.16.0","url":"https://…/Video Visor.dmg","notes":"…"}) kept on a shared drive or intranet; when it lists a
@@ -236,6 +239,6 @@ event('storageClean',async(used,opts={})=>{
  setTimeout(()=>checkUpdateV15().catch(e=>logDiagnostic('update-check',e.message)),15000);
  setTimeout(()=>recorderController.recoverInterrupted().catch(e=>logDiagnostic('recorder-recovery',e.message)),2500);
  // 0.15 developer benchmark: Dev builds only, and only when VV_BENCH is set (see bench.cjs).
- if(process.env.VV_BENCH&&require('../package.json').name==='video-visor-dev'){require('./bench.cjs').run({register,runExport,job,backgroundJobRun,run,ffmpeg,root,win,registryEntry:id=>registry[id],recorder:()=>recorderController,saveArgs:typeof recordingSaveArgs==='function'?recordingSaveArgs:null}).catch(e=>process.stdout.write(JSON.stringify({bench:'error',message:e.stack||e.message})+'\n')).finally(()=>app.exit(0));}
+ if(process.env.VV_BENCH&&require('../package.json').name==='video-visor-dev'){require('./bench.cjs').run({register,runExport,job,backgroundJobRun,run,ffmpeg,root,win,registryEntry:id=>registry[id],recorder:()=>recorderController}).catch(e=>process.stdout.write(JSON.stringify({bench:'error',message:e.stack||e.message})+'\n')).finally(()=>app.exit(0));}
 }).catch(error=>{logDiagnostic('startup',error.stack||error.message);dialog.showErrorBox('Video Visor could not start',error.message+'\nYour saved workspace has been kept.');app.quit();});
 app.on('window-all-closed',()=>{try{if(connectionFile)require('node:fs').unlinkSync(connectionFile);}catch{}connector?.stop().catch(()=>{});recorderController?.dispose();currentJob?.child?.kill('SIGTERM');app.quit();});
