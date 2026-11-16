@@ -10,7 +10,7 @@ on:
   push:
     tags: ['v*']
     branches: [main]
-    paths: ['src/**', 'package.json', 'electron-builder.yml', 'build/**', '.github/workflows/windows.yml']
+    paths: ['src/**', 'package.json', 'electron-builder.yml', 'build/**', 'tools/win_tools_test.cjs', '.github/workflows/windows.yml']
 permissions:
   contents: write
 jobs:
