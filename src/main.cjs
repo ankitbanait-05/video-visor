@@ -4,6 +4,15 @@ const ffmpeg=require('ffmpeg-static').replace(/app\.asar([\\/])/,'app.asar.unpac
 /* 0.15 (Phase 21): the Dev build also honours a test data folder, so benchmarks never touch the Dev workspace you use */if(process.env.VIDEO_VISOR_TEST_HOME&&(!app.isPackaged||require('../package.json').name==='video-visor-dev'))app.setPath('userData',path.resolve(process.env.VIDEO_VISOR_TEST_HOME));
 protocol.registerSchemesAsPrivileged([{scheme:'visor',privileges:{standard:true,secure:true,supportFetchAPI:true,stream:true,corsEnabled:true}}]);
 let recorderController;let connector=null,connectionFile=null;let libraryCache;let win,root,storage,registry={},currentJob=null;let projectStore,closing=false,recoveryPrompt=false;
+/* 0.15 (Win-fix 5): one running app per workspace. A second launch (Start menu, taskbar, a file opened with the app) used to open a
+   second full app on the same workspace-v2 data (projects.json/media.json overwritten, connector port and connector.json clashing).
+   Now it hands its media files to the running app, which comes to the front, and quits. The lock follows userData, so a test
+   data folder (VIDEO_VISOR_TEST_HOME) keeps its own instance. */
+if(!app.requestSingleInstanceLock()){app.quit();return;}
+const MEDIA_ARG_V15=/\.(mp4|m4v|mov|webm|mkv|avi|mp3|wav|m4a|aac|flac|ogg|png|jpe?g|webp|gif|tiff?|avif|heic)$/i;
+async function mediaArgsV15(argv,cwd){const out=[];for(const arg of (argv||[]).slice(1)){if(typeof arg!=='string'||!arg||arg.startsWith('-')||!MEDIA_ARG_V15.test(arg))continue;const file=path.resolve(cwd||process.cwd(),arg);if(out.includes(file))continue;if(await fs.stat(file).then(s=>s.isFile(),()=>false))out.push(file);}return out;}
+app.on('second-instance',async(_event,argv,cwd)=>{if(!win||win.isDestroyed())return;if(win.isMinimized())win.restore();win.show();win.focus();
+ try{const files=await mediaArgsV15(argv,cwd);if(!files.length)return;const assets=await importMany(files);if(assets.length)await win.webContents.executeJavaScript('window.nativeImport?.(false,'+JSON.stringify(assets)+')');}catch(e){logDiagnostic('second-instance',e.message);}});
 const url=id=>'visor://media/'+id;
 // 0.15: jobRef lets the render queue run its own processes in a background slot (see backgroundJob).
 function run(bin,args,onData,input,onErrorData,jobRef){const J=jobRef||currentJob;return new Promise((resolve,reject)=>{if(J?.cancelled){reject(Error('Cancelled'));return;}const p=spawn(bin,args,{windowsHide:true}),chunks=[];p.stdin.on('error',()=>{});p.stdin.end(input||'');let err='';if(J)J.child=p;p.stdout.on('data',d=>{chunks.push(d);onData?.(d);});p.stderr.on('data',d=>{err=(err+d).slice(-16000);onErrorData?.(d);});p.on('error',reject);p.on('close',code=>{code===0&&!J?.cancelled?resolve(Buffer.concat(chunks)):reject(Error(J?.cancelled?'Cancelled':err||'Processing failed ('+code+')'));});});}
