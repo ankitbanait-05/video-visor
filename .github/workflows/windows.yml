@@ -61,6 +61,7 @@ jobs:
         shell: pwsh
         env:
           VV_WIN_RESOURCES: ${{ github.workspace }}\win-res
+          VV_TEST_OUT: ${{ github.workspace }}\smoke\tool-tests
         run: |
           $out = node tools/win_tools_test.cjs 2>&1 | Out-String; $code = $LASTEXITCODE; $out
           $lines = $out -split "`r?`n"
