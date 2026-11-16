@@ -50,10 +50,12 @@ const attempt = async (name, fn) => { try { await fn(); } catch (e) { failed++; 
   await attempt('pcompress', async () => { const out = path.join(dir, 'small.pdf'); await run(['pcompress', pdf, out]); const d = await PDFDocument.load(await fs.readFile(out)); check('compress keeps a valid PDF', d.getPageCount() === 2, { before: (await fs.stat(pdf)).size, after: (await fs.stat(out)).size }); });
   await attempt('bgremove', async () => {
     const img = path.join(dir, 'subject.png'), out = path.join(dir, 'subject-bgremove.png');
-    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="800" height="600" fill="#f2f2ee"/><circle cx="400" cy="320" r="170" fill="#c0392b"/><circle cx="400" cy="150" r="80" fill="#e8b48a"/></svg>';
+    // a shaded vase-like object with a soft shadow on a lightly textured backdrop (a cut-out model needs something photo-like)
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><defs><radialGradient id="g" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#ffb070"/><stop offset=".6" stop-color="#c04a1a"/><stop offset="1" stop-color="#5a1a08"/></radialGradient><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eef0f2"/><stop offset="1" stop-color="#d6d9dd"/></linearGradient><filter id="n"><feTurbulence baseFrequency=".9" numOctaves="2"/><feColorMatrix values="0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 .06 0"/></filter><filter id="b"><feGaussianBlur stdDeviation="14"/></filter></defs><rect width="800" height="600" fill="url(#bg)"/><rect width="800" height="600" filter="url(#n)"/><ellipse cx="410" cy="520" rx="170" ry="26" fill="#000" opacity=".28" filter="url(#b)"/><path d="M330 120 Q300 140 320 200 Q250 300 290 430 Q320 520 400 520 Q480 520 510 430 Q550 300 480 200 Q500 140 470 120 Z" fill="url(#g)"/></svg>';
     await sharp(Buffer.from(svg)).png().toFile(img); await run(['bgremove', img, out]);
     const { data, info } = await sharp(out).raw().toBuffer({ resolveWithObject: true }), a = (x, y) => data[(y * info.width + x) * info.channels + 3];
-    check('background removal: background clear, subject kept', info.channels === 4 && a(20, 20) < 60 && a(780, 580) < 60 && a(400, 330) > 190, { channels: info.channels, corner: a(20, 20), centre: a(400, 330) });
+    let opaque = 0; for (let i = 3; i < data.length; i += info.channels) if (data[i] > 128) opaque++;
+    check('background removal: background clear, subject kept', info.channels === 4 && a(20, 20) < 60 && a(780, 40) < 60 && a(400, 330) > 190, { channels: info.channels, corner: a(20, 20), centre: a(400, 330), opaqueShare: +(opaque / (info.width * info.height)).toFixed(3) });
   });
   await attempt('track', async () => {
     const video = path.join(dir, 'move.mp4');

@@ -84,7 +84,8 @@ async function removeBackground(input, dest, ctx) {
   const base = sharp(input).rotate().removeAlpha(), { width: W, height: H } = await base.clone().toBuffer({ resolveWithObject: true }).then(r => r.info);
   const { data } = await base.clone().resize(S, S, { fit: 'fill' }).raw().toBuffer({ resolveWithObject: true });
   let max = 1; for (let i = 0; i < data.length; i++) if (data[i] > max) max = data[i];
-  const mean = [0.485, 0.456, 0.406], tensor = new Float32Array(3 * S * S);
+  // IS-Net as rembg feeds it: pixels divided by the brightest value, minus 0.5 (std 1)
+  const mean = [0.5, 0.5, 0.5], tensor = new Float32Array(3 * S * S);
   for (let i = 0; i < S * S; i++) for (let c = 0; c < 3; c++) tensor[c * S * S + i] = data[i * 3 + c] / max - mean[c];
   const feeds = { [bgSession.inputNames[0]]: new ort.Tensor('float32', tensor, [1, 3, S, S]) };
   const pred = (await bgSession.run(feeds))[bgSession.outputNames[0]].data;
