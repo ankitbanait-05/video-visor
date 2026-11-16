@@ -29,7 +29,8 @@ let pdfjsLoad = null;
 const pdfjs = () => pdfjsLoad ??= import(pathToFileURL(unpacked(require.resolve('pdfjs-dist/legacy/build/pdf.mjs'))).href);
 async function openPdf(file, password) {
   const lib = await pdfjs(), data = new Uint8Array(await fs.readFile(file));
-  const fonts = unpacked(path.join(path.dirname(require.resolve('pdfjs-dist/package.json')), 'standard_fonts')) + path.sep;
+  // pdf.js wants this folder with forward slashes and a trailing slash, also on Windows
+  const fonts = unpacked(path.join(path.dirname(require.resolve('pdfjs-dist/package.json')), 'standard_fonts')).replace(/\\/g, '/') + '/';
   try { return await lib.getDocument({ data, password, standardFontDataUrl: fonts, isEvalSupported: false, verbosity: 0 }).promise; }
   catch (e) { if (/password/i.test(e?.name + e?.message)) throw Error('This PDF is password protected. Unlock it first.'); throw Error('This PDF could not be read: ' + (e?.message || e)); }
 }
@@ -90,7 +91,9 @@ async function removeBackground(input, dest, ctx) {
   let lo = Infinity, hi = -Infinity; for (let i = 0; i < S * S; i++) { lo = Math.min(lo, pred[i]); hi = Math.max(hi, pred[i]); }
   const mask = Buffer.alloc(S * S); for (let i = 0; i < S * S; i++) mask[i] = Math.round((pred[i] - lo) / ((hi - lo) || 1) * 255);
   const alpha = await sharp(mask, { raw: { width: S, height: S, channels: 1 } }).resize(W, H, { fit: 'fill' }).raw().toBuffer();
-  await base.clone().joinChannel(alpha, { raw: { width: W, height: H, channels: 1 } }).png().toFile(dest);
+  // (a fresh pipeline: removeAlpha() on the same one would drop the new alpha channel again)
+  const rgb = await base.clone().raw().toBuffer();
+  await sharp(rgb, { raw: { width: W, height: H, channels: 3 } }).joinChannel(alpha, { raw: { width: W, height: H, channels: 1 } }).png().toFile(dest);
 }
 
 // ---------- tracking ----------
