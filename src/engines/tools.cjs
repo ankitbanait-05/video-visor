@@ -10,15 +10,16 @@ const KINDS={pdf:['pdf'],image:['image'],video:['video'],audio:['audio','video']
 async function executeTool({id,assets,opts={},run,ffmpeg,root,saveDialog,progress,nativeBin,group}){
  if(!assets.length)throw Error('Choose a file first.');{const grp=['frame','trim','gif','vcompress','vconvert','vaudio'].includes(id)?'video':['bgremove','iconvert','icompress','iresize'].includes(id)?'image':['aclean','atrim'].includes(id)?'audio':'pdf',allowed=KINDS[id]||KINDS[grp];const wrong=allowed&&assets.filter(a=>!allowed.includes(a.kind));if(wrong?.length)throw Error((wrong.length===1?'“'+wrong[0].name+'” isn’t':wrong.length+' files aren’t')+' '+({pdf:'a PDF',image:'an image',video:'a video',audio:'a sound or video file'}[allowed[0]]||'the right kind of file')+'. Remove '+(wrong.length===1?'it':'them')+' and try again.');}const single=['bgremove','pdfjpg','pcompress','protect','unlock','repair','ocr','markdown','summary','pdfinfo','split','organize','watermark','forms','sign','editpdf'];if(single.includes(id)&&assets.length>1)throw Error('This tool processes one file at a time. Remove the extra files and try again.');const paths=[];
  if(['bgremove','pdfjpg','pcompress','protect','unlock','repair','ocr','markdown','compare','summary'].includes(id)){
+  /* 0.15 (Phase 33): the macOS helper on a Mac; the Windows versions (engines/win-helper.cjs) elsewhere */const helper=(args,o)=>process.platform==='darwin'?run(nativeBin,args,null,JSON.stringify(o)):require('./win-helper.cjs').run(args,o,{ffmpeg});
   const ext=id==='bgremove'||id==='pdfjpg'?'png':id==='markdown'?'md':['ocr','compare','summary'].includes(id)?'txt':'pdf';
   const dest=await saveDialog(path.basename(assets[0].name,path.extname(assets[0].name))+'-'+id+'.'+ext);if(!dest)return null;
   if(['markdown','summary','compare'].includes(id)){
-   const result=JSON.parse(await run(nativeBin,['pdftext',assets[0].path],null,JSON.stringify(opts)));let text=result.text;
+   const result=JSON.parse(await helper(['pdftext',assets[0].path],opts));let text=result.text;
    if(id==='summary'){const paragraphs=text.split(/(?<=[.!?])\s+/).filter(s=>s.trim().length>35);text='Extractive reading summary — review against the original.\n\n'+paragraphs.slice(0,opts['v-option']==='Detailed'?20:6).map(x=>'• '+x).join('\n\n');}
-   if(id==='compare'){if(assets.length!==2)throw Error('Choose two PDFs to compare.');const second=JSON.parse(await run(nativeBin,['pdftext',assets[1].path],null,JSON.stringify(opts))).text;const a=text.split('\n'),b=second.split('\n');text='Text comparison (layout differences are not compared)\n\n'+a.filter(x=>!b.includes(x)).map(x=>'- '+x).join('\n')+'\n'+b.filter(x=>!a.includes(x)).map(x=>'+ '+x).join('\n');}
+   if(id==='compare'){if(assets.length!==2)throw Error('Choose two PDFs to compare.');const second=JSON.parse(await helper(['pdftext',assets[1].path],opts)).text;const a=text.split('\n'),b=second.split('\n');text='Text comparison (layout differences are not compared)\n\n'+a.filter(x=>!b.includes(x)).map(x=>'- '+x).join('\n')+'\n'+b.filter(x=>!a.includes(x)).map(x=>'+ '+x).join('\n');}
    await fs.writeFile(dest,text);return {paths:[dest]};
   }
-  const result=JSON.parse(await run(nativeBin,[id,assets[0].path,dest],null,JSON.stringify(opts)));
+  const result=JSON.parse(await helper([id,assets[0].path,dest],opts));
   if(id==='pdfjpg'&&opts['v-option']==='JPG'){const paths=[];for(const png of result.paths){const jpg=png.replace(/\.png$/,'.jpg');await sharp(png).jpeg({quality:90}).toFile(jpg);await fs.unlink(png);paths.push(jpg);}return {paths};}
   return {paths:result.paths||[dest]};
  }

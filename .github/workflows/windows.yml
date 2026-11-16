@@ -40,11 +40,50 @@ jobs:
           Invoke-WebRequest https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin -OutFile speech-win/ggml-small-q5_1.bin
           "whisper.cpp $tag"
 
+      - name: Windows tool programs and data (qpdf, the cut-out model, Tesseract languages)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force win-res/qpdf, win-res/models, win-res/tessdata | Out-Null
+          $headers = @{ Authorization = "Bearer ${{ github.token }}" }
+          $releases = Invoke-RestMethod 'https://api.github.com/repos/qpdf/qpdf/releases?per_page=10' -Headers $headers
+          $asset = $releases | ForEach-Object { $_.assets } | Where-Object name -like '*-msvc64.zip' | Select-Object -First 1
+          if (-not $asset) { throw 'No qpdf msvc64 build found' }
+          Invoke-WebRequest $asset.browser_download_url -OutFile qpdf.zip
+          Expand-Archive qpdf.zip -DestinationPath qpdf-x
+          $bin = Get-ChildItem qpdf-x -Recurse -Filter qpdf.exe | Select-Object -First 1
+          Copy-Item (Join-Path $bin.DirectoryName '*') win-res/qpdf -Recurse
+          Get-ChildItem qpdf-x -Recurse -Include LICENSE*,NOTICE* | Select-Object -First 2 | Copy-Item -Destination win-res/qpdf
+          Invoke-WebRequest https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx -OutFile win-res/models/isnet-general-use.onnx
+          foreach ($lang in 'eng','hin') { Invoke-WebRequest "https://github.com/tesseract-ocr/tessdata_fast/raw/main/$lang.traineddata" -OutFile "win-res/tessdata/$lang.traineddata" }
+          "qpdf: $($asset.name)"; Get-ChildItem win-res -Recurse -File | Format-Table FullName, Length
+
+      - name: Test the Windows tools (repository)
+        shell: pwsh
+        env:
+          VV_WIN_RESOURCES: ${{ github.workspace }}\win-res
+        run: |
+          $out = node tools/win_tools_test.cjs 2>&1 | Out-String; $code = $LASTEXITCODE; $out
+          $lines = $out -split "`r?`n"
+          $lines | Where-Object { $_ -like 'FAIL*' } | ForEach-Object { "::error title=Windows tools (repository)::$_" }
+          "::notice title=Windows tools (repository)::$(($lines | Where-Object { $_ -like 'ok*' -or $_ -like '*passed*' -or $_ -like '*failed' }) -join ' | ')"
+          if ($code -ne 0) { throw 'Windows tool tests failed' }
+
       - name: Write the version into the page and loader
         run: node -e "const fs=require('fs'),v=require('./package.json').version;for(const f of ['src/index.html','src/bootstrap.js'])fs.writeFileSync(f,fs.readFileSync(f,'utf8').replaceAll('__VERSION__',v));"
 
       - name: Build the installer and the portable zip
         run: npx --yes electron-builder@26 --win --x64 --publish never
+
+      - name: Test the Windows tools (inside the packaged app)
+        shell: pwsh
+        run: |
+          $env:ELECTRON_RUN_AS_NODE = '1'
+          $out = & "dist-win/win-unpacked/Video Visor.exe" tools/win_tools_test.cjs --packaged 2>&1 | Out-String; $code = $LASTEXITCODE; $out
+          Remove-Item Env:ELECTRON_RUN_AS_NODE
+          $lines = $out -split "`r?`n"
+          $lines | Where-Object { $_ -like 'FAIL*' } | ForEach-Object { "::error title=Windows tools (packaged)::$_" }
+          "::notice title=Windows tools (packaged)::$(($lines | Where-Object { $_ -like 'ok*' -or $_ -like '*passed*' -or $_ -like '*failed' }) -join ' | ')"
+          if ($code -ne 0) { throw 'Windows tool tests failed in the packaged app' }
 
       - name: Start the app and take a screenshot
         shell: pwsh

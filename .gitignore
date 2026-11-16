@@ -1,6 +1,7 @@
 /vendor/
 /dist-win/
 /speech-win/
+/win-res/
 dist/
 .DS_Store
 __pycache__/

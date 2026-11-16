@@ -20,9 +20,18 @@ asarUnpack:
   - node_modules/@img/**
   - src/connector/**
   - src/music/*.m4a
+  # Phase 33: Windows tools (pdf.js, canvas, onnxruntime, Tesseract) load native code, workers and data from disk
+  - node_modules/pdfjs-dist/**
+  - node_modules/@napi-rs/**
+  - node_modules/onnxruntime-node/**
+  - node_modules/onnxruntime-common/**
+  - node_modules/tesseract.js/**
+  - node_modules/tesseract.js-core/**
 extraResources:
   - from: speech-win
     to: speech
+  - from: win-res
+    to: win
 win:
   target:
     - target: nsis
