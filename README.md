@@ -2,6 +2,20 @@
 
 Local desktop video editor, screen recorder and file tools for macOS (Electron 45, Apple Silicon).
 
+## Download and install
+
+1. Download **Video Visor-0.15.0-arm64.dmg** from [Releases](https://github.com/ankitbanait-05/video-visor/releases/latest).
+2. Open the DMG and drag **Video Visor** onto **Applications**.
+3. Open Video Visor from Applications. The app is not signed with an Apple Developer ID yet, so macOS blocks the first launch:
+   - Click **Done** on the warning (don't move it to the Bin).
+   - Open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** next to "Video Visor was blocked".
+   - Open the app again and confirm **Open**. macOS remembers this, so you only do it once.
+
+**Requires:** a Mac with Apple silicon (M1 or later) and macOS 14 (Sonoma) or later. Intel Macs are not supported yet.
+Everything runs on your Mac: recordings, edits and file tools stay local.
+
+---
+
 This project was **recovered from the released `Video Visor-0.14.0-arm64.dmg`** on 14 Nov 2026, because the original project folder was not available. The app's code ships as readable JavaScript, HTML and CSS, so `src/` is the real source. A Dev build made from it matches the release file for file.
 
 ## Layout
