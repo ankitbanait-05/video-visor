@@ -11,6 +11,14 @@ Local desktop video editor, screen recorder and file tools for macOS (Electron 4
    - Open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** next to "Video Visor was blocked".
    - Open the app again and confirm **Open**. macOS remembers this, so you only do it once.
 
+   **Or, in one step:** after dragging the app to Applications, run this once in Terminal, then open the app normally:
+
+   ```bash
+   xattr -dr com.apple.quarantine "/Applications/Video Visor.app"
+   ```
+
+   It removes the "downloaded from the internet" mark that macOS uses to block apps without a Developer ID.
+
 **Requires:** a Mac with Apple silicon (M1 or later) and macOS 14 (Sonoma) or later. Intel Macs are not supported yet.
 Everything runs on your Mac: recordings, edits and file tools stay local.
 
