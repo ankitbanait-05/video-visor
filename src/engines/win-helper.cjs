@@ -57,7 +57,7 @@ async function pdfImages(file, dpi, limit = 300) {
 }
 // First page as a small PNG (for the file cards), or null.
 async function pdfThumb(file, width = 240) {
-  try { const [png] = await pdfImages(file, 72, 1); if (!png) return null; return await require('sharp')(png).resize({ width }).png().toBuffer(); }
+  try { const [png] = await pdfImages(file, 72, 1); if (!png) return null; /* 0.15 (Win-fix 3) */ const sharp = require('sharp'); sharp.cache(false); return await sharp(png).resize({ width }).png().toBuffer(); }
   catch { return null; }
 }
 
@@ -79,7 +79,7 @@ async function qpdfRun(ctx, args) {
 // ---------- background removal (IS-Net) ----------
 let bgSession = null;
 async function removeBackground(input, dest, ctx) {
-  const ort = require('onnxruntime-node'), sharp = require('sharp'), S = 1024;
+  const ort = require('onnxruntime-node'), sharp = require('sharp'), S = 1024; sharp.cache(false); /* 0.15 (Win-fix 3) */
   bgSession ??= await ort.InferenceSession.create(path.join(resources(ctx), 'models', 'isnet-general-use.onnx'));
   const base = sharp(input).rotate().removeAlpha(), { width: W, height: H } = await base.clone().toBuffer({ resolveWithObject: true }).then(r => r.info);
   const { data } = await base.clone().resize(S, S, { fit: 'fill' }).raw().toBuffer({ resolveWithObject: true });

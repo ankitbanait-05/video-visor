@@ -49,7 +49,7 @@ function createHost({ window: getWindow, root, register, job, exportProject, log
     const file = path.join(root, 'frame-' + randomUUID() + '.png');
     try {
       await job(() => exportProject(state, { format: 'Frame', resolution: '720p', time: args.time * (speed || 1), captions: 'Burn into video' }, async () => file));
-      const image = await require('sharp')(file).resize({ width: 960, height: 960, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 80 }).toBuffer();
+      const sharp = require('sharp'); sharp.cache(false); /* 0.15 (Win-fix 3): no libvips file cache (it held files open) */ const image = await sharp(file).resize({ width: 960, height: 960, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 80 }).toBuffer();
       return { text: `Frame at ${args.time} s of "${name}".`, image: { data: image.toString('base64'), mimeType: 'image/jpeg' } };
     } finally { await fs.unlink(file).catch(() => {}); }
   }

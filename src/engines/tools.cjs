@@ -1,4 +1,4 @@
-const fs=require('node:fs/promises'),path=require('node:path'),sharp=require('sharp');
+const fs=require('node:fs/promises'),path=require('node:path'),sharp=require('sharp');/* 0.15 (Win-fix 3): no libvips operation cache — it kept files it had read (tool results, read back for their thumbnails) open, so Windows refused to move or delete them until the app quit */sharp.cache(false);
 const {PDFDocument,StandardFonts,rgb,degrees}=require('pdf-lib');
 const finite=(v,f=0)=>Number.isFinite(+v)?+v:f;
 function pages(value,count){const result=[];for(const part of String(value).split(',')){const bits=part.trim().split('-').map(Number);if(bits.length>2||bits.some(n=>!Number.isInteger(n)||n<1||n>count))throw Error('Invalid page range. Choose pages 1–'+count);for(let i=bits[0];i<=(bits[1]??bits[0]);i++)result.push(i-1);}if(!result.length)throw Error('Select at least one page.');return result;}

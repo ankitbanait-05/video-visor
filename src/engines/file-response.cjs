@@ -16,7 +16,11 @@ async function fileResponse(file,request){
  const start=range?.start||0,end=range?.end??stat.size-1;
  headers['Content-Length']=String(Math.max(0,end-start+1));if(range)headers['Content-Range']=`bytes ${start}-${end}/${stat.size}`;
  if(request.method==='HEAD'||!stat.size)return new Response(null,{status:range?206:200,headers});
+ /* 0.15 (Win-fix 3): close the file as soon as the page drops the request (a seek, a closed thumbnail, leaving a screen)
+    instead of leaving an abandoned stream holding its handle */
+ const signal=request.signal;if(signal?.aborted)return new Response(null,{status:204,headers});
  const stream=fs.createReadStream(file,{start,end});
- return new Response(Readable.toWeb(stream),{status:range?206:200,headers});
+ if(signal){const close=()=>{if(!stream.destroyed)stream.destroy();};signal.addEventListener('abort',close,{once:true});stream.once('close',()=>signal.removeEventListener('abort',close));}
+ return new Response(Readable.toWeb(stream),{status:range?206:200,headers}); // cancelling the body also destroys the stream
 }
 module.exports={byteRange,fileResponse};
