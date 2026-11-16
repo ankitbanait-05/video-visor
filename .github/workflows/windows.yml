@@ -1,0 +1,67 @@
+# Builds the Windows installer (.exe) and a portable zip on a Windows machine, then starts the app and takes a
+# screenshot to show it opens. Run it from the Actions tab ("Run workflow"); it also runs for every v* tag.
+name: Windows build
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install the app's libraries (Windows versions of FFmpeg and the image library)
+        run: npm install --omit=dev --no-audit --no-fund
+
+      - name: Speech engine for Windows (whisper.cpp) and its model
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force speech-win | Out-Null
+          $release = Invoke-RestMethod https://api.github.com/repos/ggml-org/whisper.cpp/releases/latest -Headers @{ Authorization = "Bearer ${{ github.token }}" }
+          $asset = $release.assets | Where-Object name -eq 'whisper-bin-x64.zip' | Select-Object -First 1
+          if (-not $asset) { throw "whisper-bin-x64.zip not found in whisper.cpp $($release.tag_name)" }
+          Invoke-WebRequest $asset.browser_download_url -OutFile whisper.zip
+          Expand-Archive whisper.zip -DestinationPath whisper
+          Get-ChildItem whisper -Recurse -Include *.exe,*.dll | Copy-Item -Destination speech-win
+          if (-not (Test-Path speech-win/whisper-cli.exe)) { throw "whisper-cli.exe missing from $($release.tag_name)" }
+          Invoke-WebRequest https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin -OutFile speech-win/ggml-small-q5_1.bin
+          "whisper.cpp $($release.tag_name)"
+
+      - name: Write the version into the page and loader
+        run: node -e "const fs=require('fs'),v=require('./package.json').version;for(const f of ['src/index.html','src/bootstrap.js'])fs.writeFileSync(f,fs.readFileSync(f,'utf8').replaceAll('__VERSION__',v));"
+
+      - name: Build the installer and the portable zip
+        run: npx --yes electron-builder@26 --win --x64 --publish never
+
+      - name: Start the app and take a screenshot
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force smoke | Out-Null
+          $exe = Get-ChildItem dist-win/win-unpacked -Filter 'Video Visor.exe' | Select-Object -First 1
+          $p = Start-Process $exe.FullName -PassThru -RedirectStandardOutput smoke/stdout.txt -RedirectStandardError smoke/stderr.txt
+          Start-Sleep -Seconds 30
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          $bmp.Save("$PWD/smoke/screenshot.png")
+          if ($p.HasExited) { "The app closed by itself (exit code $($p.ExitCode))" | Out-File smoke/result.txt; Get-Content smoke/stderr.txt; throw 'The app did not stay open' }
+          'The app started and was still running after 30 seconds' | Out-File smoke/result.txt
+          Stop-Process -Id $p.Id -Force
+          Get-ChildItem dist-win -File | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Video-Visor-windows
+          path: |
+            dist-win/*.exe
+            dist-win/*.zip
+            smoke/
+          if-no-files-found: warn

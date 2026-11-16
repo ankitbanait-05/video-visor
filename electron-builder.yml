@@ -1,0 +1,41 @@
+# Windows build (Phase 32). Run by .github/workflows/windows.yml on a Windows machine; the Mac build is tools/build.py.
+appId: com.videovisor.desktop
+productName: Video Visor
+electronVersion: 45.2.1
+npmRebuild: false
+directories:
+  output: dist-win
+  buildResources: build
+files:
+  - package.json
+  - src/**
+  - "!src/bench.cjs"
+  - node_modules/**
+  - "!node_modules/ffprobe-static/**"
+asar: true
+# Programs the app runs directly, the assistant bridge and the music stay outside the archive (as in the Mac build).
+asarUnpack:
+  - node_modules/ffmpeg-static/**
+  - node_modules/sharp/**
+  - node_modules/@img/**
+  - src/connector/**
+  - src/music/*.m4a
+extraResources:
+  - from: speech-win
+    to: speech
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: zip
+      arch: [x64]
+  icon: build/icon.png
+  artifactName: Video-Visor-${version}-win-x64.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Video Visor
+  artifactName: Video-Visor-${version}-win-x64-setup.${ext}

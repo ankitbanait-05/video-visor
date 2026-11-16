@@ -145,3 +145,13 @@ Five reviews read every source file; each finding was checked against the code b
 | Removed | Prototype leftovers (a simulated recorder, a "preview a suggestion" demo, a design-tweak hook), old handlers always replaced at load, unused helpers and one unused IPC handler, 165 style rules (16.5 KB) for screens that no longer exist. |
 | Not changed | Deeper restructuring (old layered editor panels, caption caching) — too much code to touch right before a release. |
 | Release | Version 0.15.0. `dist/Video Visor-0.15.0-arm64.dmg`, ad-hoc signed (no Developer ID yet), Apple silicon only. 177 checks, the real-app export check, the alignment audit and the crawler all pass on this code. |
+
+## Phase 32: a Windows build
+
+| Item | Status |
+|---|---|
+| How it is built | On a Windows machine in GitHub Actions (`.github/workflows/windows.yml`, settings in `electron-builder.yml`): the Windows versions of Electron 45.2.1, FFmpeg, the image library and the whisper.cpp speech engine (with the same speech model) are installed there, then an installer (`…-win-x64-setup.exe`) and a portable zip are made. The workflow then starts the app and takes a screenshot to show it opens. Run it from the Actions tab, or by pushing a `v*` tag. |
+| Code changes for Windows | Paths to files outside the archive work with backslashes (FFmpeg and the music would not have been found). The speech engine is `whisper-cli.exe`. PDF thumbnails (macOS Quick Look) and the HEIC / TIFF fallback (macOS `sips`) are Mac-only. The menu leaves out Services / Hide on Windows, and Quit is called Exit. Imports skip the Mac hardware encoder. The taskbar groups the app under its own id. |
+| Not on Windows yet | Tools that need the macOS helper (Vision, PDFKit) or macOS screen capture are hidden on Windows: background removal, OCR, PDF to image, PDF compress / protect / unlock / repair, PDF markdown / summary / compare, Screenshot, and tracking blur. Phase 33 would add Windows versions. |
+| Also fixed | `.gitignore` ignored every folder named `vendor`, so `src/vendor/lucide.js` (the icon library the app loads at start) was missing from git. Only the top-level `vendor/` is ignored now. |
+| Limits | Not code-signed: SmartScreen asks "More info → Run anyway". Tested by the workflow's start-up check and screenshot only; a hands-on test on a Windows PC is still needed. |
