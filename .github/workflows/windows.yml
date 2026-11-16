@@ -29,15 +29,14 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force speech-win | Out-Null
-          $release = Invoke-RestMethod https://api.github.com/repos/ggml-org/whisper.cpp/releases/latest -Headers @{ Authorization = "Bearer ${{ github.token }}" }
-          $asset = $release.assets | Where-Object name -eq 'whisper-bin-x64.zip' | Select-Object -First 1
-          if (-not $asset) { throw "whisper-bin-x64.zip not found in whisper.cpp $($release.tag_name)" }
-          Invoke-WebRequest $asset.browser_download_url -OutFile whisper.zip
+          # Pinned: the newest whisper.cpp releases (v1.9.3 and later) no longer include the plain Windows x64 build.
+          $tag = 'v1.9.2'
+          Invoke-WebRequest "https://github.com/ggml-org/whisper.cpp/releases/download/$tag/whisper-bin-x64.zip" -OutFile whisper.zip
           Expand-Archive whisper.zip -DestinationPath whisper
           Get-ChildItem whisper -Recurse -Include *.exe,*.dll | Copy-Item -Destination speech-win
-          if (-not (Test-Path speech-win/whisper-cli.exe)) { throw "whisper-cli.exe missing from $($release.tag_name)" }
+          if (-not (Test-Path speech-win/whisper-cli.exe)) { throw "whisper-cli.exe missing from whisper.cpp $tag" }
           Invoke-WebRequest https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin -OutFile speech-win/ggml-small-q5_1.bin
-          "whisper.cpp $($release.tag_name)"
+          "whisper.cpp $tag"
 
       - name: Write the version into the page and loader
         run: node -e "const fs=require('fs'),v=require('./package.json').version;for(const f of ['src/index.html','src/bootstrap.js'])fs.writeFileSync(f,fs.readFileSync(f,'utf8').replaceAll('__VERSION__',v));"
