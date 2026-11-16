@@ -3,8 +3,14 @@
 name: Windows build
 on:
   workflow_dispatch:
+    inputs:
+      release:
+        description: Release tag to attach the Windows files to (leave empty to keep them only as build files)
+        default: v0.15.0
   push:
     tags: ['v*']
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: windows-latest
@@ -65,3 +71,15 @@ jobs:
             dist-win/*.zip
             smoke/
           if-no-files-found: warn
+
+      - name: Attach the Windows files to the release
+        if: success() && (github.event_name == 'push' || inputs.release != '')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = if ('${{ github.event_name }}' -eq 'push') { '${{ github.ref_name }}' } else { '${{ inputs.release }}' }
+          Copy-Item smoke/screenshot.png "dist-win/Video-Visor-windows-start-up.png"
+          gh release view $tag --repo ${{ github.repository }} | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "Release $tag does not exist yet: publish it first, then run this again" }
+          gh release upload $tag (Get-ChildItem dist-win/*.exe, dist-win/*.zip, dist-win/Video-Visor-windows-start-up.png).FullName --clobber --repo ${{ github.repository }}
