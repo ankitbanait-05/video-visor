@@ -9,6 +9,8 @@ on:
         default: v0.15.0
   push:
     tags: ['v*']
+    branches: [main]
+    paths: ['src/**', 'package.json', 'electron-builder.yml', 'build/**', '.github/workflows/windows.yml']
 permissions:
   contents: write
 jobs:
@@ -77,7 +79,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = if ('${{ github.event_name }}' -eq 'push') { '${{ github.ref_name }}' } else { '${{ inputs.release }}' }
+          # a v* tag goes to its own release; a change on main refreshes the current release's Windows files
+          $tag = if ('${{ github.ref_type }}' -eq 'tag') { '${{ github.ref_name }}' } elseif ('${{ github.event_name }}' -eq 'push') { 'v' + (Get-Content package.json | ConvertFrom-Json).version } else { '${{ inputs.release }}' }
           Copy-Item smoke/screenshot.png "dist-win/Video-Visor-windows-start-up.png"
           gh release view $tag --repo ${{ github.repository }} | Out-Null
           if ($LASTEXITCODE -ne 0) { throw "Release $tag does not exist yet: publish it first, then run this again" }
