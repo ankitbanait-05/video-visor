@@ -35,7 +35,9 @@ jobs:
           $tag = 'v1.9.2'
           Invoke-WebRequest "https://github.com/ggml-org/whisper.cpp/releases/download/$tag/whisper-bin-x64.zip" -OutFile whisper.zip
           Expand-Archive whisper.zip -DestinationPath whisper
-          Get-ChildItem whisper -Recurse -Include *.exe,*.dll | Copy-Item -Destination speech-win
+          # 0.15 (Win-fix 2): only what the app runs: whisper-cli.exe and the libraries it loads (whisper.dll, ggml*.dll).
+          # The release also ships tests, demos (wchess, talk-llama), servers and parakeet, which the app never uses.
+          Get-ChildItem whisper -Recurse -Include whisper-cli.exe,whisper.dll,ggml*.dll | Copy-Item -Destination speech-win
           if (-not (Test-Path speech-win/whisper-cli.exe)) { throw "whisper-cli.exe missing from whisper.cpp $tag" }
           Invoke-WebRequest https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin -OutFile speech-win/ggml-small-q5_1.bin
           "whisper.cpp $tag"
@@ -56,6 +58,30 @@ jobs:
           Invoke-WebRequest https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx -OutFile win-res/models/isnet-general-use.onnx
           foreach ($lang in 'eng','hin') { Invoke-WebRequest "https://github.com/tesseract-ocr/tessdata_fast/raw/main/$lang.traineddata" -OutFile "win-res/tessdata/$lang.traineddata" }
           "qpdf: $($asset.name)"; Get-ChildItem win-res -Recurse -File | Format-Table FullName, Length
+
+      # 0.15 (Win-fix 2): whisper.cpp (speech) and onnxruntime (background removal) are built with MSVC and need the
+      # Visual C++ runtime, which a clean PC may not have. qpdf already ships its own copies; give the other two theirs.
+      # whisper-cli.exe / whisper.dll / ggml*.dll import MSVCP140, VCRUNTIME140, VCRUNTIME140_1 and VCOMP140 (OpenMP);
+      # onnxruntime.dll / onnxruntime_binding.node import MSVCP140, MSVCP140_1, MSVCP140_ATOMIC_WAIT, VCRUNTIME140(_1).
+      - name: Bundle the Visual C++ runtime next to the speech engine and onnxruntime
+        shell: pwsh
+        run: |
+          $dlls = 'msvcp140.dll','msvcp140_1.dll','msvcp140_2.dll','msvcp140_atomic_wait.dll','msvcp140_codecvt_ids.dll','vcruntime140.dll','vcruntime140_1.dll','concrt140.dll','vcomp140.dll'
+          # Prefer the redistributable files that come with Visual Studio on the runner; fall back to System32.
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+          $redist = Get-ChildItem "$vs\VC\Redist\MSVC" -Directory -ErrorAction SilentlyContinue | Where-Object Name -match '^\d' | Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
+          $sources = @()
+          if ($redist) { $sources += Get-ChildItem "$($redist.FullName)\x64" -Directory | Where-Object Name -match 'CRT$|OpenMP$' | ForEach-Object FullName }
+          $sources += "$env:SystemRoot\System32"
+          $onnx = 'node_modules/onnxruntime-node/bin/napi-v6/win32/x64'
+          if (-not (Test-Path "$onnx/onnxruntime.dll")) { throw "onnxruntime.dll not found in $onnx" }
+          foreach ($dll in $dlls) {
+            $src = $sources | ForEach-Object { Join-Path $_ $dll } | Where-Object { Test-Path $_ } | Select-Object -First 1
+            if (-not $src) { throw "$dll not found in $($sources -join ', ')" }
+            Copy-Item $src speech-win; Copy-Item $src $onnx
+            "$dll <- $src ($((Get-Item $src).VersionInfo.FileVersion))"
+          }
+          Get-ChildItem speech-win, $onnx -File | Format-Table DirectoryName, Name, Length
 
       - name: Test the Windows tools (repository)
         shell: pwsh
@@ -85,6 +111,24 @@ jobs:
           $lines | Where-Object { $_ -like 'FAIL*' } | ForEach-Object { "::error title=Windows tools (packaged)::$_" }
           "::notice title=Windows tools (packaged)::$(($lines | Where-Object { $_ -like 'ok*' -or $_ -like '*passed*' -or $_ -like '*failed' }) -join ' | ')"
           if ($code -ne 0) { throw 'Windows tool tests failed in the packaged app' }
+
+      # 0.15 (Win-fix 2): the packaged speech engine starts and writes its JSON (as the app runs it: -ojf -of <base>)
+      - name: Test the speech engine (inside the packaged app)
+        shell: pwsh
+        run: |
+          $res = 'dist-win/win-unpacked/resources'
+          foreach ($need in "$res/speech/vcruntime140.dll", "$res/speech/vcomp140.dll", "$res/app.asar.unpacked/node_modules/onnxruntime-node/bin/napi-v6/win32/x64/msvcp140_atomic_wait.dll") {
+            if (-not (Test-Path $need)) { throw "Missing from the package: $need" }
+          }
+          New-Item -ItemType Directory -Force smoke/speech | Out-Null
+          $ffmpeg = Get-ChildItem "$res/app.asar.unpacked/node_modules/ffmpeg-static" -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          & $ffmpeg.FullName -hide_banner -loglevel error -y -f lavfi -i 'sine=frequency=440:duration=2' -ar 16000 -ac 1 smoke/speech/tone.wav
+          if ($LASTEXITCODE -ne 0) { throw 'ffmpeg could not make the test sound' }
+          & "$res/speech/whisper-cli.exe" -m "$res/speech/ggml-small-q5_1.bin" -f smoke/speech/tone.wav -ojf -t 4 -l en -of smoke/speech/transcript 2>&1 | Select-Object -Last 15
+          $code = $LASTEXITCODE
+          if ($code -ne 0 -or -not (Test-Path smoke/speech/transcript.json)) { throw "whisper-cli failed (exit code $code) or wrote no transcript.json" }
+          $null = Get-Content smoke/speech/transcript.json -Raw | ConvertFrom-Json
+          '::notice title=Speech engine (packaged)::whisper-cli wrote transcript.json'
 
       - name: Start the app and take a screenshot
         shell: pwsh
