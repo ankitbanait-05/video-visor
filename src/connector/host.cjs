@@ -16,10 +16,12 @@ function createHost({ window: getWindow, root, register, job, exportProject, log
     return answer.result;
   }
   const real = file => fs.realpath(file).catch(() => null);
+  /* 0.15 (Win-fix 11): a drive root (E:\) is allowed too (base + sep was E:\\), and Windows paths compare without case */
+  const inside = (target, base) => { const rel = path.relative(process.platform === 'win32' ? base.toLowerCase() : base, process.platform === 'win32' ? target.toLowerCase() : target); return rel === '' || (!!rel && !rel.startsWith('..') && !path.isAbsolute(rel)); };
   async function allowed(file, folders, what = 'file') {
-    if (typeof file !== 'string' || !path.isAbsolute(file)) throw Error(`Give the full path of the ${what}, starting with "/".`);
+    if (typeof file !== 'string' || !path.isAbsolute(file)) throw Error(`Give the full path of the ${what}, starting with ${process.platform === 'win32' ? 'a drive letter such as "C:\\"' : '"/"'}.`);
     const target = await real(file); if (!target) throw Error(`There is no ${what} at ${file}.`);
-    for (const folder of folders) { const base = await real(folder); if (base && (target === base || target.startsWith(base + path.sep))) return target; }
+    for (const folder of folders) { const base = await real(folder); if (base && inside(target, base)) return target; }
     throw Error(`"${file}" is outside the folders Video Visor may read. ${folders.length ? 'Allowed: ' + folders.join(', ') + '.' : 'No folder is allowed yet.'} ${SETTINGS}`);
   }
   async function assets(files, folders) {

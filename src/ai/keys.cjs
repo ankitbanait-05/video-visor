@@ -11,7 +11,10 @@ const PROVIDERS = ['anthropic', 'openai'];
 // 0.15 (DS-04): an organisation can provide keys for everyone: IT places
 //   /Library/Application Support/Video Visor/managed.json  =  {"ai": {"anthropic": "sk-…"}}
 // (readable by users, writable only by admins, for example through device management). A person's own key wins.
-function createKeyStore({ file, safeStorage, managedFile = '/Library/Application Support/Video Visor/managed.json' }) {
+// 0.15 (Win-fix 11): on Windows the organisation's file is %ProgramData%\Video Visor\managed.json (admin-writable only).
+// The Mac path became C:\Library\…, a folder any local user can create, so someone else could plant a key.
+const MANAGED_FILE = process.platform === 'win32' ? require('node:path').join(process.env.ProgramData || 'C:\\ProgramData', 'Video Visor', 'managed.json') : '/Library/Application Support/Video Visor/managed.json';
+function createKeyStore({ file, safeStorage, managedFile = MANAGED_FILE }) {
   const memory = new Map(); let saved = {}, managed = {};
   const canEncrypt = () => { try { return !!safeStorage?.isEncryptionAvailable(); } catch { return false; } };
   const check = provider => { if (!PROVIDERS.includes(provider)) throw Error('Unknown AI service.'); };
