@@ -13,8 +13,8 @@
 /* Graphik has no Devanagari and no ₹. Kohinoor Devanagari, part of macOS, draws those characters inside the
    same 'Graphik' family (declared after the Graphik files, limited to those characters), so Hindi captions and
    prices match in weight without a second font name. */
-@font-face{font-family:'Graphik';src:local('Kohinoor Devanagari'),local('KohinoorDevanagari-Regular');unicode-range:U+0900-097F,U+20B9,U+A8E0-A8FF;font-weight:300 500}
-@font-face{font-family:'Graphik';src:local('Kohinoor Devanagari Semibold'),local('KohinoorDevanagari-Semibold');unicode-range:U+0900-097F,U+20B9,U+A8E0-A8FF;font-weight:600 900}
+@font-face{font-family:'Graphik';src:local('Kohinoor Devanagari'),local('KohinoorDevanagari-Regular'),local('Nirmala UI');unicode-range:U+0900-097F,U+20B9,U+A8E0-A8FF;font-weight:300 500}
+@font-face{font-family:'Graphik';src:local('Kohinoor Devanagari Semibold'),local('KohinoorDevanagari-Semibold'),local('Nirmala UI Semibold'),local('Nirmala UI');unicode-range:U+0900-097F,U+20B9,U+A8E0-A8FF;font-weight:600 900}
 
 /* ---- Interface font --------------------------------------------------------------------------- */
 #visor-app,#visor-app #vv-editor,#visor-app #vv-editor button,#visor-app #vv-editor select,#visor-app #vv-editor input,#visor-app #vv-editor textarea,#visor-app button,#visor-app input,#visor-app select,#visor-app textarea,#v15-tip,#v15-toast{font-family:'Graphik','DM Sans',system-ui,sans-serif}

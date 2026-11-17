@@ -41,7 +41,7 @@ const commands={
  async get_transcript(a){
   let p=project(a.project_id),s=stateOf(p),note;
   if(!linesFor(s).length){
-   if(!a.generate)return{duration:Math.round(D.duration(s)*100)/100,lines:[],note:'This project has no transcript yet. Call get_transcript again with generate: true to transcribe it on this Mac.'};
+   if(!a.generate)return{duration:Math.round(D.duration(s)*100)/100,lines:[],note:'This project has no transcript yet. Call get_transcript again with generate: true to transcribe it on this '+(window.native?.platform==='win32'?'PC':'Mac')+'.'};
    const lines=await transcribe(s);
    // The assistant's own draft keeps the transcript (captions can then be switched on at once).
    if(p.ai&&!s.transcript?.length){W().update(p.id,D.apply(s,x=>{x.transcript=lines;}).state,'Transcript added');p=project(p.id);s=stateOf(p);}

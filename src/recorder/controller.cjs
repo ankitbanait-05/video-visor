@@ -26,7 +26,7 @@ class RecorderController {
     route('cancel-processing',()=>{if(this.phase==='processing')this.ctx.cancel();return true;});
     // 0.15 (RC-02): Screen Recording permission, checked before recording, with a way to the right System Settings pane.
     route('screen-access',()=>process.platform!=='darwin'?'granted':systemPreferences.getMediaAccessStatus('screen'));
-    route('open-privacy',()=>shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'));
+    route('open-privacy',()=>shell.openExternal(process.platform==='win32'?'ms-settings:privacy':'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'));
     route('abort',()=>this.abort());
     route('show-controls',()=>this.show());
     route('close',()=>{if(this.busy())return false;this.panel?.close();return true;});
@@ -120,7 +120,7 @@ class RecorderController {
     this.tray=new Tray(path.join(__dirname,'tray.png'));this.tray.setToolTip('Video Visor is recording');
     // 0.15 (Phase 20): the menu bar shows the recording time next to the icon, and the menu shows the shortcuts.
     this.tray.setContextMenu(Menu.buildFromTemplate([{label:'Stop and edit',accelerator:'CommandOrControl+Shift+2',registerAccelerator:false,click:()=>this.command('stop')},{label:'Pause / resume',accelerator:'CommandOrControl+Shift+9',registerAccelerator:false,click:()=>this.command('pause')},{type:'separator'},{label:'Show recording controls',click:()=>this.show()}]));
-    const clock=()=>{if(!this.tray)return;const t=Math.max(0,Math.floor(this.clock.seconds?.()||0)),text=Math.floor(t/60)+':'+String(t%60).padStart(2,'0');this.tray.setTitle((this.phase==='paused'?' ❚❚ ':' ● ')+text,{fontType:'monospacedDigit'});this.tray.setToolTip('Video Visor is recording · '+text+' · ⇧⌘2 stops');};
+    const clock=()=>{if(!this.tray)return;const t=Math.max(0,Math.floor(this.clock.seconds?.()||0)),text=Math.floor(t/60)+':'+String(t%60).padStart(2,'0');this.tray.setTitle((this.phase==='paused'?' ❚❚ ':' ● ')+text,{fontType:'monospacedDigit'});this.tray.setToolTip('Video Visor is recording · '+text+(process.platform==='darwin'?' · ⇧⌘2 stops':' · Ctrl+Shift+2 stops'));};
     clock();clearInterval(this.trayClock);this.trayClock=setInterval(clock,1000);
     this.tray.on('click',()=>this.show());
   }

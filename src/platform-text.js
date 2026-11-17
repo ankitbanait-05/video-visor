@@ -12,6 +12,11 @@
     [/⌘/g, 'Ctrl+'], [/⌥/g, 'Alt+'], [/⇧(?=\S)/g, 'Shift+'], [/⌫/g, 'Backspace'],
     [/\bthis Mac\b/g, 'this PC'], [/\byour Mac\b/g, 'your PC'], [/\bthe Mac\b/g, 'the PC'], [/\bMac's\b/g, "PC's"],
     [/\bMac sound\b/g, 'PC sound'], [/\bon Mac\b/g, 'on Windows'], [/\bthe menu-bar icon\b/g, 'the tray icon'],
+    /* 0.15 (Win-fix 9): macOS settings steps and places, as Windows names them */
+    [/Check Screen Recording access in macOS Privacy & Security, then refresh\./g, 'Refresh. If your screens still don’t appear, restart Video Visor.'],
+    [/System Settings → Privacy & Security → (Camera|Microphone)/g, 'Windows Settings → Privacy & security → $1 (allow desktop apps)'],
+    [/\bOpen System Settings\b/g, 'Open Windows Settings'], [/\bSystem Settings\b/g, 'Windows Settings'],
+    [/\bin the menu bar\b/g, 'in the taskbar tray'], [/\bthe menu bar\b/g, 'the taskbar tray'],
   ];
   const ATTRS = ['title', 'aria-label', 'placeholder'];
   /* 0.15 (Win-fix 1): user content is never rewritten — the canvas and its layers, titles, captions, transcript rows,
@@ -26,7 +31,7 @@
   ].join(',');
   const FIELDS = USER + ',input,textarea,select,option';
   const fix = text => { let out = text; for (const [re, to] of RULES) out = out.replace(re, to); return out; };
-  const needs = text => /[⌘⌥⇧⌫]|\bMac\b|menu-bar icon/.test(text);
+  const needs = text => /[⌘⌥⇧⌫]|\bMac\b|menu-bar icon|menu bar|System Settings|macOS Privacy/.test(text);
   const userText = node => { const el = node.parentElement; return !el || !!el.closest(FIELDS); };
   const userEl = el => !!el.closest?.(USER);
   const filter = { acceptNode: n => (needs(n.nodeValue) && !userText(n)) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT };
