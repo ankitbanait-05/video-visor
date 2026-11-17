@@ -217,9 +217,28 @@ folder holding this branch's `src`. It was started on a fresh profile and driven
   Compress PDF: 1,394,080 → 222,120 bytes.
 - Unit scripts `tools/transcript_test.cjs` and `tools/connector_paths_test.cjs` (new) pass; `node --check` passes on every changed file.
 
-### Still to check on a CI-built installer
+### Checked on the CI-built installer (17 Nov 2026)
 
-- Everything above once more on the real installer, plus a clean-PC test (no VC++ runtime) for #2.
+Windows build run 44009323605 (workflow_dispatch on `windows-high-fixes`, commit `c9541e8`) passed every step, including the
+speech-engine test inside the packaged app. Its installer was downloaded from the v0.15.0 release, installed silently over 0.15.0
+(exit 0), and its `app.asar` holds the same `src` as the branch. On a fresh profile:
+
+- All 45 tool cases: 38 OK plus the same 7 expected errors as before. Compress PDF 1,394,080 → 222,120 bytes.
+- Export of the "Recorded on my Mac with ⌘ shortcuts" project with word captions: progress 0 → 96 → done, title drawn as typed,
+  no x264 signature (NVENC).
+- Second launch exits by itself (code 0). App name "Video Visor"; a normal launch still uses `%APPDATA%\video-visor`.
+- Editor: Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z give 2 → 0 → 2 → 0 → 2 → 0 clips; timeline block keeps "Mac" and "⌘".
+- Edit → Undo and Edit → Redo, clicked through the application menu (MenuItem.click in the main process), undo and redo the edit.
+- Captions on the spoken test file keep every word.
+- Recorder: one entry per microphone, 651 px panel with no scrolling, Windows wording; closing and reopening it twice leaves the
+  main window responsive.
+
+The VC++ DLLs ship next to whisper and onnxruntime. Note: the run attached its files to the v0.15.0 release, so that release's
+Windows installer, zip and screenshot are now this branch's build.
+
+### Still to check
+
+- A clean PC with no Visual C++ runtime installed (#2).
 - #12 on an Intel-only PC and an AMD PC (only NVIDIA and QuickSync were present here).
 - #11 with a real `%ProgramData%` managed-key file, and the connector with Claude Desktop and a drive-root folder.
-- Edit → Undo / Redo clicked with the mouse (the keyboard shortcuts were tested; the menu clicks were not).
+- A physical mouse click on the Edit menu (the menu's own click handler was tested, not the pointer).
