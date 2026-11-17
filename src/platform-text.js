@@ -28,6 +28,7 @@
     '.ed-layer', '.ed-transcript-row', '.v5-media-grid', '.v5-media', '.v8-word', '.v11-word', '.v15-clip-name', '.v15-file',
     '.v15-files', '.v15-result', '.v10-project', '.v10-job', '.v13-job', '.v19-item', '.projecttitle', '.v13-code',
     'pre', 'code', 'canvas', 'video', '[contenteditable]:not([contenteditable="false"])',
+    /* 0.15 (Win-fix 14): timeline blocks show clip, title and caption text as typed */ '.vt-block',
   ].join(',');
   const FIELDS = USER + ',input,textarea,select,option';
   const fix = text => { let out = text; for (const [re, to] of RULES) out = out.replace(re, to); return out; };
@@ -35,14 +36,18 @@
   const userText = node => { const el = node.parentElement; return !el || !!el.closest(FIELDS); };
   const userEl = el => !!el.closest?.(USER);
   const filter = { acceptNode: n => (needs(n.nodeValue) && !userText(n)) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT };
+  /* 0.15 (Win-fix 14): write only when the text really changes. Writing the same value back is still a DOM mutation, so text
+     that `needs` matched but no rule changed ("menu bar" in an uncovered phrase, say) re-queued itself forever and froze the page
+     (seen after closing the recorder panel). */
+  const setText = n => { const v = fix(n.nodeValue); if (v !== n.nodeValue) n.nodeValue = v; };
   function pass(root) {
-    if (root.nodeType === 3) { if (needs(root.nodeValue) && !userText(root)) root.nodeValue = fix(root.nodeValue); return; }
+    if (root.nodeType === 3) { if (needs(root.nodeValue) && !userText(root)) setText(root); return; }
     if (root.nodeType !== 1 || userEl(root)) return;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, filter);
     const hits = []; for (let n = walker.nextNode(); n; n = walker.nextNode()) hits.push(n);
-    for (const n of hits) n.nodeValue = fix(n.nodeValue);
+    for (const n of hits) setText(n);
     const els = root.querySelectorAll ? [root, ...root.querySelectorAll('[title],[aria-label],[placeholder]')] : [root];
-    for (const el of els) { if (userEl(el)) continue; for (const a of ATTRS) { const v = el.getAttribute?.(a); if (v && needs(v)) el.setAttribute(a, fix(v)); } }
+    for (const el of els) { if (userEl(el)) continue; for (const a of ATTRS) { const v = el.getAttribute?.(a); if (v && needs(v)) { const f = fix(v); if (f !== v) el.setAttribute(a, f); } } }
   }
   let queued = [];
   const flush = () => { const list = queued; queued = []; for (const n of list) if (n.isConnected) pass(n); };
