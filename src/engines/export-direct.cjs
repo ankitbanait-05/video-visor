@@ -97,7 +97,7 @@ function feed(opts) {
   const { width, height, ffmpeg } = opts, size = width * height * 4, d = decodeArgs(opts);
   const args = ['-v', 'error', ...d.input, '-vf', d.filter, '-frames:v', String(d.count), '-f', 'rawvideo', 'pipe:1'];
   if (process.env.VV_DIRECT_LOG) require('node:fs').appendFileSync(process.env.VV_DIRECT_LOG, JSON.stringify(args) + '\n');
-  const proc = spawn(ffmpeg, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+  const proc = spawn(ffmpeg, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
   let chunks = [], have = 0, ended = false, last = null, err = '';
   const waiters = new Set(), wake = () => { for (const w of waiters) w(); waiters.clear(); };
   proc.stdout.on('data', x => { chunks.push(x); have += x.length; if (have > size * 3) proc.stdout.pause(); wake(); });

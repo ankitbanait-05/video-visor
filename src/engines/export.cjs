@@ -4,7 +4,7 @@ function subtitles(state){const out=[];let offset=0;for(const c of state.clips){
 function dimensions(ratio,height){const [a,b]=String(ratio||'16/9').split('/').map(Number);if(!a||!b||a/b<.1||a/b>10)throw Error('Invalid aspect ratio');return a>=b?[Math.round(height*a/b/2)*2,height]:[height,Math.round(height*b/a/2)*2];}
 // 0.15: checked once per run: whether Apple's hardware H.264 encoder works on this Mac.
 let hardwareV15=null;
-function hardwareEncoderV15(ffmpeg){if(!hardwareV15)hardwareV15=new Promise(resolve=>{const p=spawn(ffmpeg,['-v','error','-f','lavfi','-i','color=c=black:s=256x256:d=0.2','-c:v','h264_videotoolbox','-f','null','-'],{stdio:'ignore'});p.on('error',()=>resolve(false));p.on('close',code=>resolve(code===0));});return hardwareV15;}
+function hardwareEncoderV15(ffmpeg){if(!hardwareV15)hardwareV15=new Promise(resolve=>{const p=spawn(ffmpeg,['-v','error','-f','lavfi','-i','color=c=black:s=256x256:d=0.2','-c:v','h264_videotoolbox','-f','null','-'],{stdio:'ignore',windowsHide:true});p.on('error',()=>resolve(false));p.on('close',code=>resolve(code===0));});return hardwareV15;}
 // Keeps render-cache/ under `limit` bytes, removing the least recently used pieces first.
 async function pruneRenderCacheV18(dir,limit){const files=[];for(const f of await fs.readdir(dir).catch(()=>[])){if(!f.endsWith('.ts'))continue;const st=await fs.stat(path.join(dir,f)).catch(()=>null);if(st)files.push({f,size:st.size,t:st.mtimeMs});}files.sort((a,b)=>b.t-a.t);let total=0;for(const x of files){total+=x.size;if(total>limit)await fs.unlink(path.join(dir,x.f)).catch(()=>{});}}
 async function exportProject(ctx){
@@ -52,7 +52,7 @@ async function exportProject(ctx){
    const pixels=img.toBitmap();if(pixels.length!==width*h*4)throw Error('Export frame has an unexpected size.');T.convert+=now()-t0;return pixels;};const drawFrame=n=>drawOn(renderer,n);
   // An encoder fed raw frames from this process (export-window frames, or decoded frames for WebM).
   const procs=new Set();stopDirect=()=>{for(const p of procs)try{p.kill('SIGKILL');}catch{}};
-  const encoder=(file,format)=>{let err='';const p=spawn(ffmpeg,['-y','-f','rawvideo','-pix_fmt','bgra','-s',width+'x'+h,'-framerate',String(fps),'-i','pipe:0','-an',...colourArgs,...videoArgs,...(format?['-f',format]:[]),file],{stdio:['pipe','ignore','pipe']});procs.add(p);encoding=p;
+  const encoder=(file,format)=>{let err='';const p=spawn(ffmpeg,['-y','-f','rawvideo','-pix_fmt','bgra','-s',width+'x'+h,'-framerate',String(fps),'-i','pipe:0','-an',...colourArgs,...videoArgs,...(format?['-f',format]:[]),file],{stdio:['pipe','ignore','pipe'],windowsHide:true});procs.add(p);encoding=p;
    const done=new Promise((resolve,reject)=>{p.on('error',reject);p.on('close',code=>{procs.delete(p);code===0?resolve():reject(Error(err||'Video encoding failed'));});});done.catch(e=>{encodeError=e;});p.stderr.on('data',d=>err=(err+d).slice(-4000));p.stdin.on('error',e=>{encodeError=e;});let drain=null;
    // the encoder works on this frame while the next one is drawn; we only wait for it before the next write
    return {async write(px){const t=now();if(drain){await drain;drain=null;}if(!p.stdin.write(px))drain=Promise.race([once(p.stdin,'drain'),done]);T.pipe+=now()-t;},async end(){if(drain)await drain;p.stdin.end();await done;}};};
@@ -70,7 +70,7 @@ async function exportProject(ctx){
   let gfxRenderer=null;const gfxWindow=async()=>gfxRenderer||(gfxRenderer=await openRenderer(true));
   const overlayArgs=(st,v,out)=>{const d=D.decodeArgs({ffmpeg,asset:asset(exportState.clips[st.clip].asset),clip:exportState.clips[st.clip],stretch:st,fps,speed,width,height:h,fit,pad:v.pad,matrix:v.matrix}),input=d.input.slice(0,d.input.indexOf('-map'));
    const tail=out?[colourArgs[1]]:[];return {count:d.count,args:['-y','-v','error',...(out?['-stats']:[]),...input,'-f','rawvideo','-pix_fmt','bgra','-s',width+'x'+h,'-framerate',String(fps),'-i','pipe:0','-filter_complex',`[0:v]${d.filter}[v];[1:v]setpts=PTS-STARTPTS[g];[v][g]overlay=0:0:alpha=premultiplied:format=auto:eof_action=pass${tail.length?','+tail[0]:''}[o]`,'-map','[o]','-an',...(out?[...colourArgs.slice(2),...videoArgs,'-frames:v',String(d.count),'-f','mpegts',out]:['-frames:v','1','-f','rawvideo','-pix_fmt','bgra','pipe:1'])]};};
-  const overlayFrame=(st,v,gfx)=>new Promise(resolve=>{const {args}=overlayArgs(st,v,null),p=spawn(ffmpeg,args,{stdio:['pipe','pipe','ignore']});procs.add(p);const chunks=[];p.stdout.on('data',c=>chunks.push(c));p.stdin.on('error',()=>{});p.on('error',()=>resolve(null));p.on('close',()=>{procs.delete(p);const b=Buffer.concat(chunks);resolve(b.length>=width*h*4?b.subarray(0,width*h*4):null);});p.stdin.end(gfx);});
+  const overlayFrame=(st,v,gfx)=>new Promise(resolve=>{const {args}=overlayArgs(st,v,null),p=spawn(ffmpeg,args,{stdio:['pipe','pipe','ignore'],windowsHide:true});procs.add(p);const chunks=[];p.stdout.on('data',c=>chunks.push(c));p.stdin.on('error',()=>{});p.on('error',()=>resolve(null));p.on('close',()=>{procs.delete(p);const b=Buffer.concat(chunks);resolve(b.length>=width*h*4?b.subarray(0,width*h*4):null);});p.stdin.end(gfx);});
   for(const st of stretches.filter(x=>x.kind==='overlay')){check();const m=Math.floor((st.n0+st.n1)/2),whole=await drawFrame(m),g=await gfxWindow().then(r=>drawOn(r,m)).catch(()=>null),a=asset(exportState.clips[st.clip].asset);let best={q:0};
    if(g)for(const matrix of ['bt709','auto']){const v={pad:D.padColour(whole,width,h,a,fit),matrix},px=await overlayFrame({...st,n0:m,n1:m+1},v,g);const q=px?D.psnr(whole,px,width,h):0;
     if(cfg.tuning?.dumpDirect){const info=await gfxRenderer.webContents.executeJavaScript("JSON.stringify({cls:document.documentElement.className,flag:window.exportGraphicsV18,vis:getComputedStyle(document.querySelector('#native-video')).visibility,hidden:document.querySelector('#native-video').hidden,body:getComputedStyle(document.body).backgroundColor,canvas:getComputedStyle(document.querySelector('#ed-canvas')).backgroundColor})").catch(e=>e.message);await fs.writeFile(cfg.tuning.dumpDirect+'-gfxinfo.json',info+' alpha0='+g[3]+' alphaMid='+g[(540*width+960)*4+3]);}
@@ -94,7 +94,7 @@ async function exportProject(ctx){
    directInfo.gfxWindows=gfxWindows;
    directInfo.windows=windows;
    pieces.forEach((pc,i)=>pc.file=path.join(dir,'piece-'+String(i).padStart(4,'0')+'.ts'));
-   const runOverlay=async(pc,r)=>{const {args,count}=overlayArgs(pc.st,pc.st.verdict,pc.file);let err='';const p=spawn(ffmpeg,args,{stdio:['pipe','ignore','pipe']});procs.add(p);
+   const runOverlay=async(pc,r)=>{const {args,count}=overlayArgs(pc.st,pc.st.verdict,pc.file);let err='';const p=spawn(ffmpeg,args,{stdio:['pipe','ignore','pipe'],windowsHide:true});procs.add(p);
     const done=new Promise((resolve,reject)=>{p.on('error',reject);p.on('close',code=>{procs.delete(p);code===0?resolve():reject(Error(/cancel/i.test(err)?'Export cancelled.':'Video encoding failed: '+err.slice(-300)));});});p.stderr.on('data',x=>{err=(err+x).slice(-3000);});p.stdin.on('error',()=>{});
     for(let n=pc.n0;n<pc.n1;n++){check();if(encodeError)throw encodeError;const px=await drawOn(r,n);if(!p.stdin.write(px))await Promise.race([once(p.stdin,'drain'),done]);overlayDone++;directInfo.overlayFrames++;if(n%Math.max(1,Math.round(fps/2))===0)report();}
     p.stdin.end();await done;};
@@ -106,7 +106,7 @@ async function exportProject(ctx){
    const runDirect=async pc=>{const d=D.decodeArgs(optsOf(pc.st)),args=[...d.input,'-vf',d.filter+','+colourArgs[1],...colourArgs.slice(2),...videoArgs,'-frames:v',String(d.count),'-f','mpegts'],key=await cached(d,args);
     if(key&&await fs.access(key).then(()=>true,()=>false)){await fs.link(key,pc.file).catch(()=>fs.copyFile(key,pc.file));const t=new Date();await fs.utimes(key,t,t).catch(()=>{});directDone+=d.count;directInfo.frames+=d.count;directInfo.reused=(directInfo.reused||0)+d.count;return;}
     await new Promise((resolve,reject)=>{let err='',counted=0;
-    const p=spawn(ffmpeg,['-y','-v','error','-stats',...args,pc.file],{stdio:['ignore','ignore','pipe']});procs.add(p);
+    const p=spawn(ffmpeg,['-y','-v','error','-stats',...args,pc.file],{stdio:['ignore','ignore','pipe'],windowsHide:true});procs.add(p);
     p.stderr.on('data',x=>{const t=String(x);err=(err+t).slice(-3000);const m=/frame=\s*(\d+)/g;let k,last=null;while((k=m.exec(t)))last=+k[1];if(last!=null){directDone+=last-counted;counted=last;}});
     p.on('error',reject);p.on('close',code=>{procs.delete(p);directDone+=d.count-counted;directInfo.frames+=d.count;code===0?resolve():reject(Error(/cancel/i.test(err)?'Export cancelled.':'Video encoding failed: '+err.slice(-300)));});});
     if(key){await fs.mkdir(cacheDir,{recursive:true}).catch(()=>{});await fs.link(pc.file,key).catch(()=>fs.copyFile(pc.file,key).catch(()=>{}));}};
