@@ -227,7 +227,7 @@ event('storageClean',async(used,opts={})=>{
   const onErr=d=>{const m=/time=(\d+):(\d+):([\d.]+)/.exec(String(d));if(m){const pct=Math.max(0,Math.min(99,Math.round((+m[1]*3600+ +m[2]*60+ +m[3])/total*100)));progress(pct,label+' · '+pct+'%');}};
   progress(0,label);const sound=audio&&a.hasAudio?['-map','0:a:0?','-af',audio,'-c:a','aac','-b:a','192k']:['-an'];
   const base=['-y','-nostdin','-ss',String(start),'-t',String(D),'-i',a.path,'-map','0:v:0',...sound,'-vf',video];
-  try{await run(ffmpeg,[...base,'-c:v','h264_videotoolbox','-b:v',String(rate),'-g',String(fps),'-pix_fmt','yuv420p','-movflags','+faststart',out],null,null,onErr);}
+  try{if(process.platform!=='darwin')throw Error('no VideoToolbox');/* 0.15 (Win-fix 12) */await run(ffmpeg,[...base,'-c:v','h264_videotoolbox','-b:v',String(rate),'-g',String(fps),'-pix_fmt','yuv420p','-movflags','+faststart',out],null,null,onErr);}
   catch(e){if(/cancel/i.test(e.message))throw e;await run(ffmpeg,[...base,'-c:v','libx264','-preset','veryfast','-crf','18','-g',String(fps),'-pix_fmt','yuv420p','-movflags','+faststart',out],null,null,onErr);}
   const item=await register(out);registry[item.id].speedKey=speedKey;registry[item.id].speedOf=assetId;item.speedOf=assetId;await saveRegistryV15();return item;
  }));

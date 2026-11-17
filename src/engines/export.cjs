@@ -4,7 +4,12 @@ function subtitles(state){const out=[];let offset=0;for(const c of state.clips){
 function dimensions(ratio,height){const [a,b]=String(ratio||'16/9').split('/').map(Number);if(!a||!b||a/b<.1||a/b>10)throw Error('Invalid aspect ratio');return a>=b?[Math.round(height*a/b/2)*2,height]:[height,Math.round(height*b/a/2)*2];}
 // 0.15: checked once per run: whether Apple's hardware H.264 encoder works on this Mac.
 let hardwareV15=null;
-function hardwareEncoderV15(ffmpeg){if(!hardwareV15)hardwareV15=new Promise(resolve=>{const p=spawn(ffmpeg,['-v','error','-f','lavfi','-i','color=c=black:s=256x256:d=0.2','-c:v','h264_videotoolbox','-f','null','-'],{stdio:'ignore',windowsHide:true});p.on('error',()=>resolve(false));p.on('close',code=>resolve(code===0));});return hardwareV15;}
+/* 0.15 (Win-fix 12): resolves to the working hardware encoder's name, or false. Windows tries NVIDIA NVENC, Intel QuickSync and
+   AMD AMF in turn (a 0.2 s test encode each; a missing GPU or driver fails at once). */
+const HW_CANDIDATES_V15=process.platform==='darwin'?['h264_videotoolbox']:process.platform==='win32'?['h264_nvenc','h264_qsv','h264_amf']:[];
+const hwPixFmtV15=name=>name==='h264_qsv'?'nv12':'yuv420p';
+function tryEncoderV15(ffmpeg,name){return new Promise(resolve=>{const p=spawn(ffmpeg,['-v','error','-f','lavfi','-i','color=c=black:s=256x256:d=0.2','-pix_fmt',hwPixFmtV15(name),'-c:v',name,'-b:v','4000000','-f','null','-'],{stdio:'ignore',windowsHide:true});const t=setTimeout(()=>{p.kill();resolve(false);},15000);p.on('error',()=>{clearTimeout(t);resolve(false);});p.on('close',code=>{clearTimeout(t);resolve(code===0);});});}
+function hardwareEncoderV15(ffmpeg){if(!hardwareV15)hardwareV15=(async()=>{for(const name of HW_CANDIDATES_V15)if(await tryEncoderV15(ffmpeg,name))return name;return false;})();return hardwareV15;}
 // Keeps render-cache/ under `limit` bytes, removing the least recently used pieces first.
 async function pruneRenderCacheV18(dir,limit){const files=[];for(const f of await fs.readdir(dir).catch(()=>[])){if(!f.endsWith('.ts'))continue;const st=await fs.stat(path.join(dir,f)).catch(()=>null);if(st)files.push({f,size:st.size,t:st.mtimeMs});}files.sort((a,b)=>b.t-a.t);let total=0;for(const x of files){total+=x.size;if(total>limit)await fs.unlink(path.join(dir,x.f)).catch(()=>{});}}
 async function exportProject(ctx){
@@ -35,7 +40,7 @@ async function exportProject(ctx){
   // quality; the last step only adds the audio track. GIF keeps a lossless-ish intermediate for its palette.
   // 0.15: MP4 / MOV use Apple's hardware H.264 encoder (bitrate scaled to the size), falling back to x264 if it is unavailable.
   const hw=!gif&&ext!=='webm'&&cfg.tuning?.encoder!=='x264'&&await hardwareEncoderV15(ffmpeg),rate=Math.round(Math.min(80e6,Math.max(4e6,width*h*fps*.2)));
-  const videoArgs=gif?['-c:v','libx264','-preset','ultrafast','-crf','18','-pix_fmt','yuv420p']:ext==='webm'?['-c:v','libvpx-vp9','-crf','30','-b:v','0','-row-mt','1','-deadline','good','-cpu-used','4','-pix_fmt','yuv420p']:hw?['-c:v','h264_videotoolbox','-b:v',String(rate),'-maxrate',String(Math.round(rate*1.5)),'-bufsize',String(rate*2),'-profile:v','high','-pix_fmt','yuv420p']:['-c:v','libx264','-preset','fast','-crf','20','-pix_fmt','yuv420p'];
+  const videoArgs=gif?['-c:v','libx264','-preset','ultrafast','-crf','18','-pix_fmt','yuv420p']:ext==='webm'?['-c:v','libvpx-vp9','-crf','30','-b:v','0','-row-mt','1','-deadline','good','-cpu-used','4','-pix_fmt','yuv420p']:hw?['-c:v',hw,'-b:v',String(rate),'-maxrate',String(Math.round(rate*1.5)),'-bufsize',String(rate*2),'-profile:v','high','-pix_fmt',hwPixFmtV15(hw)]:['-c:v','libx264','-preset','fast','-crf','20','-pix_fmt','yuv420p'];
   videoFile=path.join(dir,gif?'silent.mp4':'video.'+(ext==='webm'?'webm':'mp4'));
   /* 0.15 (Phase 14): frames are converted to video colours with BT.709 and the file is tagged so, as players assume for HD; before, BT.601 was used untagged, which shifted colours slightly (greens and reds). */
   const colourArgs=gif?[]:['-vf','scale=out_color_matrix=bt709:out_range=tv:flags=bicubic','-colorspace','bt709','-color_primaries','bt709','-color_trc','bt709','-color_range','tv'];
