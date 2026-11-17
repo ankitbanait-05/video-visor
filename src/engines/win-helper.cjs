@@ -5,7 +5,8 @@
 //   pdftext   → { text }                      pdf.js
 //   pdfjpg    → { paths } (PNG per page)      pdf.js + @napi-rs/canvas
 //   ocr       → { paths:[txt] }               pdf.js pages → Tesseract (English + Hindi)
-//   pcompress / protect / unlock / repair      qpdf
+//   pcompress → { paths, note }               photos re-encoded (pdf-lib + sharp), then qpdf; never larger than the original
+//   protect / unlock / repair                  qpdf
 //   bgremove  → { paths:[png] }               IS-Net (onnxruntime) cut-out mask
 //   track     → { start, end, frames, lostAt } template tracking on frames decoded by FFmpeg
 // Programs and models live in resources/win (qpdf/, models/, tessdata/), placed there by the Windows build.
@@ -74,6 +75,105 @@ const qpdf = ctx => path.join(resources(ctx), 'qpdf', process.platform === 'win3
 async function qpdfRun(ctx, args) {
   try { await exec(qpdf(ctx), args, { ok: [0, 3] }); }                     // 3 = done, with warnings
   catch (e) { if (/invalid password/i.test(e.message)) throw Error('That password is not correct.'); throw e; }
+}
+
+// ---------- Compress PDF ----------
+/* 0.15 (Win-fix 7): qpdf alone only recompresses streams losslessly, so photo and scan PDFs did not shrink (and could grow by a few
+   bytes). Embedded photos are now re-encoded as JPEG at the chosen quality and size, then qpdf packs the objects. A result that is not
+   smaller is never returned: the original bytes are kept and the note says the PDF was already optimised. */
+const COMPRESS_PRESETS = {
+  'Optimize for screen': { quality: 70, maxSide: 2000 }, Recommended: { quality: 70, maxSide: 2000 },
+  'Strong compression': { quality: 55, maxSide: 1500 }, Strong: { quality: 55, maxSide: 1500 },
+  'Less compression': { quality: 85, maxSide: 3000 }, Light: { quality: 85, maxSide: 3000 },
+};
+const compressPreset = option => COMPRESS_PRESETS[String(option || '')] || COMPRESS_PRESETS['Optimize for screen'];
+const sizeLabel = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+function unpredictPng(data, width, colors, height) {    // PNG row filters (DecodeParms Predictor 10–15), 8 bits per component
+  const row = width * colors, out = Buffer.alloc(row * height);
+  for (let y = 0; y < height; y++) {
+    const type = data[y * (row + 1)], src = y * (row + 1) + 1, dst = y * row;
+    for (let x = 0; x < row; x++) {
+      const raw = data[src + x], a = x >= colors ? out[dst + x - colors] : 0, b = y ? out[dst - row + x] : 0, c = y && x >= colors ? out[dst - row + x - colors] : 0;
+      let v = raw;
+      if (type === 1) v = raw + a; else if (type === 2) v = raw + b; else if (type === 3) v = raw + ((a + b) >> 1);
+      else if (type === 4) { const p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c); v = raw + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c); }
+      else if (type !== 0) throw Error('bad PNG row filter');
+      out[dst + x] = v & 255;
+    }
+  }
+  return out;
+}
+async function recompressImages(bytes, preset) {
+  const { PDFDocument, PDFName, PDFNumber, PDFRawStream, PDFArray, PDFDict } = require('pdf-lib');
+  const sharp = require('sharp'); sharp.cache(false);
+  const zlib = require('node:zlib');
+  const doc = await PDFDocument.load(bytes, { updateMetadata: false });
+  const N = n => PDFName.of(n), ctx = doc.context, look = v => (v === undefined ? undefined : ctx.lookup(v));
+  let changed = 0;
+  for (const [ref, stream] of ctx.enumerateIndirectObjects()) {
+    if (!(stream instanceof PDFRawStream)) continue;
+    const d = stream.dict;
+    if (look(d.get(N('Subtype'))) !== N('Image') || look(d.get(N('ImageMask')))?.asBoolean?.() || look(d.get(N('Decode')))) continue;
+    if (look(d.get(N('Mask'))) instanceof PDFArray) continue;          // colour-key masking needs exact colours
+    let filters = look(d.get(N('Filter'))); filters = filters instanceof PDFArray ? filters.asArray().map(look) : filters ? [filters] : [];
+    if (filters.length !== 1) continue;
+    const filter = filters[0] === N('DCTDecode') ? 'dct' : filters[0] === N('FlateDecode') ? 'flate' : '', width = look(d.get(N('Width')))?.asNumber?.(), height = look(d.get(N('Height')))?.asNumber?.();
+    const bpc = look(d.get(N('BitsPerComponent')))?.asNumber?.(), old = stream.contents;
+    if (!(width > 0 && height > 0) || width * height < 128 * 128 || old.length < 20000) continue;   // small images are not worth it
+    let cs = look(d.get(N('ColorSpace'))), colors = 0;
+    if (cs === N('DeviceRGB')) colors = 3; else if (cs === N('DeviceGray')) colors = 1;
+    else if (cs instanceof PDFArray && look(cs.get(0)) === N('ICCBased')) { const n = look(cs.get(1))?.dict?.get(N('N')); colors = [1, 3].includes(look(n)?.asNumber?.()) ? look(n).asNumber() : 0; }
+    if (!colors) continue;                                              // CMYK, Indexed, Lab, DeviceN… are left as they are
+    let input;
+    try {
+      if (filter === 'dct') input = sharp(Buffer.from(old));
+      else if (filter === 'flate' && bpc === 8) {
+        let raw = zlib.inflateSync(Buffer.from(old));
+        const parms = look(d.get(N('DecodeParms'))), predictor = parms instanceof PDFDict ? look(parms.get(N('Predictor')))?.asNumber?.() || 1 : 1;
+        if (predictor >= 10) raw = unpredictPng(raw, width, colors, height); else if (predictor !== 1) continue;
+        if (raw.length < width * height * colors) continue;
+        input = sharp(raw.subarray(0, width * height * colors), { raw: { width, height, channels: colors } });
+      } else continue;
+      const meta = filter === 'dct' ? await input.metadata() : { width, height };
+      if (filter === 'dct' && (meta.width !== width || meta.height !== height || !['srgb', 'b-w'].includes(meta.space))) continue;
+      let pipe = input.clone();
+      if (Math.max(width, height) > preset.maxSide) pipe = pipe.resize({ width: preset.maxSide, height: preset.maxSide, fit: 'inside', withoutEnlargement: true });
+      if (colors === 1) pipe = pipe.toColourspace('b-w');
+      const { data, info } = await pipe.jpeg({ quality: preset.quality, mozjpeg: true }).toBuffer({ resolveWithObject: true });
+      if (data.length >= old.length * 0.95 || info.channels !== colors) continue;   // keep the original image unless it clearly gets smaller
+      const dict = d.clone(ctx);
+      for (const k of ['Filter', 'DecodeParms', 'Length', 'Width', 'Height', 'BitsPerComponent']) dict.delete(N(k));
+      dict.set(N('Filter'), N('DCTDecode')); dict.set(N('Width'), PDFNumber.of(info.width)); dict.set(N('Height'), PDFNumber.of(info.height)); dict.set(N('BitsPerComponent'), PDFNumber.of(8));
+      ctx.assign(ref, PDFRawStream.of(dict, new Uint8Array(data)));
+      changed++;
+    } catch { /* an image sharp cannot read stays as it was */ }
+  }
+  return { changed, bytes: changed ? await doc.save({ useObjectStreams: true, addDefaultPage: false, updateFieldAppearances: false }) : null };
+}
+async function compressPdf(input, dest, opts, ctx) {
+  const original = await fs.readFile(input), preset = compressPreset(opts['v-option']);
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vv-pcompress-'));
+  try {
+    let source = input, images = 0;
+    try {
+      const r = await recompressImages(original, preset);
+      if (r.bytes) { source = path.join(tmp, 'images.pdf'); await fs.writeFile(source, r.bytes); images = r.changed; }
+    } catch { /* encrypted or unusual PDFs: qpdf alone */ }
+    const packed = path.join(tmp, 'packed.pdf');
+    await qpdfRun(ctx, ['--object-streams=generate', '--compress-streams=y', '--recompress-flate', '--compression-level=9', source, packed]);
+    let out = await fs.readFile(packed);
+    if (source !== input) {   // the re-encoded version must still beat qpdf on the untouched file
+      const plain = path.join(tmp, 'plain.pdf'); await qpdfRun(ctx, ['--object-streams=generate', '--compress-streams=y', '--recompress-flate', '--compression-level=9', input, plain]);
+      const alt = await fs.readFile(plain); if (alt.length < out.length) { out = alt; images = 0; }
+    }
+    if (out.length >= original.length) {
+      await fs.writeFile(dest, original);
+      return { paths: [dest], note: 'This PDF is already optimised, so it was saved unchanged (' + sizeLabel(original.length) + ').' };
+    }
+    await fs.writeFile(dest, out);
+    const saved = Math.round((1 - out.length / original.length) * 100);
+    return { paths: [dest], note: 'Compressed from ' + sizeLabel(original.length) + ' to ' + sizeLabel(out.length) + ' (' + saved + '% smaller' + (images ? ', ' + images + (images === 1 ? ' image' : ' images') + ' re-encoded' : '') + ').' };
+  } finally { await fs.rm(tmp, { recursive: true, force: true }).catch(() => {}); }
 }
 
 // ---------- background removal (IS-Net) ----------
@@ -154,7 +254,7 @@ async function run(args, opts = {}, ctx = {}) {
     await fs.writeFile(dest, pages.map((t, i) => (pages.length > 1 ? '— Page ' + (i + 1) + ' —\n' : '') + t).join('\n\n') + '\n');
     return JSON.stringify({ paths: [dest] });
   }
-  if (cmd === 'pcompress') { await qpdfRun(ctx, ['--object-streams=generate', '--compress-streams=y', '--recompress-flate', '--compression-level=9', input, dest]); return JSON.stringify({ paths: [dest] }); }
+  if (cmd === 'pcompress') return JSON.stringify(await compressPdf(input, dest, opts, ctx));   // 0.15 (Win-fix 7)
   if (cmd === 'protect') { const pw = String(opts['v-password'] || ''); if (!pw) throw Error('Enter a password.'); await qpdfRun(ctx, ['--encrypt', pw, pw, '256', '--', input, dest]); return JSON.stringify({ paths: [dest] }); }
   if (cmd === 'unlock') { await qpdfRun(ctx, ['--password=' + String(opts['v-password'] || ''), '--decrypt', input, dest]); return JSON.stringify({ paths: [dest] }); }
   if (cmd === 'repair') { await qpdfRun(ctx, [input, dest]); return JSON.stringify({ paths: [dest] }); }
@@ -162,4 +262,4 @@ async function run(args, opts = {}, ctx = {}) {
   if (cmd === 'track') return JSON.stringify(await track(input, opts, ctx));
   throw Error('This tool is not available on this computer.');
 }
-module.exports = { run, pdfThumb, pdfText, pdfImages, track };
+module.exports = { run, pdfThumb, pdfText, pdfImages, track, compressPdf, compressPreset };

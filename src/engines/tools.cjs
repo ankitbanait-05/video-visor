@@ -21,7 +21,7 @@ async function executeTool({id,assets,opts={},run,ffmpeg,root,saveDialog,progres
   }
   const result=JSON.parse(await helper([id,assets[0].path,dest],opts));
   if(id==='pdfjpg'&&opts['v-option']==='JPG'){const paths=[];for(const png of result.paths){const jpg=png.replace(/\.png$/,'.jpg');await sharp(png).jpeg({quality:90}).toFile(jpg);await fs.unlink(png);paths.push(jpg);}return {paths};}
-  return {paths:result.paths||[dest]};
+  return {paths:result.paths||[dest],...(result.note?{note:String(result.note)}:{})};/* 0.15 (Win-fix 7): e.g. Compress PDF's size note */
  }
  if(id==='pdfinfo'){const doc=await loadPdf(assets[0]);return {count:doc.getPageCount(),fields:doc.getForm().getFields().map(f=>({name:f.getName(),type:f.constructor.name,value:typeof f.getText==='function'?f.getText():typeof f.isChecked==='function'?f.isChecked():''}))};}
  const pdfIds=['merge','split','organize','jpgpdf','watermark','forms','sign','editpdf'];
