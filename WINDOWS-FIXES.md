@@ -185,37 +185,41 @@ the repo. To run the harness against a repo checkout, load `tools.cjs`/`probe.cj
 
 ## Second batch: MEDIUM / LOW (done 17 Nov 2026)
 
-| # | Fix | Commit |
-|---|-----|--------|
-| 8 | Console windows no longer flash: windowsHide on the 8 ffmpeg runs that lacked it (export ×5, direct export, thumbnails, pause detection) |  |
-| 9 | No Mac wording left: Windows Settings steps for camera/microphone, "taskbar tray", AI keys "encrypted with your Windows account", 'this PC' in text sent to AI assistants, Ctrl+Shift+2 in the tray tooltip, Windows privacy link, Hindi falls back to Nirmala UI |  |
-| 10 | Shortcuts: Ctrl+Y redo, Ctrl+click multi-select, Edit → Undo/Redo act on the project on Windows, Ctrl+wheel zooms 25% per notch |  |
-| 11 | Managed AI keys read from %ProgramData%Video Visormanaged.json; connector accepts a drive root (E:) |  |
-| 12 | Exports use the GPU encoder when present (NVIDIA NVENC → Intel QuickSync → AMD AMF), x264 fallback; speed changes skip VideoToolbox on Windows |  |
-| 13 | Dialogs titled "Video Visor" (data folder unchanged), file-type filters in Open dialogs, one entry per microphone, recorder panel fits at 175% |  |
-| 14 | Text swap never loops and never touches timeline text (regression from #9, found while testing; the released 0.15.0 did not freeze) |  |
+| # | Fix | Commit | Files |
+|---|-----|--------|-------|
+| 8 | Console windows no longer flash: `windowsHide` on the 8 ffmpeg runs that lacked it (export ×5, direct export, thumbnails, pause detection) | `8fa58a1` | `src/engines/export.cjs`, `export-direct.cjs`, `media-preview.cjs`, `src/main.cjs` |
+| 9 | No Mac wording left: Windows Settings steps for camera/microphone, "taskbar tray", AI keys "encrypted with your Windows account", "this PC" in text sent to AI assistants, Ctrl+Shift+2 in the tray tooltip, Windows privacy link, Hindi falls back to Nirmala UI | `c88c5d5` | `src/platform-text.js`, `runtime-v13.js`, `runtime-v14.js`, `runtime.js`, `theme-v15.css`, `connector/tools.cjs`, `ai/draft.cjs`, `recorder/controller.cjs` |
+| 10 | Shortcuts: Ctrl+Y redo, Ctrl+click multi-select, Edit → Undo/Redo act on the project on Windows, Ctrl+wheel zooms 25% per notch | `7af52e1` | `src/editor.js`, `editor-v16.js`, `main.cjs` |
+| 11 | Managed AI keys read from `%ProgramData%\Video Visor\managed.json`; the connector accepts a drive root (`E:\`) | `8d0a9a0` | `src/ai/keys.cjs`, `connector/host.cjs`, `tools/connector_paths_test.cjs` (new) |
+| 12 | Exports use the GPU encoder when there is one (NVIDIA NVENC → Intel QuickSync → AMD AMF), x264 fallback; speed changes skip VideoToolbox on Windows | `6dc450b` | `src/engines/export.cjs`, `main.cjs` |
+| 13 | Dialogs titled "Video Visor" (data folder unchanged), file-type filters in Open dialogs, one entry per microphone, recorder panel fits at 175% | `bc0356e` | `src/main.cjs`, `runtime.js`, `runtime-v5.js`, `shell.js`, `recorder/panel.js`, `recorder/controller.cjs` |
+| 14 | Text swap never loops and never touches timeline text (a regression from #9 found while testing; the released 0.15.0 did not freeze) | `77f2116` | `src/platform-text.js` |
 
-"Render progress stuck at 0%" needed no change: progress is wired; it only stayed at 0% in renders that failed with bug #1.
+"Render progress stuck at 0%" needed no change. Progress is wired; it only stayed at 0% in renders that were failing with bug #1.
 
 ### How the second batch was checked
-A runnable copy of the branch was made from the installed 0.15.0 app (its  swapped for an
- folder holding this branch's ), started on a fresh profile and driven through its own page:
-- A project with a title "Recorded on my Mac with ⌘ shortcuts" plus word captions exports; the frame shows the title as typed;
-  progress counts 0 → 96 → done; the file has no x264 signature (NVENC on this PC).
-- Image converter: the Open dialog offers "Images / All supported files / All files"; the result shows name, ,
-  thumbnail, Open and "Show in File Explorer"; the output could be renamed while the app was open.
-- A second launch on the same profile exits by itself (exit 0) and leaves one window.
+
+A runnable copy of the branch was made from the installed 0.15.0 app: its `resources/app.asar` was replaced with an `app`
+folder holding this branch's `src`. It was started on a fresh profile and driven through its own page.
+
+- A project with the title "Recorded on my Mac with ⌘ shortcuts" plus word captions exports. The frame shows the title as typed,
+  progress counts 0 → 96 → done, and the file has no x264 signature (NVENC on this PC).
+- Image converter: the Open dialog offers "Images / All supported files / All files". The result shows the name, `~\Downloads`,
+  a thumbnail, Open and "Show in File Explorer". The output could be renamed while the app was open.
+- A second launch on the same profile exits by itself (exit code 0) and leaves one window.
 - An import error box is titled "Video Visor".
-- Recorder: one entry per microphone; the panel is 651 px tall with 651 px of content (no scrolling); hint says Ctrl+Shift+2 / tray.
-- Editor (Ctrl+A, Delete, then Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z): 2 → 0 → 2 → 0 → 2 → 0 clips.
+- Recorder: one entry per microphone; the panel is 651 px tall with 651 px of content (no scrolling); the hint says
+  Ctrl+Shift+2 and the tray icon.
+- Editor, with Ctrl+A, Delete, then Ctrl+Z / Ctrl+Y / Ctrl+Z / Ctrl+Shift+Z: 2 → 0 → 2 → 0 → 2 → 0 clips.
 - Opening and closing the recorder twice: the main window stays responsive.
-- Captions on the spoken test file: every word present ("This is a test …", "We are checking …").
-- All 45 tool cases of the test-pass harness, run on the branch code: same pass/fail per tool as the released app;
-  Compress PDF 1,394,080 → 222,120 bytes.
-- Unit scripts: ,  (new) pass;  on every changed file.
+- Captions on the spoken test file: every word is present ("This is a test …", "We are checking …").
+- All 45 tool cases of the test-pass harness, run on the branch code: the same pass/fail per tool as the released app.
+  Compress PDF: 1,394,080 → 222,120 bytes.
+- Unit scripts `tools/transcript_test.cjs` and `tools/connector_paths_test.cjs` (new) pass; `node --check` passes on every changed file.
 
 ### Still to check on a CI-built installer
+
 - Everything above once more on the real installer, plus a clean-PC test (no VC++ runtime) for #2.
-- #12 on an Intel-only and an AMD PC (only NVIDIA and QuickSync were present here).
-- #11 managed keys with a real %ProgramData% file; the connector with Claude Desktop and a drive-root folder.
-- The Edit menu Undo/Redo by mouse (the keys were tested; the menu clicks were not).
+- #12 on an Intel-only PC and an AMD PC (only NVIDIA and QuickSync were present here).
+- #11 with a real `%ProgramData%` managed-key file, and the connector with Claude Desktop and a drive-root folder.
+- Edit → Undo / Redo clicked with the mouse (the keyboard shortcuts were tested; the menu clicks were not).
