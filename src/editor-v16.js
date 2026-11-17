@@ -57,7 +57,7 @@
     if (!main || !c || wired === main) return;
     wired = main;
     main.addEventListener('wheel', e => {
-      if (e.ctrlKey || e.metaKey) { e.preventDefault(); zoomTo(z * Math.exp(-e.deltaY * (e.ctrlKey && !e.metaKey ? .012 : .004)), e.clientX, e.clientY); }
+      if (e.ctrlKey || e.metaKey) { e.preventDefault(); /* 0.15 (Win-fix 10): a mouse-wheel notch (deltaY ~100, or line/page mode) zooms by a fixed 25% step */ const notch = e.deltaMode !== 0 || Math.abs(e.deltaY) >= 50; zoomTo(notch ? z * (e.deltaY < 0 ? 1.25 : 0.8) : z * Math.exp(-e.deltaY * (e.ctrlKey && !e.metaKey ? .012 : .004)), e.clientX, e.clientY); }
       else if (z > 1) { e.preventDefault(); x -= e.deltaX; y -= e.deltaY; apply(); }
     }, { passive: false });
     main.addEventListener('pointerdown', e => {
