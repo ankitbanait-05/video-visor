@@ -2,6 +2,9 @@ const {app,BrowserWindow,ipcMain,dialog,protocol,net,session,screen,shell,safeSt
 const fs=require('node:fs/promises'),path=require('node:path'),{pathToFileURL}=require('node:url'),{randomUUID}=require('node:crypto'),{spawn}=require('node:child_process');
 const ffmpeg=require('ffmpeg-static').replace(/app\.asar([\\/])/,'app.asar.unpacked$1');
 /* 0.15 (Phase 21): the Dev build also honours a test data folder, so benchmarks never touch the Dev workspace you use */if(process.env.VIDEO_VISOR_TEST_HOME&&(!app.isPackaged||require('../package.json').name==='video-visor-dev'))app.setPath('userData',path.resolve(process.env.VIDEO_VISOR_TEST_HOME));
+/* 0.15 (Win-fix 13): on Windows the app is named "Video Visor" (message boxes were titled "video-visor"). The data folder
+   stays where it is (%APPDATA%\video-visor), so existing projects are kept. */
+if(process.platform==='win32'&&app.getName()!=='Video Visor'){const keepUserData=app.getPath('userData');app.setName('Video Visor');app.setPath('userData',keepUserData);}
 protocol.registerSchemesAsPrivileged([{scheme:'visor',privileges:{standard:true,secure:true,supportFetchAPI:true,stream:true,corsEnabled:true}}]);
 let recorderController;let connector=null,connectionFile=null;let libraryCache;let win,root,storage,registry={},currentJob=null;let projectStore,closing=false,recoveryPrompt=false;
 /* 0.15 (Win-fix 5): one running app per workspace. A second launch (Start menu, taskbar, a file opened with the app) used to open a
@@ -69,7 +72,10 @@ function devTuningV15(cfg){if(!cfg||typeof cfg!=='object')return cfg;if(process.
 if(process.platform==='win32')app.setAppUserModelId('com.videovisor.desktop');
 function asset(id){if(!registry[id])throw Error('Media missing. Import the original again.');return registry[id];}
 async function importMany(paths){const result=[],errors=[];for(let i=0;i<paths.length;i++){const file=paths[i];progress(i/paths.length*100,'Importing '+(i+1)+' / '+paths.length+' · '+path.basename(file));try{result.push(await register(file));}catch(e){errors.push(path.basename(file)+': '+e.message);}}if(errors.length)await dialog.showMessageBox(win,{type:'warning',message:'Some files could not be imported',detail:errors.join('\n')+'\n\n'+(result.length?'The other files were imported.':'Nothing was imported.')});return result;}
-async function pick(){const r=await dialog.showOpenDialog(win,{properties:['openFile','multiSelections']});return r.canceled?[]:importMany(r.filePaths);}
+/* 0.15 (Win-fix 13): file-type filters; `kinds` (video / audio / image / pdf) puts the right ones first */
+const PICK_EXT={video:['mp4','mov','m4v','webm','mkv','avi','mpg','mpeg','wmv','flv','3gp','mts','m2ts','ts','ogv'],audio:['mp3','wav','m4a','aac','ogg','flac','aif','aiff','opus','wma'],image:['png','jpg','jpeg','webp','gif','tif','tiff','avif','heic'],pdf:['pdf']},PICK_NAME={video:'Videos',audio:'Sound',image:'Images',pdf:'PDF documents'};
+function pickFilters(kinds){const ks=(Array.isArray(kinds)?kinds:[]).filter(k=>PICK_EXT[k]);const all=Object.values(PICK_EXT).flat(),first=ks.length?[{name:ks.map(k=>PICK_NAME[k]).join(' and '),extensions:[...new Set(ks.flatMap(k=>PICK_EXT[k]))]}]:[];return [...first,{name:'All supported files',extensions:all},{name:'All files',extensions:['*']}];}
+async function pick(kinds){const r=await dialog.showOpenDialog(win,{properties:['openFile','multiSelections'],filters:pickFilters(kinds)});return r.canceled?[]:importMany(r.filePaths);}
 
 function event(name,fn){ipcMain.handle(name,async(e,...args)=>{if(e.sender!==win.webContents||e.senderFrame!==win.webContents.mainFrame)throw Error('Invalid caller');return fn(...args);});}
 function progress(percent,label){if(!win.isDestroyed())win.webContents.send('progress',{percent,label});}
@@ -147,7 +153,7 @@ event('storageClean',async(used,opts={})=>{
  for(const x of list){await fs.rm(x.file,{recursive:true,force:true}).then(()=>{freed+=x.bytes;},()=>{});const a=x.id&&registry[x.id];if(a){if(a.previewPath===x.file){delete a.previewPath;delete a.editCopy;}if(a.path===x.file)delete registry[x.id];}}
  await saveRegistryV15();return {freed};
 });
-/* 0.15 (PR-01) */event('mediaStatus',async ids=>{const out={};for(const id of [].concat(ids||[]).slice(0,500)){const a=registry[id];out[id]=!a?'unknown':await fs.access(a.path).then(()=>'ok',()=>'missing');}return out;});event('pick',pick);event('importPaths',async paths=>importMany(paths));
+/* 0.15 (PR-01) */event('mediaStatus',async ids=>{const out={};for(const id of [].concat(ids||[]).slice(0,500)){const a=registry[id];out[id]=!a?'unknown':await fs.access(a.path).then(()=>'ok',()=>'missing');}return out;});event('pick',kinds=>pick(kinds));event('importPaths',async paths=>importMany(paths));
  const visuals=require('./engines/media-preview.cjs').createCache(root,ffmpeg);event('mediaVisuals',(id,range)=>{const a=asset(id);if(!range)return visuals(a);const start=Math.max(0,Math.min(a.duration-.01,Number(range.start)||0)),end=Math.max(start+.01,Math.min(a.duration,Number(range.end)||a.duration));return visuals({...a,id:a.id+'-'+start.toFixed(3)+'-'+end.toFixed(3),offset:start,duration:end-start});});
  event('readScript',async()=>{const r=await dialog.showOpenDialog(win,{filters:[{name:'Script',extensions:['txt','md']}],properties:['openFile']});if(r.canceled)return null;if((await fs.stat(r.filePaths[0])).size>200000)throw Error('Choose a script smaller than 200 KB.');return fs.readFile(r.filePaths[0],'utf8');});
  event('readText',async()=>{const r=await dialog.showOpenDialog(win,{filters:[{name:'Caption file',extensions:['srt','vtt']}],properties:['openFile']});return r.canceled?null:fs.readFile(r.filePaths[0],'utf8');});

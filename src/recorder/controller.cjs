@@ -1,5 +1,5 @@
 const {app,BrowserWindow,ipcMain,desktopCapturer,screen,globalShortcut,Tray,Menu,systemPreferences,shell,dialog}=require('electron');
-const SETUP_HEIGHT=604; // setup panel height; 0.12 added the camera row
+const SETUP_HEIGHT=process.platform==='win32'?648:604/* 0.15 (Win-fix 13): Windows text and scrollbars need ~40 px more, or the panel scrolls */; // setup panel height; 0.12 added the camera row
 const fs=require('node:fs/promises'),path=require('node:path');
 const {normalizeArea,cursorPoint,RecordingClock}=require('./geometry.js');
 class RecorderController {
