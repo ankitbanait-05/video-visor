@@ -183,18 +183,39 @@ The verification scripts are in this session's scratchpad, not the repo; `tools/
 the repo. To run the harness against a repo checkout, load `tools.cjs`/`probe.cjs` from `<repo>/src/engines`, and set
 `NODE_PATH=<resources>/app.asar/node_modules` so the engines find sharp, pdf-lib and the rest.
 
-## Next batch (MEDIUM / LOW — not fixed here)
+## Second batch: MEDIUM / LOW (done 17 Nov 2026)
 
-- ffmpeg spawns missing `windowsHide` (export.cjs ×5, export-direct.cjs, media-preview.cjs, main.cjs silences) — console windows flash.
-- Mac wording left: "macOS keychain" in runtime-v14.js; System Settings steps in recorder/panel.js; "this Mac" in connector/tools.cjs and ai/draft.cjs.
-- Ctrl+Y redo; Ctrl+click multi-select (code checks `metaKey` only); Edit menu Undo/Redo not wired to the timeline; Ctrl+wheel zoom too fast (editor-v16.js).
-- ai/keys.cjs managed-key path `/Library/Application Support/...` → `%ProgramData%` on win32.
-- Connector rejects a drive-root folder (host.cjs `allowed()`).
-- No hardware encoder on Windows (NVENC/QSV/AMF detection).
-- `productName` missing at runtime, so dialogs are titled "video-visor".
-- Open dialogs have no file-type filters.
-- Duplicate "Communications" microphone in the recorder.
-- Recorder panel scrolls at 175% display scaling.
-- Render progress stuck at 0%.
-- Found while doing this batch: the CI smoke test can't prove fix 2, because GitHub's runner already has the VC++ runtime
-  installed. Only a clean-PC test does.
+| # | Fix | Commit |
+|---|-----|--------|
+| 8 | Console windows no longer flash: windowsHide on the 8 ffmpeg runs that lacked it (export ×5, direct export, thumbnails, pause detection) |  |
+| 9 | No Mac wording left: Windows Settings steps for camera/microphone, "taskbar tray", AI keys "encrypted with your Windows account", 'this PC' in text sent to AI assistants, Ctrl+Shift+2 in the tray tooltip, Windows privacy link, Hindi falls back to Nirmala UI |  |
+| 10 | Shortcuts: Ctrl+Y redo, Ctrl+click multi-select, Edit → Undo/Redo act on the project on Windows, Ctrl+wheel zooms 25% per notch |  |
+| 11 | Managed AI keys read from %ProgramData%Video Visormanaged.json; connector accepts a drive root (E:) |  |
+| 12 | Exports use the GPU encoder when present (NVIDIA NVENC → Intel QuickSync → AMD AMF), x264 fallback; speed changes skip VideoToolbox on Windows |  |
+| 13 | Dialogs titled "Video Visor" (data folder unchanged), file-type filters in Open dialogs, one entry per microphone, recorder panel fits at 175% |  |
+| 14 | Text swap never loops and never touches timeline text (regression from #9, found while testing; the released 0.15.0 did not freeze) |  |
+
+"Render progress stuck at 0%" needed no change: progress is wired; it only stayed at 0% in renders that failed with bug #1.
+
+### How the second batch was checked
+A runnable copy of the branch was made from the installed 0.15.0 app (its  swapped for an
+ folder holding this branch's ), started on a fresh profile and driven through its own page:
+- A project with a title "Recorded on my Mac with ⌘ shortcuts" plus word captions exports; the frame shows the title as typed;
+  progress counts 0 → 96 → done; the file has no x264 signature (NVENC on this PC).
+- Image converter: the Open dialog offers "Images / All supported files / All files"; the result shows name, ,
+  thumbnail, Open and "Show in File Explorer"; the output could be renamed while the app was open.
+- A second launch on the same profile exits by itself (exit 0) and leaves one window.
+- An import error box is titled "Video Visor".
+- Recorder: one entry per microphone; the panel is 651 px tall with 651 px of content (no scrolling); hint says Ctrl+Shift+2 / tray.
+- Editor (Ctrl+A, Delete, then Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z): 2 → 0 → 2 → 0 → 2 → 0 clips.
+- Opening and closing the recorder twice: the main window stays responsive.
+- Captions on the spoken test file: every word present ("This is a test …", "We are checking …").
+- All 45 tool cases of the test-pass harness, run on the branch code: same pass/fail per tool as the released app;
+  Compress PDF 1,394,080 → 222,120 bytes.
+- Unit scripts: ,  (new) pass;  on every changed file.
+
+### Still to check on a CI-built installer
+- Everything above once more on the real installer, plus a clean-PC test (no VC++ runtime) for #2.
+- #12 on an Intel-only and an AMD PC (only NVIDIA and QuickSync were present here).
+- #11 managed keys with a real %ProgramData% file; the connector with Claude Desktop and a drive-root folder.
+- The Edit menu Undo/Redo by mouse (the keys were tested; the menu clicks were not).
